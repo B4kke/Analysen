@@ -57,6 +57,33 @@ Compose bruker navngitte volumer for PostgreSQL (`postgres_data`) og felles API-
 
 Ved Windows Docker CLI fra WSL kan shell-variabler mangle i Windows-prosessen. Legg portoverstyringer i en fil og bruk `docker compose --env-file <fil> up --build -d --wait`. Standard CORS-opprinnelser følger `WEB_PORT`; eksplisitt `CORS_ORIGINS` overstyrer dem. Web må bygges med samme env-fil slik at riktig API-port bygges inn.
 
+## Mobiltilgang på samme nett
+
+Web og API kan eksponeres på maskinens LAN-adresse slik at mobil på samme nett når samme UI. **Kun på klarert hjemmenett: det finnes ingen auth (ADR-017), så alle på nettet får tilgang.** Eksponer aldri mot internett.
+
+```bash
+# Finn maskinens LAN-adresse, f.eks. 192.168.1.10.
+hostname -I
+```
+
+Legg i `.env` (eksempel med 192.168.1.10, web på 3000, API på 8000):
+
+```bash
+BIND_ADDRESS=0.0.0.0
+CORS_ORIGINS=http://localhost:3000,http://127.0.0.1:3000,http://192.168.1.10:3000
+```
+
+Postgres, Redis og SearXNG forblir på loopback — kun nettleserflatene (web/API) bindes på LAN. `CORS_ORIGINS` godtar kun loopback og RFC1918-adresser; offentlige verter avvises ved oppstart.
+
+**Viktig:** `NEXT_PUBLIC_API_URL` bakes inn i web-bundelen ved bygg. Bygg web på nytt med LAN-adressen til API-et før mobilen kan bruke siden — og bruk deretter vanlig `up` (uten `--build`, som ville bygget web på nytt uten adressen):
+
+```bash
+docker compose build --build-arg NEXT_PUBLIC_API_URL=http://192.168.1.10:8000 web
+docker compose up -d --wait
+```
+
+Åpne deretter `http://192.168.1.10:3000` på mobilen. Standard (uten `BIND_ADDRESS`) er fortsatt kun loopback.
+
 ## Lokal Python og Node
 
 Python 3.12 og Node 22+ er forutsetninger. Installasjon fra låste avhengigheter:

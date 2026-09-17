@@ -26,6 +26,28 @@ def test_cors_rejects_wildcard_and_remote_origins() -> None:
         Settings(cors_origins="https://example.invalid")
     with pytest.raises(ValidationError):
         Settings(cors_origins="http://localhost.evil:3000")
+    with pytest.raises(ValidationError):
+        Settings(cors_origins="http://8.8.8.8:3000")
+    with pytest.raises(ValidationError):
+        Settings(cors_origins="http://203.0.113.5:3000")
+    with pytest.raises(ValidationError):
+        Settings(cors_origins="https://192.168.1.10:3000")
+
+
+def test_cors_accepts_loopback_and_lan_origins() -> None:
+    settings = Settings(
+        cors_origins=(
+            "http://localhost:3000,http://127.0.0.1:3000,"
+            "http://192.168.1.10:53000,http://10.0.0.14:53000,http://172.20.0.5:3000"
+        )
+    )
+    assert settings.cors_origin_list == [
+        "http://localhost:3000",
+        "http://127.0.0.1:3000",
+        "http://192.168.1.10:53000",
+        "http://10.0.0.14:53000",
+        "http://172.20.0.5:3000",
+    ]
 
 
 def test_restricted_sources_and_incomplete_models_fail_closed() -> None:

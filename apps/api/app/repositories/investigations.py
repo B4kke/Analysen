@@ -347,3 +347,77 @@ async def delete_investigation(session: AsyncSession, investigation_id: UUID) ->
     await session.execute(
         text("DELETE FROM investigations WHERE id = :id"), {"id": investigation_id}
     )
+
+
+async def get_lead(session: AsyncSession, investigation_id: UUID, lead_id: UUID) -> dict:
+    """Load one lead row; raises InvestigationNotFound when missing or foreign."""
+    row = (
+        await session.execute(
+            text("""
+                SELECT id, lead_type, value, reason, originating_claim_id, priority,
+                    depth, status, scope_area, trigger_type, information_need,
+                    relation_depth, blocked_reason
+                FROM leads WHERE id = :lead_id AND investigation_id = :id
+            """),
+            {"lead_id": lead_id, "id": investigation_id},
+        )
+    ).mappings().one_or_none()
+    if row is None:
+        raise InvestigationNotFound(str(lead_id))
+    return dict(row)
+
+
+async def set_lead_status(
+    session: AsyncSession,
+    investigation_id: UUID,
+    lead_id: UUID,
+    status: str,
+    blocked_reason: str | None = None,
+) -> None:
+    await session.execute(
+        text("""
+            UPDATE leads SET status = :status, blocked_reason = :blocked_reason
+            WHERE id = :lead_id AND investigation_id = :id
+        """),
+        {
+            "status": status,
+            "blocked_reason": blocked_reason,
+            "lead_id": lead_id,
+            "id": investigation_id,
+        },
+    )
+
+
+async def bump_module_coverage(
+    session: AsyncSession,
+    investigation_id: UUID,
+    module: ScopeModule,
+    *,
+    provider: str,
+) -> None:
+    """Record one executed fetch in the module coverage ledger."""
+    await session.execute(
+        text("""
+            UPDATE investigation_modules
+            SET status = CASE WHEN status = 'NOT_STARTED' THEN 'IN_PROGRESS' ELSE status END,
+                started_at = COALESCE(started_at, now()),
+                coverage = jsonb_set(
+                    jsonb_set(
+                        coverage,
+                        '{query_count}',
+                        to_jsonb(COALESCE((coverage->>'query_count')::int, 0) + 1)
+                    ),
+                    '{document_count}',
+                    to_jsonb(COALESCE((coverage->>'document_count')::int, 0) + 1)
+                ) || jsonb_build_object(
+                    'providers',
+                    (SELECT COALESCE(jsonb_agg(DISTINCT value), '[]'::jsonb)
+                     FROM jsonb_array_elements_text(
+                         COALESCE(coverage->'providers', '[]'::jsonb)
+                             || to_jsonb(CAST(:provider AS text))
+                     ) AS value)
+                )
+            WHERE investigation_id = :id AND module = :module
+        """),
+        {"id": investigation_id, "module": module.value, "provider": provider},
+    )

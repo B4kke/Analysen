@@ -51,7 +51,7 @@ services:
       REDIS_URL: redis://redis:6379/0
       SEARXNG_BASE_URL: http://searxng:8080
       CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:${WEB_PORT:-3000},http://127.0.0.1:${WEB_PORT:-3000}}
-    ports: ["127.0.0.1:${API_PORT:-8000}:8000"]
+    ports: ["${BIND_ADDRESS:-127.0.0.1}:${API_PORT:-8000}:8000"]
     depends_on:
       migrate:
         condition: service_completed_successfully
@@ -107,7 +107,7 @@ services:
         NEXT_PUBLIC_API_URL: http://localhost:${API_PORT:-8000}
     environment:
       NEXT_PUBLIC_API_URL: http://localhost:8000
-    ports: ["127.0.0.1:${WEB_PORT:-3000}:3000"]
+    ports: ["${BIND_ADDRESS:-127.0.0.1}:${WEB_PORT:-3000}:3000"]
     depends_on:
       api:
         condition: service_healthy

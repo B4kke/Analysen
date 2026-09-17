@@ -38,6 +38,7 @@ from apps.api.app.repositories.investigations import (
     update_scope,
 )
 from apps.api.app.services.brreg_normalization import normalize_brreg_organization
+from apps.api.app.services.lead_executor import execute_lead
 from apps.api.app.services.report_sections import report_sections
 from apps.api.app.services.scope_gate import check_research_scope
 from apps.api.app.sources.brreg import BrregAdapter
@@ -157,6 +158,26 @@ async def delete_investigation_endpoint(
     except InvestigationNotFound as exc:
         raise HTTPException(status_code=404, detail="Investigation not found") from exc
     await session.commit()
+
+
+@router.post("/{investigation_id}/leads/{lead_id}/execute")
+async def execute_lead_endpoint(
+    investigation_id: UUID, lead_id: UUID, session: DatabaseSession
+) -> dict:
+    """Execute one admitted PENDING lead through the tool-boundary gate.
+
+    Only allowlisted lead types run; the gate is re-checked at execution time
+    because scope may have narrowed since admission. Terminal statuses
+    (COMPLETED/BLOCKED/FAILED) are returned, never raised, so the frontier
+    can keep working through refusals and failures.
+    """
+    try:
+        async with BrregAdapter() as adapter:
+            status = await execute_lead(session, investigation_id, lead_id, adapter.fetch)
+    except InvestigationNotFound as exc:
+        raise HTTPException(status_code=404, detail="Investigation or lead not found") from exc
+    await session.commit()
+    return {"lead_id": str(lead_id), "status": status}
 
 
 @router.post(

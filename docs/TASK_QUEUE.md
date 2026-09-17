@@ -111,6 +111,21 @@ En oppgave kan bare settes `DONE` når:
 ### AQ-012 — Trigger evaluator og frontier-valg
 **Status:** DONE
 **Verifisert 2026-09-18:** `services/trigger_evaluator.py` + `services/frontier.py` med typed beslutninger (`domain/trigger_eval.py`). Uverifiserte relasjoner og passive triggere blir `CONTEXT_ONLY`; contradiction på målet gir `VERIFICATION_LEAD`; finansanomalier krever valgt FINANCIALS + materialitet; besvarte/uttømte spørsmål og budsjett gir eksplisitte `STOP_*`. Frontier velger høyeste prioritet blant PENDING innen dybde. 13 tester (`test_trigger_decisions.py`); 118 grønne i Compose-nettverket. Eksekutor (faktisk innhenting) er neste steg.
+
+### AQ-013 — Lead-eksekutor for valgte leads
+**Status:** DONE
+**Verifisert 2026-09-18:** `services/lead_executor.py` + `POST /investigations/{id}/leads/{lead_id}/execute` kjører `brreg_organization_lookup` mot eksplisitt mål: PENDING → RUNNING → COMPLETED med evidence/claims, coverage-økning og `LEAD_EXECUTED`-audit. Innsnevret scope blokkerer før fetch (`module_disabled`, fetch aldri kalt); ukjent lead-type → FAILED `unsupported_lead_type`; kildefeil → FAILED `source_error:*`; gjenkjøring henter ikke på nytt. 6 integrasjonstester (`test_lead_execution.py`); 125 grønne totalt i Compose-nettverket.
+**Prioritet:** P0
+**Avhenger av:** AQ-012
+**Leveranse:** Eksekutor som kjører valgt frontier-lead (BRREG-måloppslag først) gjennom lead-gaten ved verktøygrensen, lagrer evidence, oppdaterer lead-status/coverage og auditerer. Støttede lead-typer eksplisitt allowlisted; alt annet avvises.
+**Acceptance:** PENDING → RUNNING → COMPLETED/FAILED med coverage-oppdatering; innsnevret scope blokkerer før fetch; feil hos kilde gir FAILED med årsak, aldri stille suksess.
+
+### AQ-014 — Mobiltilgang på samme nett via Docker
+**Status:** DONE
+**Verifisert 2026-09-18:** `BIND_ADDRESS` (default loopback) binder web/API på LAN ved opt-in; CORS-validering godtar kun loopback + RFC1918 (offentlige verter, wildcard og https avvises — testet). Separat LAN-stack verifisert: web 200 og API ready på LAN-IP, preflight fra LAN-opprinnelse 200, fra offentlig opprinnelse 400, og web-bundel peker på LAN-API-URL (gjenoppbygd med `--build-arg`, dokumentert at `up --build` mister ad-hoc args). Postgres/Redis/SearXNG forblir på loopback. Oppskrift + advarsel (kun klarerte nett, ingen auth) i `DEPLOYMENT.md`.
+**Prioritet:** P1
+**Leveranse:** Opt-in LAN-binding (`BIND_ADDRESS`), CORS for private nettadresser (RFC1918), dokumentert oppskrift for mobil på samme nett. Default forblir loopback.
+**Acceptance:** Web og API svarer på maskinens LAN-IP; CORS-preflight fra LAN-opprinnelse passerer; web-bundel peker på LAN-API-URL. Kun klarerte nett — ingen auth per ADR-017.
 **Prioritet:** P0
 **Avhenger av:** AQ-005, AQ-011
 **Leveranse:** Deterministisk trigger-evaluator (`FOLLOW_UP_LEAD`, `VERIFICATION_LEAD`, `CONTEXT_ONLY`, `BLOCKED_BY_SCOPE`, `STOP_*`) og frontier-velger som ordner PENDING-leads etter prioritet innen scope/budsjett. Ingen live innhenting — eksekutor kommer senere.

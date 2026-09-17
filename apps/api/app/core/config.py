@@ -1,3 +1,4 @@
+import ipaddress
 from functools import lru_cache
 from pathlib import Path
 from urllib.parse import urlsplit
@@ -7,6 +8,28 @@ from pydantic import Field, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 from apps.api.app.core.config_models import ModelsConfig, PoliciesConfig, SourcesConfig
+
+_LAN_NETWORKS = (
+    ipaddress.ip_network("10.0.0.0/8"),
+    ipaddress.ip_network("172.16.0.0/12"),
+    ipaddress.ip_network("192.168.0.0/16"),
+)
+
+
+def _is_local_origin(hostname: str | None) -> bool:
+    """Loopback plus private LAN addresses (RFC1918).
+
+    Loopback is the default. RFC1918 addresses are an explicit opt-in for
+    same-network access (e.g. mobile on the home network) via CORS_ORIGINS.
+    Public hosts are never allowed: there is no auth (ADR-017).
+    """
+    if hostname in {"localhost", "127.0.0.1", "::1"}:
+        return True
+    try:
+        address = ipaddress.ip_address(hostname or "")
+    except ValueError:
+        return False
+    return any(address in network for network in _LAN_NETWORKS)
 
 
 class Settings(BaseSettings):
@@ -36,14 +59,14 @@ class Settings(BaseSettings):
             parsed = urlsplit(origin)
             if (
                 parsed.scheme != "http"
-                or parsed.hostname not in {"localhost", "127.0.0.1"}
+                or not _is_local_origin(parsed.hostname)
                 or parsed.username
                 or parsed.password
                 or parsed.path not in {"", "/"}
                 or parsed.query
                 or parsed.fragment
             ):
-                raise ValueError("only explicit localhost CORS origins are allowed")
+                raise ValueError("only explicit loopback or LAN CORS origins are allowed")
         return ",".join(origins)
 
     @property
