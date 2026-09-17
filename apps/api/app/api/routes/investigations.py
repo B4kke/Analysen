@@ -1,3 +1,6 @@
+from typing import Annotated
+from uuid import UUID
+
 import httpx
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -20,12 +23,13 @@ from apps.api.app.services.brreg_normalization import normalize_brreg_organizati
 from apps.api.app.sources.brreg import BrregAdapter
 
 router = APIRouter(prefix="/api/v1/investigations", tags=["investigations"])
+DatabaseSession = Annotated[AsyncSession, Depends(get_db_session)]
 
 
 @router.post("", response_model=InvestigationRecord, status_code=status.HTTP_201_CREATED)
 async def create_investigation_endpoint(
     request: InvestigationCreate,
-    session: AsyncSession = Depends(get_db_session),
+    session: DatabaseSession,
 ) -> InvestigationRecord:
     investigation = await create_investigation(session, request)
     await session.commit()
@@ -35,11 +39,9 @@ async def create_investigation_endpoint(
 @router.get("/{investigation_id}", response_model=InvestigationDetail)
 async def get_investigation_endpoint(
     investigation_id: str,
-    session: AsyncSession = Depends(get_db_session),
+    session: DatabaseSession,
 ) -> InvestigationDetail:
     try:
-        from uuid import UUID
-
         parsed_id = UUID(investigation_id)
     except ValueError as exc:
         raise HTTPException(status_code=422, detail="Invalid investigation id") from exc
@@ -57,11 +59,9 @@ async def get_investigation_endpoint(
 async def ingest_brreg_organization_endpoint(
     investigation_id: str,
     orgnr: str,
-    session: AsyncSession = Depends(get_db_session),
+    session: DatabaseSession,
 ) -> BrregIngestResult:
     try:
-        from uuid import UUID
-
         parsed_id = UUID(investigation_id)
         await get_investigation(session, parsed_id)
     except ValueError as exc:
