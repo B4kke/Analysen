@@ -64,7 +64,8 @@ En oppgave kan bare settes `DONE` når:
 **Acceptance:** Discovery alene kan ikke autorisere ekspansjon.
 
 ### AQ-006 — Coverage ledger and dynamic report/UI
-**Status:** READY
+**Status:** DONE
+**Verifisert 2026-09-17:** Rapportseksjoner i `services/report_sections.py` skiller undersøkt, undersøkt med mangler, ikke undersøkt, utilgjengelig og ikke valgt. `stop_reason` som starter med `unavailable` gir utilgjengelig, øvrige stop-årsaker gir ufullstendig. Deaktiverte moduler lander i «Ikke valgt» og presenteres aldri som negative funn. Endpoint `GET /investigations/{id}/report/sections` serverer reelle moduldata med coverage. 7 enhetstester (`test_report_sections.py`) + 2 integrasjonstester mot reell database (`test_report_sections_api.py`); 76 tester grønne totalt i Compose-nettverket. Dynamisk rapport-UI i web er fortsatt ikke bygget og hører naturlig til fase 6/7 i implementasjonsplanen.
 **Prioritet:** P1
 **Avhenger av:** AQ-004
 **Leveranse:** Per-module coverage, stop reason, not-investigated state, dynamic report sections og context-only graph state.

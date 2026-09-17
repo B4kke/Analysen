@@ -18,9 +18,11 @@ from apps.api.app.domain.models import (
     TargetType,
 )
 from apps.api.app.domain.scope import (
+    ExpansionPolicy,
     ExpansionState,
     InvestigationModuleRecord,
     ScopeModule,
+    ScopeSettings,
     ScopeUpdate,
 )
 from apps.api.app.repositories.brreg_ingest import persist_brreg_organization
@@ -34,8 +36,17 @@ from apps.api.app.repositories.investigations import (
     update_scope,
 )
 from apps.api.app.services.brreg_normalization import normalize_brreg_organization
+from apps.api.app.services.report_sections import report_sections
 from apps.api.app.services.scope_gate import check_research_scope
 from apps.api.app.sources.brreg import BrregAdapter
+
+
+def _scope_of(modules: list[InvestigationModuleRecord]) -> ScopeSettings:
+    return ScopeSettings(
+        scope_modules=[module.module for module in modules if module.enabled],
+        expansion_policy=ExpansionPolicy.DIRECT_RELATIONS,
+        max_relation_depth=1,
+    )
 
 router = APIRouter(prefix="/api/v1/investigations", tags=["investigations"])
 DatabaseSession = Annotated[AsyncSession, Depends(get_db_session)]
@@ -87,6 +98,23 @@ async def modules_endpoint(
         return await get_modules(session, investigation_id)
     except InvestigationNotFound as exc:
         raise HTTPException(status_code=404, detail="Investigation not found") from exc
+
+
+@router.get("/{investigation_id}/report/sections")
+async def report_sections_endpoint(
+    investigation_id: UUID, session: DatabaseSession
+) -> dict:
+    """Dynamic report sections that separate investigated, incomplete,
+    not investigated, unavailable and not selected modules.
+
+    Absence of findings in a disabled module is never presented as a negative
+    finding: it lands in its own section.
+    """
+    try:
+        modules = await get_modules(session, investigation_id)
+    except InvestigationNotFound as exc:
+        raise HTTPException(status_code=404, detail="Investigation not found") from exc
+    return report_sections(_scope_of(modules), modules)
 
 
 @router.post("/{investigation_id}/leads", status_code=status.HTTP_201_CREATED)
