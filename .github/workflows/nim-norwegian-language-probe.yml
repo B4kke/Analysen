@@ -6,6 +6,7 @@ on:
     branches: [main]
     paths:
       - "scripts/nim_norwegian_language_probe.py"
+      - ".github/workflows/nim-norwegian-language-probe.yml"
 
 concurrency:
   group: nim-norwegian-language-probe-${{ github.ref }}
