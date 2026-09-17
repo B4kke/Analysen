@@ -20,6 +20,13 @@ privacy:
   political_registry_default_enabled: false
   personal_risk_score_allowed: false
 
+norway:
+  person_role_aggregation:
+    business_context_only: true
+    allow_voluntary_organization_roles_in_combined_person_overview: false
+    require_business_context_verification: true
+    source_note: "Enhetsregisterloven § 9-1 / BRREG role API guidance"
+
 high_impact:
   automated_decision_allowed: false
   domains:
