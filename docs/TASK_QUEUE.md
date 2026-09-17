@@ -127,6 +127,14 @@ En oppgave kan bare settes `DONE` når:
 ### AQ-015 — Worker-basert research-loop
 **Status:** DONE
 **Verifisert 2026-09-18:** `services/research_loop.py` kjører én avgrenset pass: frontier-valg → trigger-evaluator → eksekutor, til frontier er tom, budsjett oppbrukt eller maks leads nådd. Evaluator-nekt (CONTEXT_ONLY/BLOCKED_BY_SCOPE) parkerer leadet som BLOCKED med årsak; hvert lead committes separat; passet auditerer `RESEARCH_PASS_COMPLETED`-sammendrag. Dramatiq-actor + `POST /investigations/{id}/research/run` (202, uten sideeffekter i test via patchet send). 6 integrasjonstester (`test_research_loop.py`, fake fetch — ingen live-kall); 131 grønne totalt i Compose-nettverket.
+
+### AQ-016 — Rapport-UI i web
+**Status:** DONE
+**Verifisert 2026-09-18:** Rapportside `/investigations/[id]/report` rendrer de fem seksjonene fra API-et med tellinger, coverage (søk/dokumenter/kilder) og stoppårsaker; «Ikke valgt» forklarer eksplisitt at fravær av funn ikke er negativt funn. Lenket fra detaljsiden. Nettlesersmoke dekker opprettelse → detalj → reload → rapport med seksjonsoverskrifter og modulnavn.
+**Prioritet:** P1
+**Avhenger av:** AQ-006
+**Leveranse:** Rapportside per investigation som rendrer de fem seksjonene fra `GET /report/sections` med coverage og stop-årsaker, lenket fra detaljsiden.
+**Acceptance:** Siden skiller undersøkt/ufullstendig/ikke undersøkt/utilgjengelig/ikke valgt; uvalgte moduler presenteres aldri som negative funn; nettlesersmoke dekker siden.
 **Prioritet:** P0
 **Avhenger av:** AQ-013
 **Leveranse:** Dramatiq-actor + `POST /investigations/{id}/research/run` (202) som kjører én avgrenset research-pass: frontier-valg → trigger-evaluator → eksekutor, til frontier er tom, budsjett oppbrukt eller maks leads nådd. Hvert lead committes separat; passet auditerer sammendrag.

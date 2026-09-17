@@ -36,8 +36,18 @@ for (const address of [web, api]) {
     const rows = page.locator(".coverage-row");
     assert.match(await rows.filter({ hasText: "FINANCIALS" }).innerText(), /Ikke valgt/);
     assert.match(await rows.filter({ hasText: "BUSINESS ROLES" }).innerText(), /Ikke undersøkt ennå/);
+
+    await page.getByRole("link", { name: /Dekningsrapport/ }).click();
+    await page.waitForURL("**/report");
+    await page.getByRole("heading", { name: "Dekningsrapport", exact: true }).waitFor();
+    await page.getByRole("heading", { name: /Ikke valgt \(8\)/ }).waitFor();
+    await page.getByRole("heading", { name: /Ikke undersøkt \(1\)/ }).waitFor();
+    const reportText = await page.locator("main").innerText();
+    assert.match(reportText, /BUSINESS ROLES/);
+    assert.match(reportText, /FINANCIALS/);
+    assert.match(reportText, /Områder du ikke valgte/);
     assert.deepEqual(errors, []);
-    console.log(`PASS: create, detail, reload and scope display. Synthetic investigation: ${id}`);
+    console.log(`PASS: create, detail, reload, scope display and report. Synthetic investigation: ${id}`);
   } finally {
     await browser.close();
   }

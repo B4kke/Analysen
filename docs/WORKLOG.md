@@ -23,3 +23,4 @@ Kort, append-only oversikt over fullførte milepæler. Dette er ikke en ny TODO-
 - AQ-013 lukket: lead-eksekutor for BRREG-måloppslag med re-gating ved verktøygrensen, COMPLETED/BLOCKED/FAILED-terminaltilstander, coverage-økning og audit. 6 integrasjonstester; 125 grønne totalt.
 - AQ-014 lukket: opt-in LAN-binding for mobil på samme nett (default loopback), RFC1918-CORS, verifisert separat stack + bundel-URL. Postgres/Redis/SearXNG forblir loopback.
 - AQ-015 lukket: worker-basert research-loop med avgrensede passer, separat commit per lead og auditert sammendrag. Evaluator-nekt parkerer som BLOCKED. 6 integrasjonstester; 131 grønne totalt.
+- AQ-016 lukket: dekningsrapport-UI i web med fem seksjoner, coverage og stoppårsaker; smoke dekker rapportflyten. Native standalone-server krever `.next/static` ved siden av serveren (som i Dockerfile); feilsøkt og dokumentert implisitt via verifisert oppsett.
