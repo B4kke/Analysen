@@ -72,7 +72,8 @@ En oppgave kan bare settes `DONE` når:
 **Acceptance:** Rapport kan skille undersøkt, ikke undersøkt, ufullstendig og utilgjengelig.
 
 ### AQ-007 — Search-trigger eval suite
-**Status:** READY
+**Status:** DONE
+**Verifisert 2026-09-17:** `tests/test_trigger_eval.py` fanger firma-/person-autoekspansjon uten aktivt scope (parametrised over modul/trigger), kryss-modul-«scope-riding» (WEB_MEDIA-funn kan ikke autorisere COMPANY_NETWORK), CONTEXT_ONLY-autoekspansjon, passive sanksjonsmatch som aldri auto-kjører, målrettet CONTRADICTION fremfor bred søking, FINANCIAL_ANOMALY som krever valgt modul + materialitet med dokumentert årsak, TEMPORAL_GAP kun i valgt HISTORICAL_WEB, budsjett-/kildestop og relasjonsløkke utover dybdelimit. 14 tester; 92 grønne totalt i Compose-nettverket. Eval-suite er deterministisk uten modellkall; NIM-modellens egen trigger-kvalitet evalueres separat når planneren kobles.
 **Prioritet:** P1
 **Avhenger av:** AQ-005
 **Leveranse:** Tester for trigger selection, scope blocking, contradiction retry, no-loop og no-unnecessary-expansion.
