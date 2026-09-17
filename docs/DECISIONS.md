@@ -37,6 +37,9 @@
 ## ADR-012 — Lokal grunnmur med låste og delte avhengigheter
 **Status:** accepted. Runtime/dev installeres fra hver sin lås; crawler-/dokumentpakker ligger i valgfri research-lås. Web bruker npm ci og standalone-bygg. Lokale tjenester binder loopback, ingen modellnøkkel kreves ved oppstart. Auth/RBAC er nødvendig før ekstern drift.
 
+## ADR-015 — Deterministisk lead admission før planner-LLM
+**Status:** accepted. Alle planner/LLM-forslag kommer inn gjennom `POST /investigations/{id}/leads` og gate i `lead_gate.py`. Passive discovery-triggere lagres aldri som kjørbare. Refuserte leads lagres `BLOCKED` med årsak for auditbarhet i stedet for å kastes. NIM-planneren blir en forslagsgiver bak samme rute; gaten er modell-uavhengig.
+
 ## ADR-014 — Compose uten host bind-mounts
 **Status:** accepted. SearXNG bygges fra pinnet upstream-image med versjonert konfigurasjon. API/worker deler navngitt `app_data`-volum. Dette fjerner avhengigheten til WSL distro-mount-integrasjon uten å endre loopback-/scope-regler. Eksisterende `./data` migreres ikke automatisk; backup og eksplisitt kopiering/verifisering kreves, se `DEPLOYMENT.md`.
 

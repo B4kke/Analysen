@@ -30,8 +30,8 @@ def gate_lead(
     scope: ScopeSettings,
     lead: Lead,
     *,
-    expansion_state: ExpansionState = ExpansionState.CONTEXT_ONLY,
-    verified_relation: bool = False,
+    expansion_state: ExpansionState = ExpansionState.TARGET,
+    verified_relation: bool = True,
     material_reason: str | None = None,
     source_enabled: bool = True,
     policy_allowed: bool = True,
@@ -40,9 +40,13 @@ def gate_lead(
     """Return a blocked_reason for a lead that may not run, else None.
 
     A passive discovery trigger can never be scheduled by itself; it is stored
-    as a lead for human/trigger evaluation instead of auto-execution.
+    as a lead for human/trigger evaluation instead of auto-execution. Relation
+    leads (non-target depth) must still prove a verified relation; the default
+    here is the target entity, which the investigation already authorizes.
     """
-    if lead.trigger_type in _PASSIVE_TRIGGERS and expansion_state != ExpansionState.TARGET:
+    if lead.trigger_type in _PASSIVE_TRIGGERS:
+        # A passive discovery lead is never directly executable: even when it
+        # concerns the target it must go through trigger evaluation first.
         return "passive_trigger_requires_review"
 
     if scope.expansion_policy == ExpansionPolicy.CONTEXT_ONLY and expansion_state not in (

@@ -56,8 +56,8 @@ En oppgave kan bare settes `DONE` når:
 **Acceptance:** Deaktivert modul kan ikke planlegges/kalles; scope-endringer auditeres.
 
 ### AQ-005 — Implement planner/lead scope gates
-**Status:** IN_PROGRESS
-**Fremdrift 2026-09-17:** Deterministisk lead-admission (`lead_gate.py`) på plass: passive discovery-triggere lagres aldri som kjørbare leads, `CONTEXT_ONLY` stopper relasjonsleads, dybde/verifisert relasjon/materialitet/budsjett/kilde håndheves før PENDING. 12 enhetstester; hele suiten grønn (53 passerer, 9 databaseavhengige skips uten TEST_DATABASE_URL). Gjenstår: koble gaten mot en lead-persistens-rute/worker-kontrakt og oppdatere arkitekturdokumentasjon før DONE.
+**Status:** DONE
+**Verifisert 2026-09-17:** Deterministisk lead-admission ligger i `services/lead_gate.py` og håndheves i `POST /api/v1/investigations/{id}/leads`. Passive discovery-triggere kan aldri bli `PENDING`; de lagres som `BLOCKED/passive_trigger_requires_review`. Utenfor scope, uverifisert relasjon, for dyp relasjon og manglende materialitet avvises deterministisk. Hvert forslag auditlogges (`LEAD_PROPOSED`); audit-feil ruller transaksjonen tilbake. Scope-innsnevring blokkerer ventende leads i samme transaksjon som tidligere. Ende-til-ende-tester i `tests/integration/test_lead_proposals.py` viser adgang, refusjon, blokkering utenfor scope og blokkering etter innsnevring. 67 tester passerer i Compose-nettverket; nettlesersmoke består. NIM-planner kobles senere bak samme rute.
 **Prioritet:** P0
 **Avhenger av:** AQ-004
 **Leveranse:** Planner/lead generator får scope, expansion state, information need og source capabilities; blocked actions avvises deterministisk.

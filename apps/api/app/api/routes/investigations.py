@@ -14,6 +14,7 @@ from apps.api.app.domain.models import (
     InvestigationCreate,
     InvestigationDetail,
     InvestigationRecord,
+    Lead,
     TargetType,
 )
 from apps.api.app.domain.scope import (
@@ -29,6 +30,7 @@ from apps.api.app.repositories.investigations import (
     get_investigation,
     get_investigation_record,
     get_modules,
+    propose_lead,
     update_scope,
 )
 from apps.api.app.services.brreg_normalization import normalize_brreg_organization
@@ -85,6 +87,23 @@ async def modules_endpoint(
         return await get_modules(session, investigation_id)
     except InvestigationNotFound as exc:
         raise HTTPException(status_code=404, detail="Investigation not found") from exc
+
+
+@router.post("/{investigation_id}/leads", status_code=status.HTTP_201_CREATED)
+async def propose_lead_endpoint(
+    investigation_id: UUID, request: Lead, session: DatabaseSession
+) -> dict:
+    """Persist a planner/model-proposed lead only after the deterministic scope gate.
+
+    A refused lead is not an error: it is stored as BLOCKED with the gate's
+    reason so that proposals and refusals remain auditable.
+    """
+    try:
+        lead_id, lead_status = await propose_lead(session, investigation_id, request)
+    except InvestigationNotFound as exc:
+        raise HTTPException(status_code=404, detail="Investigation not found") from exc
+    await session.commit()
+    return {"lead_id": str(lead_id), "status": lead_status}
 
 
 @router.post(

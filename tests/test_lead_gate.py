@@ -70,13 +70,15 @@ def test_passive_discovery_triggers_are_never_self_executable(trigger) -> None:
     assert reason == "passive_trigger_requires_review"
 
 
-def test_passive_trigger_on_target_is_schedulable() -> None:
+def test_passive_trigger_requires_review_even_on_target() -> None:
+    # Passive discovery leads always go through trigger evaluation first; they
+    # are stored for review and are never directly schedulable.
     reason = gate_lead(
         _scope(ScopeModule.WEB_MEDIA),
         _lead(trigger=TriggerType.NEW_VERIFIED_ALIAS, relation_depth=0),
         expansion_state=ExpansionState.TARGET,
     )
-    assert reason is None
+    assert reason == "passive_trigger_requires_review"
 
 
 def test_disabled_module_blocks_lead_before_other_checks() -> None:

@@ -105,3 +105,7 @@ Investigations opprettes med eksplisitte moduler (standard ingen). Scope-oppdate
 BRREG-ingest tillates foreløpig bare for et entydig company/organization-mål med ett `known_orgnrs` og aktiv `BUSINESS_ROLES`. Generiske BRREG GET-ruter er manuelle registeroppslag, ikke del av en automatisk investigation. Utvidelse til relaterte entities krever senere scheduler/materiality-workflow; discovery eller et oppgitt personnavn gir ingen autorisasjon.
 
 `Lead`, `SearchMetadata`, module coverage og expansion states har typed kontrakter og databasestruktur. Scheduler, trigger evaluator, automatiske coverage-oppdateringer og rapportmotor er fortsatt planlagt. En databasekolonne eller DTO er ikke en ferdig agentflyt.
+
+## Lead admission (AQ-005)
+
+Planner/LLM kan bare foreslå leads via `POST /api/v1/investigations/{id}/leads`. Ruten låser investigation-rad og kjører deterministisk admission i `services/lead_gate.py` før lagring. Passive discovery-triggere (`NEW_VERIFIED_ALIAS`, `MEDIA_CORROBORATION`, `SANCTIONS_CANDIDATE`) lagres aldri som kjørbare; de blir `BLOCKED/passive_trigger_requires_review`. Refuserte leads lagres som `BLOCKED` med gate-årsak og audit; `LEAD_PROPOSED` audit er ikke frivillig — en transaksjon uten audit rulles tilbake. Scope-innsnevring blokkerer fortsatt ventende leads samme transaksjon. Det finnes ingen rute som oppretter `PENDING`-leads utenom gaten; NIM-planneren kobles senere som én av flere forslagsgivere bak samme rute.

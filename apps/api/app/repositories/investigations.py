@@ -4,14 +4,17 @@ from uuid import UUID
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from apps.api.app.core.config import get_settings
 from apps.api.app.domain.models import (
     InvestigationClaimRecord,
     InvestigationCreate,
     InvestigationDetail,
     InvestigationEntityRecord,
     InvestigationRecord,
+    Lead,
 )
 from apps.api.app.domain.scope import InvestigationModuleRecord, ScopeModule, ScopeUpdate
+from apps.api.app.services.lead_gate import gate_lead
 
 
 class InvestigationNotFound(LookupError):
@@ -195,3 +198,76 @@ async def mark_investigation_active(session: AsyncSession, investigation_id: UUI
         text("UPDATE investigations SET status = 'ACTIVE', updated_at = now() WHERE id = :id"),
         {"id": investigation_id},
     )
+
+
+def _lead_row(lead: Lead) -> dict:
+    return {
+        "lead_type": lead.lead_type,
+        "value": json.dumps(lead.value, default=str),
+        "reason": lead.reason,
+        "originating_claim_id": lead.originating_claim_id,
+        "priority": lead.priority,
+        "depth": lead.depth,
+        "scope_area": lead.scope_area.value,
+        "trigger_type": lead.trigger_type.value,
+        "information_need": lead.information_need,
+        "relation_depth": lead.relation_depth,
+    }
+
+
+def _source_enabled(module: ScopeModule) -> bool:
+    """Any enabled source counts today; per-module routing arrives with AQ-006."""
+    _, sources, _ = get_settings().validate_yaml_configs()
+    return any(source.enabled for source in sources.sources.values())
+
+
+async def propose_lead(
+    session: AsyncSession, investigation_id: UUID, lead: Lead
+) -> tuple[UUID, str]:
+    """Admit a planner/model-proposed lead through the deterministic gate.
+
+    The investigation row is locked so a concurrent scope narrowing cannot race
+    the admission. Gated leads are stored with status BLOCKED and the refusal
+    reason; only admitted leads are PENDING. The decision is always audited.
+    """
+    investigation = await get_investigation_record(session, investigation_id, for_update=True)
+    decision = gate_lead(
+        investigation,
+        lead,
+        source_enabled=_source_enabled(lead.scope_area),
+    )
+    row = _lead_row(lead)
+    status = "PENDING" if decision is None else "BLOCKED"
+    result = await session.execute(
+        text("""
+            INSERT INTO leads (
+                investigation_id, lead_type, value, reason, originating_claim_id,
+                priority, depth, status, scope_area, trigger_type, information_need,
+                relation_depth, blocked_reason
+            ) VALUES (
+                :investigation_id, :lead_type, CAST(:value AS jsonb), :reason,
+                :originating_claim_id, :priority, :depth, :status, :scope_area,
+                :trigger_type, :information_need, :relation_depth, :blocked_reason
+            ) RETURNING id
+        """),
+        {
+            "investigation_id": investigation_id,
+            "status": status,
+            "blocked_reason": decision,
+            **row,
+        },
+    )
+    lead_id = result.scalar_one()
+    await _audit(
+        session,
+        investigation_id,
+        "LEAD_PROPOSED",
+        {
+            "lead_id": str(lead_id),
+            "status": status,
+            "scope_area": lead.scope_area.value,
+            "trigger_type": lead.trigger_type.value,
+            "decision": decision,
+        },
+    )
+    return lead_id, status
