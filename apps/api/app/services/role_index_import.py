@@ -1,8 +1,9 @@
 from dataclasses import dataclass
 from pathlib import Path
+from typing import Any
 from uuid import UUID
 
-from sqlalchemy import delete, text
+from sqlalchemy import text
 
 from apps.api.app.core.database import get_session_factory
 from apps.api.app.repositories.role_index import (
@@ -73,7 +74,7 @@ async def import_role_inventory(
         await session.commit()
 
     record_count = 0
-    batch: list[dict] = []
+    batch: list[dict[str, Any]] = []
     try:
         for row in iter_person_role_rows(path):
             batch.append(row)
