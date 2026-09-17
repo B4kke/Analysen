@@ -44,7 +44,12 @@ def resolve_person(target: PersonCandidate, candidate: PersonCandidate) -> Resol
         score += min(0.15, 0.05 * len(shared_orgs))
         reasons.append(f"shared_orgs={len(shared_orgs)}")
 
-    if target.place and candidate.place and normalize_name(target.place) == normalize_name(candidate.place):
+    same_place = (
+        target.place
+        and candidate.place
+        and normalize_name(target.place) == normalize_name(candidate.place)
+    )
+    if same_place:
         score += 0.05
         reasons.append("same_place")
 
