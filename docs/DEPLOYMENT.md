@@ -84,6 +84,32 @@ docker compose up -d --wait
 
 Åpne deretter `http://192.168.1.10:3000` på mobilen. Standard (uten `BIND_ADDRESS`) er fortsatt kun loopback.
 
+### Windows-brannmur
+
+Windows blokkerer innkommende trafikk som standard, også til publiserte Docker-porter. Dersom mobilen ikke får kontakt selv om alt svarer lokalt, mangler en tillatelsesregel. Kjør én gang i **administrator-PowerShell** (kun klarerte, private nett):
+
+```powershell
+New-NetFirewallRule -DisplayName "Analysen LAN" -Direction Inbound `
+  -Protocol TCP -LocalPort 3000,8000 -Action Allow -Profile Private
+```
+
+Regelen åpner kun port 3000/8000 og kun på private nettverksprofiler. Verifiser fra Windows med `Test-NetConnection -ComputerName <LAN-IP> -Port 3000` — `TcpTestSucceeded` skal være `True` før mobilen testes.
+
+### Dersom Docker ikke eksponerer porter på Windows
+
+Hvis publiserte porter svarer fra WSL men ikke fra Windows (`Test-NetConnection` feiler) selv med brannmurregel, er Docker Desktops vertsvideresending ødelagt (restart av Docker Desktop hjelper vanligvis). Alternativet er å kjøre API/web nativt i WSL på `0.0.0.0` mot databasetjenestene i Docker:
+
+```bash
+DATABASE_URL=postgresql+asyncpg://analysen:analysen@localhost:5432/analysen \
+REDIS_URL=redis://localhost:6379/0 \
+CORS_ORIGINS=http://<LAN-IP>:3000,http://localhost:3000 \
+nohup .venv/bin/uvicorn apps.api.app.main:app --host 0.0.0.0 --port 8000 &
+NEXT_PUBLIC_API_URL=http://<LAN-IP>:8000 npm --prefix apps/web run build
+nohup npm --prefix apps/web run start -- -H 0.0.0.0 -p 3000 &
+```
+
+Stopp da web/api-containerne først (`docker compose stop web api`) for å unngå portkonflikt. Native prosesser overlever ikke omstart — start dem på nytt etter reboot.
+
 ## Lokal Python og Node
 
 Python 3.12 og Node 22+ er forutsetninger. Installasjon fra låste avhengigheter:
