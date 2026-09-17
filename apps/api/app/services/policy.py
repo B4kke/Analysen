@@ -1,6 +1,5 @@
 from dataclasses import dataclass
 
-
 BLOCKED_SENSITIVE_INFERENCES = frozenset(
     {
         "ethnicity",
