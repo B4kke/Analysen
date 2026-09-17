@@ -6,6 +6,7 @@ on:
     branches: [main]
     paths:
       - "scripts/nim_long_context_probe.py"
+      - ".github/workflows/nim-long-context-probe.yml"
 
 concurrency:
   group: nim-long-context-probe-${{ github.ref }}
