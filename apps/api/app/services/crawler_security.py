@@ -31,7 +31,8 @@ async def validate_public_http_url(url: str) -> None:
         raise UnsafeUrl("local hostnames are blocked")
 
     def resolve() -> list[tuple]:
-        return socket.getaddrinfo(host, parts.port or (443 if parts.scheme == "https" else 80), type=socket.SOCK_STREAM)
+        port = parts.port or (443 if parts.scheme == "https" else 80)
+        return socket.getaddrinfo(host, port, type=socket.SOCK_STREAM)
 
     records = await asyncio.to_thread(resolve)
     addresses = {record[4][0] for record in records}
