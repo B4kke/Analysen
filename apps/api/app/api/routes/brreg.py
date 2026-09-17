@@ -24,13 +24,18 @@ from apps.api.app.sources.brreg import BrregAdapter
 
 router = APIRouter(prefix="/api/v1/brreg", tags=["brreg"])
 DatabaseSession = Annotated[AsyncSession, Depends(get_db_session)]
+SearchName = Annotated[str, Query(min_length=2, max_length=200)]
+SearchPage = Annotated[int, Query(ge=0)]
+SearchSize = Annotated[int, Query(ge=1, le=100)]
+BirthDate = Annotated[date, Query()]
+SearchLimit = Annotated[int, Query(ge=1, le=1000)]
 
 
 @router.get("/search", response_model=list[BrregOrganization])
 async def search_organizations(
-    name: str = Query(min_length=2, max_length=200),
-    page: int = Query(default=0, ge=0),
-    size: int = Query(default=20, ge=1, le=100),
+    name: SearchName,
+    page: SearchPage = 0,
+    size: SearchSize = 20,
 ) -> list[BrregOrganization]:
     try:
         async with BrregAdapter() as adapter:
@@ -62,9 +67,9 @@ async def role_index_status(session: DatabaseSession) -> BrregRoleIndexStatus:
 @router.get("/person-roles", response_model=BrregPersonRoleSearch)
 async def person_roles(
     session: DatabaseSession,
-    name: str = Query(min_length=2, max_length=200),
-    birth_date: date = Query(),
-    limit: int = Query(default=250, ge=1, le=1000),
+    name: SearchName,
+    birth_date: BirthDate,
+    limit: SearchLimit = 250,
 ) -> BrregPersonRoleSearch:
     try:
         return await search_person_business_roles(
