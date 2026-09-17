@@ -1,14 +1,14 @@
 {
-  "version": 1,
+  "version": 2,
   "language": "nb-NO",
-  "description": "Synthetic Norwegian benchmark cases for Analysen. No real persons or private data.",
+  "description": "Synthetic Norwegian production-style benchmark cases for Analysen. No real persons or private data.",
   "text_cases": [
     {
       "id": "structured_extraction",
       "weight": 1.5,
       "reasoning": false,
       "system": "Du er en presis informasjonsuttrekker. Svar KUN med gyldig JSON uten markdown.",
-      "prompt": "Fiktivt registerutdrag: Kari Testperson, født 14.05.1987, er daglig leder i Nordlys Eksempel AS (org.nr. 923 456 789). Forretningsadresse er Teivegen 10, 2030 Nannestad. Returner JSON med feltene person_name, birth_date, role, organization, organization_number, place.",
+      "prompt": "Fiktivt registerutdrag: Kari Testperson, født 14.05.1987, er daglig leder i Nordlys Eksempel AS (org.nr. 923 456 789). Forretningsadresse er Teivegen 10, 2030 Nannestad. Returner JSON med feltene person_name, birth_date, role, organization, organization_number, place. Normaliser birth_date til YYYY-MM-DD, organization_number til kun sifre uten mellomrom, og place til kun kommunenavnet.",
       "scorer": "json_fields",
       "expected": {
         "person_name": "Kari Testperson",
@@ -22,9 +22,9 @@
     {
       "id": "identity_disambiguation",
       "weight": 2.0,
-      "reasoning": true,
+      "reasoning": false,
       "system": "Du arbeider med entity resolution. Ikke gjett når identifikatorene ikke passer. Svar KUN med gyldig JSON.",
-      "prompt": "Mål: Kari Testperson, født 14.05.1987, Nannestad, kjent styreverv i Fjordlys Demo AS. Kandidat A: Kari Testperson, født 1979, Bergen, ingen kobling til Fjordlys. Kandidat B: Kari Testperson, født 14.05.1987, Nannestad, styremedlem i Fjordlys Demo AS. Kandidat C: Kari Testperson, født 14.05.1987, Tromsø, ingen virksomhetskobling. Returner {\"match\": \"A|B|C|UNRESOLVED\", \"confidence\": \"high|medium|low\", \"reason\": \"kort begrunnelse\"}.",
+      "prompt": "Mål: Kari Testperson, født 14.05.1987, Nannestad, kjent styreverv i Fjordlys Demo AS. Kandidat A: Kari Testperson, født 1979, Bergen, ingen kobling til Fjordlys. Kandidat B: Kari Testperson, født 14.05.1987, Nannestad, styremedlem i Fjordlys Demo AS. Kandidat C: Kari Testperson, født 14.05.1987, Tromsø, ingen virksomhetskobling. Returner nøyaktig JSON-form: {\"match\": \"A|B|C|UNRESOLVED\", \"confidence\": \"high|medium|low\", \"reason\": \"kort begrunnelse\"}.",
       "scorer": "json_fields",
       "expected": {
         "match": "B",
@@ -34,7 +34,7 @@
     {
       "id": "source_conflict",
       "weight": 2.0,
-      "reasoning": true,
+      "reasoning": false,
       "system": "Du verifiserer påstander mot kilder. Offisielt registeruttrekk er sterkere evidens enn en eldre sekundærartikkel. Svar KUN med gyldig JSON.",
       "prompt": "Påstand: 'Per Eksempel ble styreleder i Demo Drift AS i 2022.' Evidens 1: BRREG-lignende offisielt registeruttrekk datert 2026 viser tiltredelsesdato 2023-02-01. Evidens 2: nettartikkel fra 2022 omtaler ham som 'påtroppende styreleder', uten registrert tiltredelsesdato. Klassifiser påstanden som SUPPORTED, PARTIALLY_SUPPORTED, CONTRADICTED eller INSUFFICIENT_EVIDENCE. Returner nøyaktig JSON-form: {\"status\": \"SUPPORTED|PARTIALLY_SUPPORTED|CONTRADICTED|INSUFFICIENT_EVIDENCE\", \"reason\": \"kort begrunnelse\"}.",
       "scorer": "json_fields",
@@ -45,9 +45,9 @@
     {
       "id": "uncertainty_discipline",
       "weight": 1.5,
-      "reasoning": true,
+      "reasoning": false,
       "system": "Du skal skille dokumenterte fakta fra mulige spor. Svar KUN med gyldig JSON.",
-      "prompt": "En søkeresultatsnutt sier at 'Kari Testperson kan være tilknyttet Nordhandel AS'. Originalsiden kan ikke hentes, og ingen andre kilder bekrefter koblingen. Kan systemet rapportere virksomhetskoblingen som et bekreftet faktum? Returner {\"can_report_as_fact\": true|false, \"classification\": \"...\", \"next_step\": \"...\"}.",
+      "prompt": "En søkeresultatsnutt sier at 'Kari Testperson kan være tilknyttet Nordhandel AS'. Originalsiden kan ikke hentes, og ingen andre kilder bekrefter koblingen. Kan systemet rapportere virksomhetskoblingen som et bekreftet faktum? classification skal være nøyaktig én av VERIFIED_FACT, UNVERIFIED_LEAD eller CONTRADICTED. Returner nøyaktig JSON-form: {\"can_report_as_fact\": true|false, \"classification\": \"VERIFIED_FACT|UNVERIFIED_LEAD|CONTRADICTED\", \"next_step\": \"kort neste steg\"}.",
       "scorer": "json_fields",
       "expected": {
         "can_report_as_fact": false,
