@@ -1,0 +1,53 @@
+name: NIM Structured Probe
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - "scripts/nim_structured_probe.py"
+      - ".github/workflows/nim-structured-probe.yml"
+
+concurrency:
+  group: nim-structured-probe-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  probe:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 8
+    env:
+      NIM_API_KEY: ${{ secrets.NIM_API_KEY }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install dependency
+        run: python -m pip install --disable-pip-version-check "httpx>=0.28,<1"
+      - name: Verify NIM secret
+        shell: bash
+        run: |
+          if [ -z "${NIM_API_KEY:-}" ]; then
+            echo "NIM_API_KEY repository secret is missing" >&2
+            exit 1
+          fi
+      - name: Run structured probe
+        run: python scripts/nim_structured_probe.py | tee nim-structured-probe.log
+      - name: Publish summary
+        if: always()
+        shell: bash
+        run: |
+          echo "## NIM Structured Probe" >> "$GITHUB_STEP_SUMMARY"
+          echo '```text' >> "$GITHUB_STEP_SUMMARY"
+          tail -n 12 nim-structured-probe.log >> "$GITHUB_STEP_SUMMARY" || true
+          echo '```' >> "$GITHUB_STEP_SUMMARY"
+      - name: Upload artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: nim-structured-probe-${{ github.run_id }}
+          path: |
+            artifacts/nim-structured-probe/
+            nim-structured-probe.log
+          retention-days: 14
