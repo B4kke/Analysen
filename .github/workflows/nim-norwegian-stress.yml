@@ -1,0 +1,57 @@
+name: NIM Norwegian Stress
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - "scripts/nim_norwegian_stress.py"
+      - ".github/workflows/nim-norwegian-stress.yml"
+
+concurrency:
+  group: nim-norwegian-stress-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  stress:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 18
+    env:
+      NIM_API_KEY: ${{ secrets.NIM_API_KEY }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install dependency
+        run: >-
+          python -m pip install --disable-pip-version-check
+          "httpx>=0.28,<1"
+      - name: Verify NIM secret
+        shell: bash
+        run: |
+          if [ -z "${NIM_API_KEY:-}" ]; then
+            echo "NIM_API_KEY repository secret is missing" >&2
+            exit 1
+          fi
+      - name: Run Norwegian stress suite
+        run: >-
+          python scripts/nim_norwegian_stress.py
+          | tee nim-norwegian-stress.log
+      - name: Publish summary
+        if: always()
+        shell: bash
+        run: |
+          echo "## NIM Norwegian Stress" >> "$GITHUB_STEP_SUMMARY"
+          echo '```text' >> "$GITHUB_STEP_SUMMARY"
+          tail -n 24 nim-norwegian-stress.log >> "$GITHUB_STEP_SUMMARY" || true
+          echo '```' >> "$GITHUB_STEP_SUMMARY"
+      - name: Upload artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: nim-norwegian-stress-${{ github.run_id }}
+          path: |
+            artifacts/nim-norwegian-stress/
+            nim-norwegian-stress.log
+          retention-days: 14
