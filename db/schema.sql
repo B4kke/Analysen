@@ -37,21 +37,27 @@ CREATE TABLE IF NOT EXISTS entities (
 );
 CREATE INDEX IF NOT EXISTS entities_name_trgm ON entities USING gin (normalized_name gin_trgm_ops);
 
-CREATE TABLE IF NOT EXISTS entity_aliases (
-  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+CREATE TABLE IF NOT EXISTS entity_source_refs (
   entity_id uuid NOT NULL REFERENCES entities(id) ON DELETE CASCADE,
-  alias text NOT NULL,
-  normalized_alias text NOT NULL,
-  source_id text REFERENCES sources(id),
-  evidence_id uuid,
-  valid_from date,
-  valid_to date
+  source_id text NOT NULL REFERENCES sources(id) ON DELETE CASCADE,
+  external_id text NOT NULL,
+  metadata jsonb NOT NULL DEFAULT '{}'::jsonb,
+  created_at timestamptz NOT NULL DEFAULT now(),
+  PRIMARY KEY (source_id, external_id),
+  UNIQUE (entity_id, source_id, external_id)
 );
-CREATE INDEX IF NOT EXISTS aliases_norm_idx ON entity_aliases(normalized_alias);
+CREATE INDEX IF NOT EXISTS entity_source_refs_entity_idx ON entity_source_refs(entity_id);
+
+CREATE TABLE IF NOT EXISTS investigation_entities (
+  investigation_id uuid NOT NULL REFERENCES investigations(id) ON DELETE CASCADE,
+  entity_id uuid NOT NULL REFERENCES entities(id) ON DELETE CASCADE,
+  relevance text NOT NULL DEFAULT 'related',
+  discovered_at timestamptz NOT NULL DEFAULT now(),
+  PRIMARY KEY (investigation_id, entity_id)
+);
 
 CREATE TABLE IF NOT EXISTS documents (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  investigation_id uuid REFERENCES investigations(id) ON DELETE CASCADE,
   source_id text REFERENCES sources(id),
   original_url text,
   canonical_url text,
@@ -60,13 +66,20 @@ CREATE TABLE IF NOT EXISTS documents (
   publisher text,
   published_at timestamptz,
   fetched_at timestamptz NOT NULL DEFAULT now(),
-  sha256 char(64) NOT NULL,
+  sha256 char(64) NOT NULL UNIQUE,
   raw_storage_key text,
   extracted_text text,
-  parser_metadata jsonb NOT NULL DEFAULT '{}'::jsonb,
-  UNIQUE(sha256)
+  parser_metadata jsonb NOT NULL DEFAULT '{}'::jsonb
 );
 CREATE INDEX IF NOT EXISTS documents_url_idx ON documents(canonical_url);
+
+CREATE TABLE IF NOT EXISTS investigation_documents (
+  investigation_id uuid NOT NULL REFERENCES investigations(id) ON DELETE CASCADE,
+  document_id uuid NOT NULL REFERENCES documents(id) ON DELETE CASCADE,
+  reason text,
+  discovered_at timestamptz NOT NULL DEFAULT now(),
+  PRIMARY KEY (investigation_id, document_id)
+);
 
 CREATE TABLE IF NOT EXISTS evidence (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -77,10 +90,19 @@ CREATE TABLE IF NOT EXISTS evidence (
   structured_value jsonb,
   created_at timestamptz NOT NULL DEFAULT now()
 );
+CREATE INDEX IF NOT EXISTS evidence_document_idx ON evidence(document_id);
 
-ALTER TABLE entity_aliases
-  ADD CONSTRAINT entity_aliases_evidence_fk
-  FOREIGN KEY (evidence_id) REFERENCES evidence(id) ON DELETE SET NULL;
+CREATE TABLE IF NOT EXISTS entity_aliases (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  entity_id uuid NOT NULL REFERENCES entities(id) ON DELETE CASCADE,
+  alias text NOT NULL,
+  normalized_alias text NOT NULL,
+  source_id text REFERENCES sources(id),
+  evidence_id uuid REFERENCES evidence(id) ON DELETE SET NULL,
+  valid_from date,
+  valid_to date
+);
+CREATE INDEX IF NOT EXISTS aliases_norm_idx ON entity_aliases(normalized_alias);
 
 CREATE TABLE IF NOT EXISTS claims (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -93,9 +115,12 @@ CREATE TABLE IF NOT EXISTS claims (
   valid_to date,
   status text NOT NULL DEFAULT 'UNVERIFIED_LEAD',
   confidence_components jsonb NOT NULL DEFAULT '{}'::jsonb,
+  fingerprint char(64) NOT NULL,
   generated_by text,
-  created_at timestamptz NOT NULL DEFAULT now()
+  created_at timestamptz NOT NULL DEFAULT now(),
+  UNIQUE (investigation_id, fingerprint)
 );
+CREATE INDEX IF NOT EXISTS claims_subject_idx ON claims(investigation_id, subject_entity_id);
 
 CREATE TABLE IF NOT EXISTS claim_evidence (
   claim_id uuid NOT NULL REFERENCES claims(id) ON DELETE CASCADE,
@@ -159,6 +184,7 @@ CREATE TABLE IF NOT EXISTS brreg_role_index (
   imported_at timestamptz NOT NULL DEFAULT now()
 );
 CREATE INDEX IF NOT EXISTS brreg_role_name_birth_idx ON brreg_role_index(normalized_name, birth_date);
+CREATE INDEX IF NOT EXISTS brreg_role_name_trgm ON brreg_role_index USING gin (normalized_name gin_trgm_ops);
 CREATE INDEX IF NOT EXISTS brreg_role_org_idx ON brreg_role_index(orgnr);
 
 CREATE TABLE IF NOT EXISTS search_queries (
