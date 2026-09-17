@@ -87,4 +87,14 @@ Uten `TEST_DATABASE_URL` skippes databaseintegrasjon eksplisitt. CI setter varia
 
 Integrasjonssuiten verifiserer lagret scope, alle ni modulrader, before/after-audit, fail-closed BRREG-gate før upstream, positiv ingest med fixture og bevaring av innsamlede data ved innsnevring. Eksterne kildekall erstattes kun ved nettverksgrensen. Runtime-testene kontrollerer liveness, readiness 200/503 og CORS-preflight for PATCH.
 
+Automatisert nettlesersmoke mot en lokal testinstans:
+
+```bash
+cd apps/web
+npx playwright install chromium
+TEST_WEB_URL=http://localhost:53000 TEST_API_URL=http://localhost:58000 npm run test:smoke
+```
+
+Bruk portene som instansen er bygget/startet med. Testen oppretter én syntetisk investigation per kjøring og beholder den for inspeksjon; kjør kun mot en testdatabase. Den kjører Chromium med ekte JavaScript og API, uten mocked research. På Docker Desktop/WSL kan direkte PostgreSQL-port være utilgjengelig fra lokal Python selv om web fungerer. Kjør da testene inne i Compose-nettverket, med `TEST_DATABASE_URL=postgresql+asyncpg://analysen:analysen@postgres:5432/analysen` og `CORS_ORIGINS=http://localhost:3000` (runtime-testens faste opprinnelse).
+
 Nettlesersmoke: opprett en syntetisk investigation i web, åpne detaljsiden, last siden på nytt og kontroller at lagret navn/scope/moduler beholdes. Uvalgte områder skal vises som ikke valgt, aktive uutførte områder som ikke undersøkt. Ingen NIM-nøkkel eller live personresearch er nødvendig.

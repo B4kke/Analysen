@@ -28,6 +28,12 @@ docker compose down
 
 Ikke bruk `down -v` for en installasjon med data som skal beholdes.
 
+Compose bruker navngitte volumer for PostgreSQL (`postgres_data`) og felles API-/worker-data (`app_data`). SearXNG-konfigurasjonen bygges inn via `docker/searxng.Dockerfile`; endringer i `config/searxng/settings.yml` krever nytt bygg. Oppstart krever derfor ingen host bind-mounts og fungerer også med Windows Docker CLI fra WSL uten distro-mount-integrasjon.
+
+**Eksisterende data:** Tidligere Compose brukte `./data:/app/data`. Innhold i `./data` blir ikke automatisk flyttet til `app_data`. Behold originalen, ta backup og kopier/verifiser innholdet i volumet før gammel lagring tas ut av bruk. PostgreSQL-volumet er uendret.
+
+Ved Windows Docker CLI fra WSL kan shell-variabler mangle i Windows-prosessen. Legg portoverstyringer i en fil og bruk `docker compose --env-file <fil> up --build -d --wait`. Standard CORS-opprinnelser følger `WEB_PORT`; eksplisitt `CORS_ORIGINS` overstyrer dem. Web må bygges med samme env-fil slik at riktig API-port bygges inn.
+
 ## Lokal Python og Node
 
 Python 3.12 og Node 22+ er forutsetninger. Installasjon fra låste avhengigheter:

@@ -76,9 +76,8 @@ En oppgave kan bare settes `DONE` når:
 **Acceptance:** Test-suite fanger firma-/person-autoekspansjon uten aktivt scope.
 
 ### AQ-008 — Kjørbar lokal grunnmur
-**Status:** BLOCKED
-**Blocker 2026-09-17:** Docker-bygg for API, worker, migrate og web passerer, men isolert Compose-oppstart (`analysen-opencode-check`) stopper ved bind-mount for SearXNG: Docker Desktop/WSL mangler `/run/guest-services/distro-services/ubuntu-24-04.sock`. Docker/WSL-integrasjonen må fungere før full oppstart, worker-smoke og nettlesersmoke kan verifiseres. Ingen workaround som svekker konfigurasjonen er lagt inn.
-**Overtakelse 2026-09-17:** Codex-arbeidet er bevart på `codex/analysen-foundation`. Migreringstestens JSON-dekoding og lint er rettet. Ruff, mypy, 48 tester med PostgreSQL-integrasjon, TypeScript og webbygg passerer lokalt. Full Compose-oppstart, worker-smoke og nettlesersmoke gjenstår før oppgaven kan lukkes.
+**Status:** DONE
+**Verifisert 2026-09-17:** Bind-mount-avhengigheten er fjernet med innebygd SearXNG-konfigurasjon og navngitt appvolum. Isolert Compose starter alle tjenester, migrering kjører også ved gjentatt oppstart, worker-prosessene starter med registrerte actors. 48 tester passerer i Compose-nettverket (inkludert PostgreSQL-integrasjon), samt Ruff, mypy, TypeScript og Docker-webbygg. Headless Chromium oppretter en syntetisk investigation, åpner og laster detaljsiden på nytt, verifiserer lagret scope og skiller uvalgte moduler fra uutførte valgte moduler. Ingen live research-/bulkimport-jobb er kjørt. Se `TESTING.md` og `DEPLOYMENT.md` for kommandoer og datamigreringshensyn.
 **Prioritet:** P0
 **Leveranse:** Versjonerte migreringer, validerte konfigurasjoner, fungerende Redis-worker, Compose healthchecks/oppstartsrekkefølge, låste avhengigheter, investigation-skjema i web og CI.
 **Acceptance:** Ren database kan migreres; gjentatt upgrade er trygg; API gir korrekt readiness; web oppretter/leser reell investigation med scope; integrerte tester og bygg passerer. Dette er grunnmur, ikke ferdig autonom research-/rapportmotor.
