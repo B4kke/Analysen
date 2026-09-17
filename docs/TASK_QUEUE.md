@@ -100,5 +100,13 @@ En oppgave kan bare settes `DONE` når:
 **Leveranse:** Auth/RBAC, operatøridentitet, retention, export/deletion og backup/restore.
 **Acceptance:** Ekstern/flerbrukerdrift har saksspesifikk tilgang og dokumentert datalivssyklus. Nåværende Compose er kun lokal énbrukerdrift.
 
+### AQ-011 — NIM planner som forslagsgiver bak lead-gaten
+**Status:** IN_PROGRESS
+**Prioritet:** P0
+**Avhenger av:** AQ-005
+**Leveranse:** Typed planlegger-forslag (`domain/planner.py`), modell-uavhengig planlegger-tjeneste (`services/planner.py`) med Pydantic-validering, deterministisk dedup/cap, modellnavn fra `config/models.yaml`, og live-probe (`scripts/plan_probe.py`).
+**Acceptance:** Skjemagyldig output når gaten; skjemainvalid output avvises før lagring; live NIM-kall verifisert mot syntetisk kontekst. Live-verifisering krever `NIM_API_KEY` i miljøet og er ikke kjørt ennå.
+**Fremdrift 2026-09-18:** Domene, tjeneste og 9 enhetstester på plass (fake provider). Dataminimering: modellen ser kun måltype/navn, scope, leads og budsjetter — aldri fødselsdata, identifikatorer eller raw evidence.
+
 ## Hygiene
 Fullførte oppgaver beholdes her for sporbarhet inntil en senere opprydding flytter eldre historikk til changelog/release notes. En oppgave skal aldri bli stående `IN_PROGRESS` etter at leveransen er avsluttet.
