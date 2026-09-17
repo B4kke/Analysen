@@ -104,10 +104,17 @@ En oppgave kan bare settes `DONE` når:
 **Status:** DONE
 **Verifisert 2026-09-18:** Live NIM-kall mot `nvidia/nemotron-3-super-120b-a12b` med syntetisk kontekst. Første svar var skjemainvalid (`trigger_type: DIRECT_RELATION`, `priority: "high"`) og ble avvist av Pydantic-laget før lagring — deretter skjerpet `prompts/planner.md` med eksakte enum-verdier. Andre kall ga 3 skjemagyldige forslag; gaten slapp 1 gjennom (`WEAK_SOURCE_ONLY` → PENDING) og nektet 2 med presise årsaker (`MEDIA_CORROBORATION` → `passive_trigger_requires_review`, relasjonsforslag uten verifisert relasjon → `invalid_target`). Alt auditlogget (`LEAD_PROPOSED`). Testdata slettet via `DELETE` (204, deretter 404). Nøkkelen ble kun brukt som miljøvariabel og er ikke lagret i repoet.
 **Prioritet:** P0
-**Avhenger av:** AQ-005
 **Leveranse:** Typed planlegger-forslag (`domain/planner.py`), modell-uavhengig planlegger-tjeneste (`services/planner.py`) med Pydantic-validering, deterministisk dedup/cap, modellnavn fra `config/models.yaml`, og live-probe (`scripts/plan_probe.py`).
-**Acceptance:** Skjemagyldig output når gaten; skjemainvalid output avvises før lagring; live NIM-kall verifisert mot syntetisk kontekst. Live-verifisering krever `NIM_API_KEY` i miljøet og er ikke kjørt ennå.
+**Acceptance:** Skjemagyldig output når gaten; skjemainvalid output avvises før lagring; live NIM-kall verifisert mot syntetisk kontekst (se Verifisert-notat over).
 **Fremdrift 2026-09-18:** Domene, tjeneste og 9 enhetstester på plass (fake provider). Dataminimering: modellen ser kun måltype/navn, scope, leads og budsjetter — aldri fødselsdata, identifikatorer eller raw evidence.
+
+### AQ-012 — Trigger evaluator og frontier-valg
+**Status:** DONE
+**Verifisert 2026-09-18:** `services/trigger_evaluator.py` + `services/frontier.py` med typed beslutninger (`domain/trigger_eval.py`). Uverifiserte relasjoner og passive triggere blir `CONTEXT_ONLY`; contradiction på målet gir `VERIFICATION_LEAD`; finansanomalier krever valgt FINANCIALS + materialitet; besvarte/uttømte spørsmål og budsjett gir eksplisitte `STOP_*`. Frontier velger høyeste prioritet blant PENDING innen dybde. 13 tester (`test_trigger_decisions.py`); 118 grønne i Compose-nettverket. Eksekutor (faktisk innhenting) er neste steg.
+**Prioritet:** P0
+**Avhenger av:** AQ-005, AQ-011
+**Leveranse:** Deterministisk trigger-evaluator (`FOLLOW_UP_LEAD`, `VERIFICATION_LEAD`, `CONTEXT_ONLY`, `BLOCKED_BY_SCOPE`, `STOP_*`) og frontier-velger som ordner PENDING-leads etter prioritet innen scope/budsjett. Ingen live innhenting — eksekutor kommer senere.
+**Acceptance:** Relasjonsforslag uten verifisert relasjon blir `CONTEXT_ONLY`, aldri auto-kjøring; contradiction gir målrettet verifikasjon; løkker og budsjett stopper deterministisk.
 
 ## Hygiene
 Fullførte oppgaver beholdes her for sporbarhet inntil en senere opprydding flytter eldre historikk til changelog/release notes. En oppgave skal aldri bli stående `IN_PROGRESS` etter at leveransen er avsluttet.

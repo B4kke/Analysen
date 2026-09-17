@@ -109,3 +109,7 @@ BRREG-ingest tillates foreløpig bare for et entydig company/organization-mål m
 ## Lead admission (AQ-005)
 
 Planner/LLM kan bare foreslå leads via `POST /api/v1/investigations/{id}/leads`. Ruten låser investigation-rad og kjører deterministisk admission i `services/lead_gate.py` før lagring. Passive discovery-triggere (`NEW_VERIFIED_ALIAS`, `MEDIA_CORROBORATION`, `SANCTIONS_CANDIDATE`) lagres aldri som kjørbare; de blir `BLOCKED/passive_trigger_requires_review`. Refuserte leads lagres som `BLOCKED` med gate-årsak og audit; `LEAD_PROPOSED` audit er ikke frivillig — en transaksjon uten audit rulles tilbake. Scope-innsnevring blokkerer fortsatt ventende leads samme transaksjon. Det finnes ingen rute som oppretter `PENDING`-leads utenom gaten; NIM-planneren kobles senere som én av flere forslagsgivere bak samme rute.
+
+## Trigger evaluator og frontier (AQ-012)
+
+`services/trigger_evaluator.py` ruter hvert forslag til én typed beslutning: `FOLLOW_UP_LEAD`, `VERIFICATION_LEAD`, `CONTEXT_ONLY`, `BLOCKED_BY_SCOPE` eller `STOP_*`. Uverifiserte relasjoner og passive triggere blir `CONTEXT_ONLY` — aldri auto-kjøring. Contradiction gir målrettet `VERIFICATION_LEAD` på samme entity. `services/frontier.py` velger høyeste prioritet blant `PENDING`-leads innen dybde og budsjett. Evaluator og velger er deterministiske og modellfrie; eksekutor (senere) kjører kun valgte leads som også passerer lead-gaten ved verktøygrensen.
