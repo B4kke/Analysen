@@ -1,0 +1,82 @@
+sources:
+  brreg_entities:
+    enabled: true
+    access: OPEN_NO_KEY
+    evidence_tier: 1
+    base_url: https://data.brreg.no/enhetsregisteret/api
+    license: NLOD-2.0
+  brreg_roles:
+    enabled: true
+    access: OPEN_NO_KEY
+    evidence_tier: 1
+    endpoint: https://data.brreg.no/enhetsregisteret/api/enheter/{orgnr}/roller
+    license: NLOD-2.0
+  brreg_role_inventory:
+    enabled: true
+    access: OPEN_NO_KEY
+    evidence_tier: 1
+    endpoint: https://data.brreg.no/enhetsregisteret/api/roller/totalbestand
+    contains_birth_date: true
+    contains_national_id: false
+    license: NLOD-2.0
+  brreg_legal_roles:
+    enabled: true
+    access: OPEN_NO_KEY
+    evidence_tier: 1
+    endpoint: https://data.brreg.no/enhetsregisteret/api/roller/enheter/{orgnr}/juridiskeroller
+  brreg_group_structure:
+    enabled: true
+    access: OPEN_NO_KEY
+    evidence_tier: 1
+    endpoint: https://data.brreg.no/enhetsregisteret/api/konsernstruktur/{orgnr}
+  brreg_accounts:
+    enabled: true
+    access: OPEN_NO_KEY
+    evidence_tier: 1
+    base_url: https://data.brreg.no/regnskapsregisteret/regnskap
+  brreg_announcements:
+    enabled: true
+    access: PUBLIC_WEB
+    evidence_tier: 1
+    url: https://www.brreg.no/registersok/kunngjoringer/
+  beneficial_owners_no:
+    enabled: false
+    access: ENTITLEMENT_REQUIRED
+    evidence_tier: 1
+    reason: Maskinporten and qualified legal role required
+  norwegian_court_person_index:
+    enabled: false
+    access: DISABLED_BY_POLICY
+    reason: Article 10 / Personal Data Act legal gate; no comprehensive criminal-record index
+  searxng:
+    enabled: true
+    access: SELF_HOSTED
+    evidence_tier: null
+    discovery_only: true
+    base_url_env: SEARXNG_BASE_URL
+  common_crawl:
+    enabled: true
+    access: OPEN_NO_KEY
+    evidence_tier: 4
+    historical: true
+    index_url: https://index.commoncrawl.org/collinfo.json
+  gleif:
+    enabled: true
+    access: OPEN_NO_KEY
+    evidence_tier: 1
+    base_url: https://api.gleif.org/api/v1
+  gdelt:
+    enabled: true
+    access: OPEN_NO_KEY
+    evidence_tier: null
+    discovery_only: true
+    base_url: https://api.gdeltproject.org/api/v2/doc/doc
+  rdap:
+    enabled: true
+    access: OPEN_NO_KEY
+    evidence_tier: 2
+  eu_sanctions:
+    enabled: true
+    access: OPEN_NO_KEY
+    evidence_tier: 1
+    reference: https://data.europa.eu/data/datasets/consolidated-list-of-persons-groups-and-entities-subject-to-eu-financial-sanctions?locale=en

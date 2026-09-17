@@ -1,0 +1,45 @@
+collection:
+  public_sources_only: true
+  no_auth_bypass: true
+  no_captcha_bypass: true
+  no_paywall_bypass: true
+  no_private_api_bypass: true
+  honor_domain_rate_limits: true
+
+privacy:
+  blocked_inferences:
+    - ethnicity
+    - race
+    - religion
+    - health
+    - sexual_orientation
+    - sex_life
+    - political_opinion
+  store_national_id_by_default: false
+  criminal_records_default_enabled: false
+  political_registry_default_enabled: false
+  personal_risk_score_allowed: false
+
+high_impact:
+  automated_decision_allowed: false
+  domains:
+    - employment
+    - credit
+    - insurance
+    - housing
+    - education_admission
+
+crawler:
+  allowed_schemes: [http, https]
+  block_private_networks: true
+  max_redirects: 5
+  default_domain_concurrency: 2
+  default_domain_delay_seconds: 1.0
+
+investigation_defaults:
+  max_depth: 3
+  max_urls: 250
+  max_documents: 150
+  max_pages_per_domain: 30
+  max_model_calls: 300
+  require_human_review_for_probable_identity: true

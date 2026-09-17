@@ -1,0 +1,42 @@
+provider:
+  type: openai_compatible
+  base_url_env: NIM_BASE_URL
+  api_key_env: NIM_API_KEY
+
+roles:
+  planner:
+    primary: nvidia/nemotron-3-super-120b-a12b
+    deep: nvidia/nemotron-3-ultra-550b-a55b
+    canary: z-ai/glm-5-3
+    reasoning: true
+  workhorse:
+    primary: nvidia/nemotron-3.5-lightning-30b-a3b
+    fallback: nvidia/nemotron-3-super-120b-a12b
+    reasoning: true
+  extractor:
+    primary: nvidia/nemotron-3.5-lightning-30b-a3b
+    fallback: nvidia/nemotron-3-super-120b-a12b
+    reasoning: false
+    json_mode: true
+  verifier:
+    primary: nvidia/nemotron-3-ultra-550b-a55b
+    fallback: nvidia/nemotron-3-super-120b-a12b
+    reasoning: true
+  reporter:
+    primary: nvidia/nemotron-3-super-120b-a12b
+    deep: nvidia/nemotron-3-ultra-550b-a55b
+    reasoning: true
+  vision:
+    primary: moonshotai/kimi-k3
+    fallback: nvidia/nemotron-3-nano-omni-30b-a3b-reasoning
+  embedding:
+    primary: nvidia/nemotron-3-embed-1b
+
+routing:
+  escalate_to_deep_on:
+    - material_contradiction
+    - unresolved_identity
+    - complex_network
+    - verifier_disagreement
+    - long_multi_document_synthesis
+  norwegian_eval_required: true
