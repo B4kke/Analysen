@@ -48,7 +48,8 @@ En oppgave kan bare settes `DONE` når:
 **Acceptance:** Ingen av de oppdaterte canonical dokumentene beskriver generell auto-ekspansjon i konflikt med scope/trigger-kontraktene.
 
 ### AQ-004 — Implement investigation scope in API/schema
-**Status:** IN_PROGRESS
+**Status:** DONE
+**Verifisert 2026-09-17:** Typed scope-moduler, expansion policy, relasjonsdybde, modulrader med coverage og lead/search-metadata er i API og database. Scope-endringer lagres i én transaksjon med before/after-audit. Regresjonstester viser at innsnevring blokkerer ventende leads utenfor scope med `module_disabled`, bevarer coverage/status, og at en scope-endring som ikke kan auditeres rulles helt tilbake. 50 tester passerer i Compose-nettverket, inkludert denne regresjonssuiten. Planner/lead-generering gjenstår i AQ-005.
 **Prioritet:** P0
 **Avhenger av:** AQ-003
 **Leveranse:** Typed scope modules, expansion policy, max relation depth, module-run/coverage state og lead/search metadata i API/datamodell/database.
