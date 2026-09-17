@@ -1,13 +1,29 @@
-import httpx
-from fastapi import APIRouter, HTTPException, Query
+from datetime import date
+from typing import Annotated
 
+import httpx
+from fastapi import APIRouter, Depends, HTTPException, Query
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from apps.api.app.core.database import get_db_session
 from apps.api.app.domain.identifiers import InvalidOrganizationNumber
-from apps.api.app.domain.models import BrregOrganization, BrregRoleLookup
+from apps.api.app.domain.models import (
+    BrregOrganization,
+    BrregPersonRoleSearch,
+    BrregRoleIndexStatus,
+    BrregRoleLookup,
+)
+from apps.api.app.repositories.role_index import get_active_snapshot
 from apps.api.app.services.brreg_normalization import normalize_brreg_organization
 from apps.api.app.services.brreg_roles import normalize_brreg_roles
+from apps.api.app.services.person_role_search import (
+    RoleIndexUnavailable,
+    search_person_business_roles,
+)
 from apps.api.app.sources.brreg import BrregAdapter
 
 router = APIRouter(prefix="/api/v1/brreg", tags=["brreg"])
+DatabaseSession = Annotated[AsyncSession, Depends(get_db_session)]
 
 
 @router.get("/search", response_model=list[BrregOrganization])
@@ -26,6 +42,39 @@ async def search_organizations(
 
     items = (payload.get("_embedded") or {}).get("enheter") or []
     return [normalize_brreg_organization(item) for item in items if isinstance(item, dict)]
+
+
+@router.get("/role-index/status", response_model=BrregRoleIndexStatus)
+async def role_index_status(session: DatabaseSession) -> BrregRoleIndexStatus:
+    snapshot = await get_active_snapshot(session)
+    if snapshot is None:
+        return BrregRoleIndexStatus(available=False)
+    return BrregRoleIndexStatus(
+        available=True,
+        snapshot_id=snapshot["id"],
+        sha256=snapshot["sha256"],
+        record_count=snapshot["record_count"],
+        last_modified=snapshot["last_modified"],
+        completed_at=snapshot["completed_at"],
+    )
+
+
+@router.get("/person-roles", response_model=BrregPersonRoleSearch)
+async def person_roles(
+    session: DatabaseSession,
+    name: str = Query(min_length=2, max_length=200),
+    birth_date: date = Query(),
+    limit: int = Query(default=250, ge=1, le=1000),
+) -> BrregPersonRoleSearch:
+    try:
+        return await search_person_business_roles(
+            session,
+            name=name,
+            birth_date=birth_date,
+            limit=limit,
+        )
+    except RoleIndexUnavailable as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
 
 
 @router.get("/organizations/{orgnr}/roles", response_model=BrregRoleLookup)
