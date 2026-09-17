@@ -8,6 +8,23 @@ from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 
+async def get_active_snapshot(session: AsyncSession) -> dict[str, Any] | None:
+    row = (
+        await session.execute(
+            text(
+                """
+                SELECT id, sha256, status, record_count, storage_path, etag,
+                       last_modified, completed_at
+                FROM brreg_role_snapshots
+                WHERE status = 'ACTIVE'
+                LIMIT 1
+                """
+            )
+        )
+    ).mappings().one_or_none()
+    return dict(row) if row is not None else None
+
+
 async def find_snapshot_by_hash(session: AsyncSession, sha256: str) -> dict[str, Any] | None:
     row = (
         await session.execute(
@@ -123,7 +140,10 @@ async def activate_role_snapshot(
         text(
             """
             UPDATE brreg_role_snapshots
-            SET status = 'ACTIVE', record_count = :record_count, completed_at = now(), error_message = NULL
+            SET status = 'ACTIVE',
+                record_count = :record_count,
+                completed_at = now(),
+                error_message = NULL
             WHERE id = :snapshot_id AND status = 'IMPORTING'
             """
         ),
