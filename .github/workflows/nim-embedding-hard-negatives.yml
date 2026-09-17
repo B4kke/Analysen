@@ -6,6 +6,7 @@ on:
     branches: [main]
     paths:
       - "scripts/nim_embedding_hard_negatives.py"
+      - ".github/workflows/nim-embedding-hard-negatives.yml"
 
 concurrency:
   group: nim-embedding-hard-negatives-${{ github.ref }}
