@@ -8,12 +8,16 @@ Implementert:
 - `GET /investigations/{id}`
 - `PATCH /investigations/{id}/scope`
 - `GET /investigations/{id}/modules`
+- `GET /investigations/{id}/report/sections`
 - `POST /investigations/{id}/sources/brreg/organizations/{orgnr}`
+- `POST /investigations/{id}/leads` (201; refuserte forslag lagres som BLOCKED, ikke feil)
+- `POST /investigations/{id}/leads/{lead_id}/execute`
+- `POST /investigations/{id}/research/run` (202, legger én avgrenset worker-pass på kø)
+- `GET /investigations/{id}/export`
+- `DELETE /investigations/{id}` (204)
 
 Planlagt:
-- `POST /investigations/{id}/run`
 - `POST /investigations/{id}/pause`
-- `POST /investigations/{id}/resume`
 - `GET /investigations/{id}/events` (SSE)
 - `GET /investigations/{id}/coverage`
 
@@ -58,6 +62,12 @@ Planlagt:
 
 Graph/read models skal eksponere `relation_depth` og `expansion_state` slik at UI kan skille target/material/researched/context-only.
 
+## Leads, eksekvering og research-loop
+Implementert (alle deterministiske og modellfrie; modellen foreslår, gaten bestemmer):
+- `POST /investigations/{id}/leads`: valider og lagr forslag; returnerer `PENDING` eller `BLOCKED` med årsak + `LEAD_PROPOSED`-audit. Passive discovery-triggere kan aldri bli `PENDING`.
+- `POST /investigations/{id}/leads/{lead_id}/execute`: kjør ett PENDING-lead (kun allowlisted typer, i dag `brreg_organization_lookup` mot eksplisitt mål). Gaten sjekkes på nytt ved kjøring. Returnerer terminal `COMPLETED`/`BLOCKED`/`FAILED` med coverage-oppdatering og audit.
+- `POST /investigations/{id}/research/run`: 202, legger én avgrenset worker-pass (default maks 10 leads) på Dramatiq-køen. Passet velger frontier → evaluerer trigger → kjører, committer per lead og auditerer `RESEARCH_PASS_COMPLETED`.
+
 ## Claims/evidence
 Planlagt:
 - `GET /investigations/{id}/claims`
@@ -66,9 +76,12 @@ Planlagt:
 - `GET /investigations/{id}/leads`
 - `GET /investigations/{id}/search-queries`
 
-Lead/query read models skal eksponere `scope_area`, `trigger_type/query_class`, `information_need`, `reason`, status og eventuell `blocked_reason`.
+Lead/query read models skal eksponere `scope_area`, `trigger_type/query_class`, `information_need`, `reason`, status og eventuell `blocked_reason`. Inntil leserutene finnes dekkes eksportbehovet av `GET /investigations/{id}/export`, som inkluderer leads, dokumenter med raw-nøkler og audit.
 
 ## Reports
+Implementert:
+- `GET /investigations/{id}/report/sections`: dynamiske dekningsseksjoner (undersøkt, med mangler, ikke undersøkt, utilgjengelig, ikke valgt) med coverage per modul. Deaktiverte moduler presenteres aldri som negative funn.
+
 Planlagt:
 - `POST /investigations/{id}/reports`
 - `GET /reports/{id}`

@@ -108,7 +108,7 @@ NEXT_PUBLIC_API_URL=http://<LAN-IP>:8000 npm --prefix apps/web run build
 nohup npm --prefix apps/web run start -- -H 0.0.0.0 -p 3000 &
 ```
 
-Stopp da web/api-containerne først (`docker compose stop web api`) for å unngå portkonflikt. Native prosesser overlever ikke omstart — start dem på nytt etter reboot.
+Stopp da web/api-containerne først (`docker compose stop web api`) for å unngå portkonflikt. Native prosesser overlever ikke omstart — start dem på nytt etter reboot. Uvicorn uten `--reload` og Next-standalone laster kode ved oppstart: **restart begge etter kodeendringer**, ellers server de gammel kode (nye API-ruter gir 404 til nettleseren viser «Not Found»).
 
 ## Lokal Python og Node
 

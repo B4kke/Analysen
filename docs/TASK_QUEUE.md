@@ -131,6 +131,10 @@ En oppgave kan bare settes `DONE` når:
 ### AQ-016 — Rapport-UI i web
 **Status:** DONE
 **Verifisert 2026-09-18:** Rapportside `/investigations/[id]/report` rendrer de fem seksjonene fra API-et med tellinger, coverage (søk/dokumenter/kilder) og stoppårsaker; «Ikke valgt» forklarer eksplisitt at fravær av funn ikke er negativt funn. Lenket fra detaljsiden. Nettlesersmoke dekker opprettelse → detalj → reload → rapport med seksjonsoverskrifter og modulnavn.
+
+### AQ-017 — Research-start fra UI-et
+**Status:** DONE
+**Verifisert 2026-09-18:** «Start research-pass»-knapp på detaljsiden legger worker-pass på kø via `POST /research/run` og viser status. Hjemmesidens utdaterte «orkestratoren kommer senere»-tekst oppdatert. Smoke dekker kølegging. Sidespor avdekket at nativ API serverte gammel kode uten research-ruten (404 → «Not Found» i UI); dokumentert restart-krav i `DEPLOYMENT.md`.
 **Prioritet:** P1
 **Avhenger av:** AQ-006
 **Leveranse:** Rapportside per investigation som rendrer de fem seksjonene fra `GET /report/sections` med coverage og stop-årsaker, lenket fra detaljsiden.

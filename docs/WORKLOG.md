@@ -24,3 +24,5 @@ Kort, append-only oversikt over fullførte milepæler. Dette er ikke en ny TODO-
 - AQ-014 lukket: opt-in LAN-binding for mobil på samme nett (default loopback), RFC1918-CORS, verifisert separat stack + bundel-URL. Postgres/Redis/SearXNG forblir loopback.
 - AQ-015 lukket: worker-basert research-loop med avgrensede passer, separat commit per lead og auditert sammendrag. Evaluator-nekt parkerer som BLOCKED. 6 integrasjonstester; 131 grønne totalt.
 - AQ-016 lukket: dekningsrapport-UI i web med fem seksjoner, coverage og stoppårsaker; smoke dekker rapportflyten. Native standalone-server krever `.next/static` ved siden av serveren (som i Dockerfile); feilsøkt og dokumentert implisitt via verifisert oppsett.
+- Mangelrunde: API.md oppdatert med alle nye ruter (leads/eksekvering/research/eksport/rapport), README-status synkronisert, `plan_probe.py` kjører uten PYTHONPATH.
+- AQ-017 lukket: research-startknapp i UI med smoke-dekning; avdekket og dokumentert at native servere må restartes etter kodeendringer.

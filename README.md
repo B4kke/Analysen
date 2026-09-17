@@ -7,7 +7,7 @@ Analysen er en kildebevisst OSINT- og bakgrunnsanalysemotor med Norge som primæ
 ## Status
 Lokal grunnmur: FastAPI, Next.js, PostgreSQL/pgvector, Redis/Dramatiq, SearXNG og Alembic. Web oppretter og åpner reelle investigations. Scope lagres eksplisitt med modulstatus og audit ved endringer. Datakilde-/modell-/policykonfigurasjon valideres ved oppstart.
 
-BRREG-adapters, normalisering, rolleindeks, entity resolution og NIM-provider finnes. Autonom planner/research-loop, komplett evidence-pipeline og rapportgenerering er videre arbeid; se `docs/TASK_QUEUE.md`. UI viser faktisk lagret tilstand og fremstiller ikke uutførte moduler som undersøkt.
+Leveransen omfatter nå hele den deterministiske kjeden: NIM-planner foreslår typed leads (live-verifisert), lead-gate slipper/nekter deterministisk, trigger-evaluator ruter funn, frontier velger høyeste prioritet, eksekutor kjører BRREG-måloppslag med evidence og coverage, og worker kjører avgrensede research-passer via `POST /research/run`. BRREG-ingest lagrer immutable raw snapshots; per-sak eksport og auditert sletting finnes. Dekningsrapport vises i web med fem seksjoner. Verifikator, dokumentregnskap-pipeline og full rapportgenerering er videre arbeid; se `docs/TASK_QUEUE.md`. UI viser faktisk lagret tilstand og fremstiller ikke uutførte moduler som undersøkt.
 
 ## Stack
 - Next.js 16.3 / React 19.3 frontend

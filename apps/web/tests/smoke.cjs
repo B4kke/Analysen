@@ -46,8 +46,12 @@ for (const address of [web, api]) {
     assert.match(reportText, /BUSINESS ROLES/);
     assert.match(reportText, /FINANCIALS/);
     assert.match(reportText, /Områder du ikke valgte/);
+    await page.getByRole("link", { name: /Tilbake til undersøkelsen/ }).click();
+    await page.waitForURL("**/investigations/*");
+    await page.getByRole("button", { name: /Start research-pass/ }).click();
+    await page.getByText(/lagt på kø|Kunne ikke starte/).waitFor();
     assert.deepEqual(errors, []);
-    console.log(`PASS: create, detail, reload, scope display and report. Synthetic investigation: ${id}`);
+    console.log(`PASS: create, detail, reload, scope, report and research enqueue. Synthetic investigation: ${id}`);
   } finally {
     await browser.close();
   }
