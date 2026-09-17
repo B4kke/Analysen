@@ -1,21 +1,71 @@
-# Deployment
+# Lokal drift og oppstart
 
-## Lokal utvikling
-Mål: WSL2/Linux + Docker Compose. Tjenester: postgres/pgvector, redis, searxng, api, worker, web.
+Analysen kjører som et monorepo på WSL2/Linux med Docker Compose. NVIDIA NIM er en valgfri hosted provider; grunnmuren starter uten API-nøkkel og uten GPU.
 
-NVIDIA NIM brukes primært som hosted API; self-hosting av store NIM-modeller krever NVIDIA-hardware og er ikke en MVP-forutsetning.
+## Docker Compose
 
-## Miljøvariabler
-Se `.env.example`. Secrets skal ikke ligge i repo.
+```bash
+# Valgfritt: konfigurer NIM, porter og lokal SearXNG-secret.
+cp .env.example .env
+# Bruk en egen tilfeldig SEARXNG_SECRET dersom andre får tilgang.
+docker compose up --build -d
+docker compose ps
+curl --fail http://localhost:8000/ready
+```
+
+Web: http://localhost:3000. API/OpenAPI: http://localhost:8000/docs. SearXNG: http://localhost:8080. Porter er bundet til loopback. PostgreSQL og Redis publiseres lokalt for utvikling. Denne leveransen er for én lokal operatør; autentisering, autorisasjon og retention må leveres før ekstern/flerbrukerdrift.
+
+Oppstartsrekkefølge: PostgreSQL healthcheck → `migrate` → API/worker. Redis må være frisk før API/worker. Web venter på API. SearXNG er en separat discovery-tjeneste. `migrate` som avsluttes med exit 0 er normalt. `/health` er liveness; `/ready` krever både gjeldende databaseskjema og Redis.
+
+API-/web-porter kan overstyres med `API_PORT` og `WEB_PORT`. `NEXT_PUBLIC_API_URL` bygges inn i web-bundelen; bygg web på nytt etter adresseendring. Ved endret web-port må `CORS_ORIGINS` også inneholde web-opprinnelsen. Se `.env.example`.
+
+```bash
+docker compose logs --tail=100 api worker migrate
+docker compose stop
+# Fjerner containere, beholder databasevolum:
+docker compose down
+```
+
+Ikke bruk `down -v` for en installasjon med data som skal beholdes.
+
+## Lokal Python og Node
+
+Python 3.12 og Node 22+ er forutsetninger. Installasjon fra låste avhengigheter:
+
+```bash
+python3 -m venv .venv
+source .venv/bin/activate
+pip install -r requirements-dev.lock
+cd apps/web
+npm ci
+cd ../..
+docker compose up -d postgres redis
+alembic upgrade head
+make dev-api
+# I separate terminaler med samme miljø:
+make worker
+make web
+```
+
+På WSL uten `ensurepip`: installer distribusjonens `python3-venv`, eller bruk `uv venv .venv` og `uv pip sync requirements-dev.lock`. Kjør kommandoene fra repo-roten. `.env` er valgfri; lokale defaultverdier matcher Compose.
+
+`requirements.lock` er runtime, `requirements-dev.lock` legger til utviklingsverktøy. Dokument-/crawlerpakken er flyttet til `requirements-research.lock` og installeres ved arbeid med disse modulene. Ingen eksisterende research-kode er fjernet. `make lock` regenererer låsene med uv; gjennomgå versjonsendringene før de tas i bruk.
+
+## Databasemigreringer
+
+Alembic er eneste migreringsmekanisme. `db/migrations/sql/0001_baseline.sql` er et frosset snapshot av det opprinnelige skjemaet. `0002_scope` legger til scope, modulstatus, entity expansion-state, leads og søkemetadata. `db/schema.sql` er et lesbart referanseskjema og brukes ikke som init-hook i Compose.
+
+```bash
+alembic current
+alembic upgrade head
+```
+
+En eksisterende database fra repoets opprinnelige `schema.sql` kan oppgraderes direkte: baseline bruker `IF NOT EXISTS`. Ta backup først. Eksisterende investigations beholder data, får tomt research-scope, `CONTEXT_ONLY`, dybde 0 og en `SCOPE_MIGRATED` audit-hendelse. Velg scope eksplisitt før videre innhenting. Ikke bruk `stamp head` for å hoppe over schema-endringer.
+
+Migreringene er fremoverrettede. Automatisk downgrade som fjerner scope-/auditdata er deaktivert; rollback skjer ved gjenoppretting av backup med tilhørende kodeversjon. Gjentatt `upgrade head` er trygt.
 
 ## Produksjon senere
-- web/API bak reverse proxy/TLS
-- egress controls for crawler
-- managed/backup PostgreSQL
-- object storage med kryptering
-- auth/RBAC
-- queue workers separat
-- audit/metrics
 
-## Portabilitet
-Provider abstraction skal tillate lokal modell eller annen OpenAI-kompatibel provider senere uten å endre domain logic.
+Auth/RBAC, reverse proxy/TLS, administrerte secrets, backup/restore-øvelse, retention/deletion/export, egress-kontroll og overvåking er egne leveranser før ekstern drift. NIM-inferens testes separat med operatørens nøkkel; normal test-suite bruker ikke eksterne datakilder eller betalte modellkall.
+
+Implementasjonen følger [Alembics async-oppsett](https://alembic.sqlalchemy.org/en/latest/cookbook.html#using-asyncio-with-alembic) og [Compose healthcheck-avhengigheter](https://docs.docker.com/compose/how-tos/startup-order/). SearXNG aktiverer [JSON-format eksplisitt](https://docs.searxng.org/admin/settings/settings_search.html).

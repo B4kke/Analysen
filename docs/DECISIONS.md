@@ -29,3 +29,13 @@
 
 ## ADR-010 — Canonical agent task queue
 **Status:** accepted. `docs/TASK_QUEUE.md` er eneste kanoniske arbeidskø for AI-agenter; `docs/WORKLOG.md` er append-only milepælhistorikk. Parallelle TODO-lister i tilfeldige dokumenter skal unngås.
+
+
+## ADR-011 — Migrering før tjenesteoppstart
+**Status:** accepted. Alembic erstatter init-only SQL. Frossen baseline adopterer eksisterende schema.sql-databaser uten sletting. Scope-migreringen gir eldre investigations tomt scope og audit. Migreringene er fremoverrettede for å beholde scope-/auditdata; rollback krever backup. Compose skiller migration-jobben fra API/worker.
+
+## ADR-012 — Lokal grunnmur med låste og delte avhengigheter
+**Status:** accepted. Runtime/dev installeres fra hver sin lås; crawler-/dokumentpakker ligger i valgfri research-lås. Web bruker npm ci og standalone-bygg. Lokale tjenester binder loopback, ingen modellnøkkel kreves ved oppstart. Auth/RBAC er nødvendig før ekstern drift.
+
+## ADR-013 — Scope håndheves før investigation-innhenting
+**Status:** accepted. Tomt scope betyr ingen research. Scope-endringer og eksisterende BRREG execution gate deler radlås og transaksjon. Ingest av relaterte entities avvises frem til dokumentert relation/materiality-workflow er implementert. UI viser reell lagret modulstatus. Coverage og triggerkontrakter er grunnlag for AQ-005/AQ-006, ikke automatisk research.

@@ -64,3 +64,27 @@ SSRF, redirects, DNS rebinding, malicious HTML instructions, archive bombs, over
 
 ## Repo-hygiene gate
 En oppgave skal ikke markeres `DONE` før relevante docs/tests er synkronisert. CI/lint kan senere kontrollere at kjente TODO/FIXME følger en task-ID eller eksplisitt policy.
+
+
+## Kjørbare kontroller for grunnmuren
+
+Installer `requirements-dev.lock` og `apps/web/package-lock.json` først.
+
+```bash
+ruff check .
+mypy apps
+pytest -q
+# Ekte PostgreSQL, isolerte testdata (inkl. midlertidig migration-database):
+docker compose up -d postgres redis
+alembic upgrade head
+TEST_DATABASE_URL=postgresql+asyncpg://analysen:analysen@localhost:5432/analysen pytest -q
+cd apps/web
+npm run typecheck
+npm run build
+```
+
+Uten `TEST_DATABASE_URL` skippes databaseintegrasjon eksplisitt. CI setter variabelen og kjører testene mot pgvector/PostgreSQL 17. Bruk en egen utviklings-/testdatabase. Migreringstesten trenger CREATEDB-rettighet og rydder bare sin egen tilfeldig navngitte database.
+
+Integrasjonssuiten verifiserer lagret scope, alle ni modulrader, before/after-audit, fail-closed BRREG-gate før upstream, positiv ingest med fixture og bevaring av innsamlede data ved innsnevring. Eksterne kildekall erstattes kun ved nettverksgrensen. Runtime-testene kontrollerer liveness, readiness 200/503 og CORS-preflight for PATCH.
+
+Nettlesersmoke: opprett en syntetisk investigation i web, åpne detaljsiden, last siden på nytt og kontroller at lagret navn/scope/moduler beholdes. Uvalgte områder skal vises som ikke valgt, aktive uutførte områder som ikke undersøkt. Ingen NIM-nøkkel eller live personresearch er nødvendig.

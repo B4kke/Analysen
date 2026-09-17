@@ -22,7 +22,10 @@ TOOLS = [
         "type": "function",
         "function": {
             "name": "company_registry_lookup",
-            "description": "Look up an organization in an authoritative company registry by organization number.",
+            "description": (
+                "Look up an organization in an authoritative company registry "
+                "by organization number."
+            ),
             "parameters": {
                 "type": "object",
                 "properties": {
@@ -37,7 +40,10 @@ TOOLS = [
         "type": "function",
         "function": {
             "name": "web_search",
-            "description": "Search public web pages when an authoritative registry is not the right first source.",
+            "description": (
+                "Search public web pages when an authoritative registry is not "
+                "the right first source."
+            ),
             "parameters": {
                 "type": "object",
                 "properties": {"query": {"type": "string"}},

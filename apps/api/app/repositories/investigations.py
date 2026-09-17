@@ -10,130 +10,188 @@ from apps.api.app.domain.models import (
     InvestigationDetail,
     InvestigationEntityRecord,
     InvestigationRecord,
-    TargetInput,
 )
+from apps.api.app.domain.scope import InvestigationModuleRecord, ScopeModule, ScopeUpdate
 
 
 class InvestigationNotFound(LookupError):
     pass
 
 
-async def create_investigation(
-    session: AsyncSession,
-    request: InvestigationCreate,
-) -> InvestigationRecord:
-    row = (
-        await session.execute(
-            text(
-                """
-                INSERT INTO investigations (
-                    target_type,
-                    target_input,
-                    purpose,
-                    legal_basis_note
-                )
-                VALUES (
-                    :target_type,
-                    CAST(:target_input AS jsonb),
-                    :purpose,
-                    :legal_basis_note
-                )
-                RETURNING
-                    id, target_input, purpose, legal_basis_note,
-                    status, created_at, updated_at
-                """
-            ),
-            {
-                "target_type": request.target.type.value,
-                "target_input": json.dumps(request.target.model_dump(mode="json")),
-                "purpose": request.purpose,
-                "legal_basis_note": request.legal_basis_note,
-            },
-        )
-    ).mappings().one()
+def _record(row) -> InvestigationRecord:
+    values = dict(row)
+    values["target"] = values.pop("target_input")
+    return InvestigationRecord.model_validate(values)
 
-    return InvestigationRecord(
-        id=row["id"],
-        target=TargetInput.model_validate(row["target_input"]),
-        purpose=row["purpose"],
-        legal_basis_note=row["legal_basis_note"],
-        status=row["status"],
-        created_at=row["created_at"],
-        updated_at=row["updated_at"],
+
+_RECORD_COLUMNS = """
+    id, target_input, purpose, legal_basis_note, status, created_at, updated_at,
+    scope_modules, expansion_policy, max_relation_depth
+"""
+
+
+async def _audit(session: AsyncSession, investigation_id: UUID, event: str, payload: dict) -> None:
+    await session.execute(
+        text("""
+            INSERT INTO audit_log (investigation_id, event_type, actor, payload)
+            VALUES (:id, :event, 'local-operator', CAST(:payload AS jsonb))
+        """),
+        {"id": investigation_id, "event": event, "payload": json.dumps(payload)},
     )
 
 
-async def get_investigation(
-    session: AsyncSession,
-    investigation_id: UUID,
-) -> InvestigationDetail:
+async def _sync_modules(
+    session: AsyncSession, investigation_id: UUID, modules: list[ScopeModule]
+) -> None:
+    for module in ScopeModule:
+        await session.execute(
+            text("""
+                INSERT INTO investigation_modules (investigation_id, module, enabled)
+                VALUES (:id, :module, :enabled)
+                ON CONFLICT (investigation_id, module) DO UPDATE SET enabled = EXCLUDED.enabled
+            """),
+            {"id": investigation_id, "module": module.value, "enabled": module in modules},
+        )
+
+
+def _scope_payload(record: InvestigationRecord) -> dict:
+    return record.model_dump(
+        mode="json", include={"scope_modules", "expansion_policy", "max_relation_depth"}
+    )
+
+
+async def create_investigation(
+    session: AsyncSession, request: InvestigationCreate
+) -> InvestigationRecord:
     row = (
         await session.execute(
-            text(
-                """
-                SELECT id, target_input, purpose, legal_basis_note, status, created_at, updated_at
-                FROM investigations
-                WHERE id = :investigation_id
-                """
-            ),
-            {"investigation_id": investigation_id},
+            text(f"""
+                INSERT INTO investigations (
+                    target_type, target_input, purpose, legal_basis_note,
+                    scope_modules, expansion_policy, max_relation_depth
+                ) VALUES (
+                    :target_type, CAST(:target_input AS jsonb), :purpose, :legal_basis_note,
+                    :scope_modules, :expansion_policy, :max_relation_depth
+                ) RETURNING {_RECORD_COLUMNS}
+            """),
+            {
+                "target_type": request.target.type.value,
+                "target_input": request.target.model_dump_json(),
+                "purpose": request.purpose,
+                "legal_basis_note": request.legal_basis_note,
+                "scope_modules": [module.value for module in request.scope_modules],
+                "expansion_policy": request.expansion_policy.value,
+                "max_relation_depth": request.max_relation_depth,
+            },
+        )
+    ).mappings().one()
+    record = _record(row)
+    await _sync_modules(session, record.id, request.scope_modules)
+    await _audit(session, record.id, "CREATED", {"scope": _scope_payload(record)})
+    return record
+
+
+async def get_investigation_record(
+    session: AsyncSession, investigation_id: UUID, *, for_update: bool = False
+) -> InvestigationRecord:
+    # The execution boundary holds this same lock until commit, serializing scope updates.
+    lock = " FOR UPDATE" if for_update else ""
+    row = (
+        await session.execute(
+            text(f"SELECT {_RECORD_COLUMNS} FROM investigations WHERE id = :id{lock}"),
+            {"id": investigation_id},
         )
     ).mappings().one_or_none()
     if row is None:
         raise InvestigationNotFound(str(investigation_id))
+    return _record(row)
 
+
+async def get_modules(
+    session: AsyncSession, investigation_id: UUID
+) -> list[InvestigationModuleRecord]:
+    await get_investigation_record(session, investigation_id)
+    rows = (
+        await session.execute(
+            text("""
+                SELECT module, enabled, status, coverage, stop_reason
+                FROM investigation_modules WHERE investigation_id = :id ORDER BY module
+            """),
+            {"id": investigation_id},
+        )
+    ).mappings().all()
+    return [InvestigationModuleRecord.model_validate(row) for row in rows]
+
+
+async def get_investigation(
+    session: AsyncSession, investigation_id: UUID
+) -> InvestigationDetail:
+    record = await get_investigation_record(session, investigation_id)
     entity_rows = (
         await session.execute(
-            text(
-                """
-                SELECT e.id, e.schema, e.canonical_name, e.attributes, e.resolution_state
-                FROM investigation_entities ie
-                JOIN entities e ON e.id = ie.entity_id
-                WHERE ie.investigation_id = :investigation_id
+            text("""
+                SELECT e.id, e.schema, e.canonical_name, e.attributes, e.resolution_state,
+                    ie.relation_depth, ie.expansion_state, ie.material_reason
+                FROM investigation_entities ie JOIN entities e ON e.id = ie.entity_id
+                WHERE ie.investigation_id = :id
                 ORDER BY ie.discovered_at, e.canonical_name NULLS LAST
-                """
-            ),
-            {"investigation_id": investigation_id},
+            """),
+            {"id": investigation_id},
         )
     ).mappings().all()
-
     claim_rows = (
         await session.execute(
-            text(
-                """
+            text("""
                 SELECT id, subject_entity_id, predicate, value, status, created_at
-                FROM claims
-                WHERE investigation_id = :investigation_id
-                ORDER BY created_at, predicate
-                """
-            ),
-            {"investigation_id": investigation_id},
+                FROM claims WHERE investigation_id = :id ORDER BY created_at, predicate
+            """),
+            {"id": investigation_id},
         )
     ).mappings().all()
-
     return InvestigationDetail(
-        id=row["id"],
-        target=TargetInput.model_validate(row["target_input"]),
-        purpose=row["purpose"],
-        legal_basis_note=row["legal_basis_note"],
-        status=row["status"],
-        created_at=row["created_at"],
-        updated_at=row["updated_at"],
+        **record.model_dump(),
         entities=[InvestigationEntityRecord.model_validate(item) for item in entity_rows],
         claims=[InvestigationClaimRecord.model_validate(item) for item in claim_rows],
+        modules=await get_modules(session, investigation_id),
     )
+
+
+async def update_scope(
+    session: AsyncSession, investigation_id: UUID, request: ScopeUpdate
+) -> InvestigationDetail:
+    before = await get_investigation_record(session, investigation_id, for_update=True)
+    await session.execute(
+        text("""
+            UPDATE investigations SET scope_modules = :modules, expansion_policy = :policy,
+                max_relation_depth = :depth, updated_at = now() WHERE id = :id
+        """),
+        {
+            "id": investigation_id,
+            "modules": [module.value for module in request.scope_modules],
+            "policy": request.expansion_policy.value,
+            "depth": request.max_relation_depth,
+        },
+    )
+    await _sync_modules(session, investigation_id, request.scope_modules)
+    # Queued work for disabled modules cannot survive a scope narrowing.
+    await session.execute(
+        text("""
+            UPDATE leads SET status = 'BLOCKED', blocked_reason = 'module_disabled'
+            WHERE investigation_id = :id AND status = 'PENDING'
+              AND NOT (scope_area = ANY(CAST(:modules AS text[])))
+        """),
+        {"id": investigation_id, "modules": [module.value for module in request.scope_modules]},
+    )
+    after = await get_investigation(session, investigation_id)
+    await _audit(session, investigation_id, "SCOPE_CHANGED", {
+        "before": _scope_payload(before), "after": _scope_payload(after), "reason": request.reason,
+    })
+    return after
 
 
 async def mark_investigation_active(session: AsyncSession, investigation_id: UUID) -> None:
-    result = await session.execute(
-        text(
-            """
-            UPDATE investigations
-            SET status = 'ACTIVE', updated_at = now()
-            WHERE id = :investigation_id
-            """
-        ),
-        {"investigation_id": investigation_id},
+    await get_investigation_record(session, investigation_id)
+    await session.execute(
+        text("UPDATE investigations SET status = 'ACTIVE', updated_at = now() WHERE id = :id"),
+        {"id": investigation_id},
     )
-    if result.rowcount == 0:
-        raise InvestigationNotFound(str(investigation_id))

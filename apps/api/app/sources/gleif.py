@@ -20,7 +20,7 @@ class GleifAdapter(SourceAdapter):
 
     async def search_legal_name(self, name: str, page_size: int = 20) -> dict[str, Any]:
         url = f"{self.base_url}/lei-records"
-        params = {
+        params: dict[str, str | int] = {
             "filter[entity.legalName]": name,
             "page[size]": page_size,
         }

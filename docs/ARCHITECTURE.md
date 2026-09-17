@@ -94,3 +94,14 @@ PostgreSQL er canonical. Cytoscape-data, embeddings, fulltekstindeks og eventuel
 
 ## Provider abstraction
 `LLMProvider`, `EmbeddingProvider`, `SearchProvider`, `CrawlerProvider`, `SourceAdapter`, `ObjectStore`. Ingen business logic skal anta én leverandør.
+
+
+## Implementert grunnmur og videre grenser
+
+Den kjørbare vertikale flyten er `Next.js → FastAPI → scope/audit → PostgreSQL`. `/ready` kontrollerer databaseskjema og Redis. Compose kjører Alembic som en egen oppstartsjobb. Pydantic validerer modell-/kilde-/policy-YAML før API starter. NIM-nøkkel kreves først ved inferens.
+
+Investigations opprettes med eksplisitte moduler (standard ingen). Scope-oppdatering er én transaksjon med before/after-audit og bevaring av eksisterende coverage/evidens. Innhentingsruten låser samme investigation-rad mens autorisasjon og innhenting pågår, slik at scope-endringer og nye actions serialiseres. Urelaterte investigations blokkerer ikke hverandre.
+
+BRREG-ingest tillates foreløpig bare for et entydig company/organization-mål med ett `known_orgnrs` og aktiv `BUSINESS_ROLES`. Generiske BRREG GET-ruter er manuelle registeroppslag, ikke del av en automatisk investigation. Utvidelse til relaterte entities krever senere scheduler/materiality-workflow; discovery eller et oppgitt personnavn gir ingen autorisasjon.
+
+`Lead`, `SearchMetadata`, module coverage og expansion states har typed kontrakter og databasestruktur. Scheduler, trigger evaluator, automatiske coverage-oppdateringer og rapportmotor er fortsatt planlagt. En databasekolonne eller DTO er ikke en ferdig agentflyt.

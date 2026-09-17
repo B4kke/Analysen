@@ -3,9 +3,17 @@ from enum import StrEnum
 from typing import Any
 from uuid import UUID
 
-from pydantic import BaseModel, Field, HttpUrl, field_validator, model_validator
+from pydantic import BaseModel, ConfigDict, Field, HttpUrl, field_validator, model_validator
 
 from apps.api.app.domain.identifiers import normalize_orgnr
+from apps.api.app.domain.scope import (
+    ExpansionPolicy,
+    ExpansionState,
+    InvestigationModuleRecord,
+    ScopeModule,
+    ScopeSettings,
+    TriggerType,
+)
 
 
 class TargetType(StrEnum):
@@ -31,6 +39,8 @@ class ClaimStatus(StrEnum):
 
 
 class TargetInput(BaseModel):
+    model_config = ConfigDict(extra="forbid", str_strip_whitespace=True)
+
     type: TargetType
     name: str = Field(min_length=1, max_length=500)
     birth_date: date | None = None
@@ -53,13 +63,22 @@ class TargetInput(BaseModel):
         return self
 
 
-class InvestigationCreate(BaseModel):
+class InvestigationCreate(ScopeSettings):
     target: TargetInput
     purpose: str = Field(min_length=3, max_length=1000)
     legal_basis_note: str | None = Field(default=None, max_length=2000)
 
+    @model_validator(mode="after")
+    def target_scope_defaults(self) -> "InvestigationCreate":
+        if self.target.type in (TargetType.COMPANY, TargetType.ORGANIZATION):
+            if "expansion_policy" not in self.model_fields_set:
+                self.expansion_policy = ExpansionPolicy.DIRECT_RELATIONS
+            if "max_relation_depth" not in self.model_fields_set:
+                self.max_relation_depth = 1
+        return self
 
-class InvestigationRecord(BaseModel):
+
+class InvestigationRecord(ScopeSettings):
     id: UUID
     target: TargetInput
     purpose: str
@@ -71,10 +90,13 @@ class InvestigationRecord(BaseModel):
 
 class InvestigationEntityRecord(BaseModel):
     id: UUID
-    schema: str
+    entity_schema: str = Field(alias="schema")
     canonical_name: str | None = None
     attributes: dict[str, Any]
     resolution_state: ResolutionState
+    relation_depth: int = 0
+    expansion_state: ExpansionState = ExpansionState.CONTEXT_ONLY
+    material_reason: str | None = None
 
 
 class InvestigationClaimRecord(BaseModel):
@@ -89,6 +111,7 @@ class InvestigationClaimRecord(BaseModel):
 class InvestigationDetail(InvestigationRecord):
     entities: list[InvestigationEntityRecord] = Field(default_factory=list)
     claims: list[InvestigationClaimRecord] = Field(default_factory=list)
+    modules: list[InvestigationModuleRecord] = Field(default_factory=list)
 
 
 class SearchResult(BaseModel):
@@ -125,6 +148,11 @@ class Lead(BaseModel):
     priority: float = Field(ge=0, le=1)
     depth: int = Field(ge=0)
     originating_claim_id: UUID | None = None
+    scope_area: ScopeModule
+    trigger_type: TriggerType
+    information_need: str = Field(min_length=3, max_length=2000)
+    relation_depth: int = Field(default=0, ge=0, le=3)
+    blocked_reason: str | None = None
 
 
 class VerificationResult(BaseModel):

@@ -30,50 +30,68 @@ En oppgave kan bare settes `DONE` når:
 ## Aktiv kø
 
 ### AQ-001 — Scope-first investigation contract
-**Status:** DONE  
-**Prioritet:** P0  
-**Leveranse:** Canonical scope-modell og expansion policy dokumentert i `INVESTIGATION_SCOPE.md` og kryssreferert i arkitekturen.  
+**Status:** DONE
+**Prioritet:** P0
+**Leveranse:** Canonical scope-modell og expansion policy dokumentert i `INVESTIGATION_SCOPE.md` og kryssreferert i arkitekturen.
 **Acceptance:** Moduler, expansion policy, materialitet, relation depth og report semantics er eksplisitte.
 
 ### AQ-002 — Trigger-driven follow-up research
-**Status:** DONE  
-**Prioritet:** P0  
-**Leveranse:** Canonical trigger/query/source-routing/stop-regler dokumentert i `SEARCH_TRIGGERS.md`.  
+**Status:** DONE
+**Prioritet:** P0
+**Leveranse:** Canonical trigger/query/source-routing/stop-regler dokumentert i `SEARCH_TRIGGERS.md`.
 **Acceptance:** Verifier-triggered retry, coverage ledger og dataminimering i queries er definert.
 
 ### AQ-003 — Propagate scope/trigger contracts through docs
-**Status:** DONE  
-**Prioritet:** P0  
-**Leveranse:** `ARCHITECTURE`, `DATA_MODEL`, `AGENT_ORCHESTRATION`, `SEARCH_CRAWLING`, `ENTITY_RESOLUTION`, `FINANCIAL_ANALYSIS`, `UI_UX`, `REPORTING`, `API`, `TESTING`, `IMPLEMENTATION_PLAN`, `README`, `DECISIONS` og `AGENTS.md` er synkronisert med canonical scope/trigger-regler.  
+**Status:** DONE
+**Prioritet:** P0
+**Leveranse:** `ARCHITECTURE`, `DATA_MODEL`, `AGENT_ORCHESTRATION`, `SEARCH_CRAWLING`, `ENTITY_RESOLUTION`, `FINANCIAL_ANALYSIS`, `UI_UX`, `REPORTING`, `API`, `TESTING`, `IMPLEMENTATION_PLAN`, `README`, `DECISIONS` og `AGENTS.md` er synkronisert med canonical scope/trigger-regler.
 **Acceptance:** Ingen av de oppdaterte canonical dokumentene beskriver generell auto-ekspansjon i konflikt med scope/trigger-kontraktene.
 
 ### AQ-004 — Implement investigation scope in API/schema
-**Status:** READY  
-**Prioritet:** P0  
-**Avhenger av:** AQ-003  
-**Leveranse:** Typed scope modules, expansion policy, max relation depth, module-run/coverage state og lead/search metadata i API/datamodell/database.  
+**Status:** IN_PROGRESS
+**Prioritet:** P0
+**Avhenger av:** AQ-003
+**Leveranse:** Typed scope modules, expansion policy, max relation depth, module-run/coverage state og lead/search metadata i API/datamodell/database.
 **Acceptance:** Deaktivert modul kan ikke planlegges/kalles; scope-endringer auditeres.
 
 ### AQ-005 — Implement planner/lead scope gates
-**Status:** READY  
-**Prioritet:** P0  
-**Avhenger av:** AQ-004  
-**Leveranse:** Planner/lead generator får scope, expansion state, information need og source capabilities; blocked actions avvises deterministisk.  
+**Status:** READY
+**Prioritet:** P0
+**Avhenger av:** AQ-004
+**Leveranse:** Planner/lead generator får scope, expansion state, information need og source capabilities; blocked actions avvises deterministisk.
 **Acceptance:** Discovery alene kan ikke autorisere ekspansjon.
 
 ### AQ-006 — Coverage ledger and dynamic report/UI
-**Status:** READY  
-**Prioritet:** P1  
-**Avhenger av:** AQ-004  
-**Leveranse:** Per-module coverage, stop reason, not-investigated state, dynamic report sections og context-only graph state.  
+**Status:** READY
+**Prioritet:** P1
+**Avhenger av:** AQ-004
+**Leveranse:** Per-module coverage, stop reason, not-investigated state, dynamic report sections og context-only graph state.
 **Acceptance:** Rapport kan skille undersøkt, ikke undersøkt, ufullstendig og utilgjengelig.
 
 ### AQ-007 — Search-trigger eval suite
-**Status:** READY  
-**Prioritet:** P1  
-**Avhenger av:** AQ-005  
-**Leveranse:** Tester for trigger selection, scope blocking, contradiction retry, no-loop og no-unnecessary-expansion.  
+**Status:** READY
+**Prioritet:** P1
+**Avhenger av:** AQ-005
+**Leveranse:** Tester for trigger selection, scope blocking, contradiction retry, no-loop og no-unnecessary-expansion.
 **Acceptance:** Test-suite fanger firma-/person-autoekspansjon uten aktivt scope.
+
+### AQ-008 — Kjørbar lokal grunnmur
+**Status:** IN_PROGRESS
+**Prioritet:** P0
+**Leveranse:** Versjonerte migreringer, validerte konfigurasjoner, fungerende Redis-worker, Compose healthchecks/oppstartsrekkefølge, låste avhengigheter, investigation-skjema i web og CI.
+**Acceptance:** Ren database kan migreres; gjentatt upgrade er trygg; API gir korrekt readiness; web oppretter/leser reell investigation med scope; integrerte tester og bygg passerer. Dette er grunnmur, ikke ferdig autonom research-/rapportmotor.
+
+### AQ-009 — Immutable raw evidence og komplett provenance
+**Status:** READY
+**Prioritet:** P0
+**Leveranse:** Lagre originalrespons før normalisering/LLM, hash-adressert object store, bevar hentetid per snapshot, full kildeviewer og provenance-kontrakttester.
+**Acceptance:** Hvert material claim kan åpnes tilbake til den originale lagrede responsen. Dagens BRREG-ingest lagrer normalisert evidens, men raw_storage_key fylles ikke ennå.
+
+### AQ-010 — Tilgang og retention før ekstern drift
+**Status:** READY
+**Prioritet:** P1
+**Leveranse:** Auth/RBAC, operatøridentitet, retention, export/deletion og backup/restore.
+**Acceptance:** Ekstern/flerbrukerdrift har saksspesifikk tilgang og dokumentert datalivssyklus. Nåværende Compose er kun lokal énbrukerdrift.
 
 ## Hygiene
 Fullførte oppgaver beholdes her for sporbarhet inntil en senere opprydding flytter eldre historikk til changelog/release notes. En oppgave skal aldri bli stående `IN_PROGRESS` etter at leveransen er avsluttet.

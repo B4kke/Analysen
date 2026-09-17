@@ -82,7 +82,11 @@ def normalize_brreg_legal_roles(
                     role_code=role_code,
                     role_description=_text(role_type.get("beskrivelse")),
                     deregistered=bool(role.get("avregistrert")),
-                    sequence=role.get("rekkefolge") if isinstance(role.get("rekkefolge"), int) else None,
+                    sequence=(
+                        role.get("rekkefolge")
+                        if isinstance(role.get("rekkefolge"), int)
+                        else None
+                    ),
                 )
             )
 

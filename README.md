@@ -5,14 +5,9 @@ Analysen er en kildebevisst OSINT- og bakgrunnsanalysemotor med Norge som primæ
 > **Kjerneprinsipp:** Brukeren velger scope. LLM foreslår. Policy/scope gate godkjenner. Verktøy henter. Kode beregner. Evidens dokumenterer. Verifikator kontrollerer. Mennesket vurderer.
 
 ## Status
-Grunnmur/arkitektur er etablert. BRREG entities/roles, åpen role-totalbestand, lokal reverse-index, investigation persistence, entity resolution og NIM-provider er påbegynt/implementert.
+Lokal grunnmur: FastAPI, Next.js, PostgreSQL/pgvector, Redis/Dramatiq, SearXNG og Alembic. Web oppretter og åpner reelle investigations. Scope lagres eksplisitt med modulstatus og audit ved endringer. Datakilde-/modell-/policykonfigurasjon valideres ved oppstart.
 
-Research-arkitekturen er nå eksplisitt **scope-first og trigger-driven**:
-- `docs/INVESTIGATION_SCOPE.md` definerer hvilke områder en investigation får undersøke og hvordan relaterte entities kan ekspanderes.
-- `docs/SEARCH_TRIGGERS.md` definerer når/hvorfor nye søk får startes, source routing, query classes og stop conditions.
-- `docs/TASK_QUEUE.md` er kanonisk arbeidskø for AI-agenter; `docs/WORKLOG.md` er kort historikk over fullførte milepæler.
-
-Neste store implementasjonsgap er å føre disse kontraktene inn i API/schema/planner/runtime og bygge bred person-/webresearch med eksplisitt coverage.
+BRREG-adapters, normalisering, rolleindeks, entity resolution og NIM-provider finnes. Autonom planner/research-loop, komplett evidence-pipeline og rapportgenerering er videre arbeid; se `docs/TASK_QUEUE.md`. UI viser faktisk lagret tilstand og fremstiller ikke uutførte moduler som undersøkt.
 
 ## Stack
 - Next.js 16.3 / React 19.3 frontend
@@ -37,19 +32,23 @@ Kimi K3 er fjernet fra default routing på grunn av observert latency. Se `docs/
 ## Første oppstart
 ```bash
 cp .env.example .env
-# sett NIM_API_KEY i .env
-docker compose up --build
+# NIM_API_KEY trengs bare ved modellkall; .env er valgfri.
+docker compose up --build -d
 ```
 
 Uten Docker:
 ```bash
 python -m venv .venv
 source .venv/bin/activate
-pip install -r requirements-dev.txt
+pip install -r requirements-dev.lock
+docker compose up -d postgres redis
+alembic upgrade head
 make dev-api
 ```
 
 Web kjører på `http://localhost:3000`, API på `http://localhost:8000`, SearXNG på `http://localhost:8080`.
+
+Se [lokal oppstart og migreringer](docs/DEPLOYMENT.md), [prosjektstruktur](docs/PROJECT_STRUCTURE.md) og [testkommandoer](docs/TESTING.md).
 
 ## NIM smoke-test
 Etter at `NIM_API_KEY` er satt i `.env`:

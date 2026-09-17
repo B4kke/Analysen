@@ -1,3 +1,5 @@
+name: analysen
+
 services:
   postgres:
     image: pgvector/pgvector:pg17
@@ -5,32 +7,60 @@ services:
       POSTGRES_DB: analysen
       POSTGRES_USER: analysen
       POSTGRES_PASSWORD: analysen
-    ports: ["5432:5432"]
+    ports: ["127.0.0.1:${POSTGRES_PORT:-5432}:5432"]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U analysen -d analysen"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
     volumes:
       - postgres_data:/var/lib/postgresql/data
-      - ./db/schema.sql:/docker-entrypoint-initdb.d/001-schema.sql:ro
 
   redis:
     image: redis:7-alpine
-    ports: ["6379:6379"]
+    ports: ["127.0.0.1:${REDIS_PORT:-6379}:6379"]
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 12
 
   searxng:
-    image: searxng/searxng:latest
-    ports: ["8080:8080"]
+    image: searxng/searxng:2026.9.17-274b63b67@sha256:ba0a344c566ecc6e4429e81d02d93a01fa05c80e9fb6d08f0a1e57a729aa6d87
+    ports: ["127.0.0.1:${SEARXNG_PORT:-8080}:8080"]
+    volumes:
+      - ./config/searxng/settings.yml:/etc/searxng/settings.yml:ro
     environment:
       SEARXNG_BASE_URL: http://localhost:8080/
+      SEARXNG_SECRET: ${SEARXNG_SECRET:-local-development-secret-change-me}
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q -O /dev/null http://127.0.0.1:8080/ || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
 
   api:
     build:
       context: .
       dockerfile: docker/api.Dockerfile
-    env_file: .env
+    env_file:
+      - path: .env
+        required: false
     environment:
       DATABASE_URL: postgresql+asyncpg://analysen:analysen@postgres:5432/analysen
       REDIS_URL: redis://redis:6379/0
       SEARXNG_BASE_URL: http://searxng:8080
-    ports: ["8000:8000"]
-    depends_on: [postgres, redis, searxng]
+    ports: ["127.0.0.1:${API_PORT:-8000}:8000"]
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; assert urllib.request.urlopen('http://127.0.0.1:8000/ready').status == 200"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
     volumes:
       - ./data:/app/data
 
@@ -38,24 +68,48 @@ services:
     build:
       context: .
       dockerfile: docker/api.Dockerfile
-    command: ["dramatiq", "apps.worker.app.tasks"]
-    env_file: .env
+    command: ["dramatiq", "apps.worker.app.tasks", "-p", "2", "-t", "4"]
+    env_file:
+      - path: .env
+        required: false
     environment:
       DATABASE_URL: postgresql+asyncpg://analysen:analysen@postgres:5432/analysen
       REDIS_URL: redis://redis:6379/0
       SEARXNG_BASE_URL: http://searxng:8080
-    depends_on: [postgres, redis, searxng]
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+      redis:
+        condition: service_healthy
     volumes:
       - ./data:/app/data
+
+  migrate:
+    build:
+      context: .
+      dockerfile: docker/api.Dockerfile
+    command: ["alembic", "upgrade", "head"]
+    env_file:
+      - path: .env
+        required: false
+    environment:
+      DATABASE_URL: postgresql+asyncpg://analysen:analysen@postgres:5432/analysen
+    depends_on:
+      postgres:
+        condition: service_healthy
 
   web:
     build:
       context: .
       dockerfile: docker/web.Dockerfile
+      args:
+        NEXT_PUBLIC_API_URL: http://localhost:${API_PORT:-8000}
     environment:
       NEXT_PUBLIC_API_URL: http://localhost:8000
-    ports: ["3000:3000"]
-    depends_on: [api]
+    ports: ["127.0.0.1:${WEB_PORT:-3000}:3000"]
+    depends_on:
+      api:
+        condition: service_healthy
 
 volumes:
   postgres_data:

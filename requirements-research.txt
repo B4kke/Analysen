@@ -1,0 +1,9 @@
+-r requirements.txt
+trafilatura>=2.0
+crawl4ai>=0.7
+playwright>=1.55
+PyMuPDF>=1.26
+openpyxl>=3.1
+python-docx>=1.2
+phonenumbers>=9.0
+followthemoney>=4.0

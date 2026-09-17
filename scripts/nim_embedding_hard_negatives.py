@@ -53,7 +53,10 @@ CASES = [
     },
     {
         "id": "incoming_not_current",
-        "query": "Finn dokumentet om personen som er påtroppende, men ennå ikke sittende styreleder.",
+        "query": (
+            "Finn dokumentet om personen som er påtroppende, men ennå ikke "
+            "sittende styreleder."
+        ),
         "expected": 2,
     },
     {
