@@ -86,7 +86,8 @@ En oppgave kan bare settes `DONE` når:
 **Acceptance:** Ren database kan migreres; gjentatt upgrade er trygg; API gir korrekt readiness; web oppretter/leser reell investigation med scope; integrerte tester og bygg passerer. Dette er grunnmur, ikke ferdig autonom research-/rapportmotor.
 
 ### AQ-009 — Immutable raw evidence og komplett provenance
-**Status:** READY
+**Status:** DONE
+**Verifisert 2026-09-17:** Hash-adressert raw store (`services/raw_store.py`) skriver originalrespons til `RAW_EVIDENCE_DIR` som `sha256/xx/yy/<digest>` før normalisering. Innholdet er immutable: eksisterende snapshot overskrives aldri, skriving er atomisk via temp-fil + rename. BRREG-ingest fyller nå `raw_storage_key` på dokumentraden, og nøkkelen peker på bytes som hasher til dokumentets `sha256`. Integrasjonstester (`test_raw_evidence.py`) verifiserer at lagret innhold hash-identisk er med payloaden og at gjentatt ingest av samme payload ikke lager duplikater. 78 tester grønne i Compose-nettverket; Ruff/mypy rene; nettlesersmoke består. Full kildeviewer i web og provenance for øvrige kilder er videre arbeid i fase 6.
 **Prioritet:** P0
 **Leveranse:** Lagre originalrespons før normalisering/LLM, hash-adressert object store, bevar hentetid per snapshot, full kildeviewer og provenance-kontrakttester.
 **Acceptance:** Hvert material claim kan åpnes tilbake til den originale lagrede responsen. Dagens BRREG-ingest lagrer normalisert evidens, men raw_storage_key fylles ikke ennå.

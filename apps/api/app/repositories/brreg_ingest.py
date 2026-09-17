@@ -8,6 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from apps.api.app.domain.models import BrregIngestResult, BrregOrganization, ClaimStatus
 from apps.api.app.services.entity_resolution import normalize_name
+from apps.api.app.services.raw_store import store_raw_snapshot
 from apps.api.app.sources.base import SourceRecord
 
 
@@ -53,6 +54,9 @@ async def _upsert_document(
 ) -> UUID:
     payload_json = _canonical_json(record.payload)
     digest = _sha256_text(payload_json)
+    # Immutable raw snapshot is written before normalization or any model sees
+    # the payload; the digest ties the database row to the stored bytes.
+    _, storage_key = store_raw_snapshot(payload_json)
     row = (
         await session.execute(
             text(
@@ -63,6 +67,7 @@ async def _upsert_document(
                     canonical_url,
                     mime_type,
                     sha256,
+                    raw_storage_key,
                     parser_metadata
                 )
                 VALUES (
@@ -71,6 +76,7 @@ async def _upsert_document(
                     :source_url,
                     'application/json',
                     :sha256,
+                    :raw_storage_key,
                     CAST(:parser_metadata AS jsonb)
                 )
                 ON CONFLICT (sha256) DO UPDATE SET
@@ -84,6 +90,7 @@ async def _upsert_document(
                 "source_id": record.source_id,
                 "source_url": record.source_url,
                 "sha256": digest,
+                "raw_storage_key": storage_key,
                 "parser_metadata": _canonical_json(
                     {"external_id": record.external_id, "format": "brreg-json"}
                 ),
