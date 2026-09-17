@@ -25,3 +25,4 @@ dramatiq[redis]>=1.18
 redis>=6.4
 phonenumbers>=9.0
 followthemoney>=4.0
+ijson>=3.4
