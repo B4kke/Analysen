@@ -168,6 +168,29 @@ class BrregOrganization(BaseModel):
     status_flags: dict[str, bool] = Field(default_factory=dict)
 
 
+class BrregRoleRecord(BaseModel):
+    subject_orgnr: str
+    group_code: str | None = None
+    group_description: str | None = None
+    group_last_changed: date | None = None
+    role_code: str
+    role_description: str | None = None
+    person_name: str | None = None
+    birth_date: date | None = None
+    deceased: bool | None = None
+    holder_orgnr: str | None = None
+    holder_org_name: str | None = None
+    holder_org_form: str | None = None
+    deregistered: bool = False
+    sequence: int | None = None
+    responsibility_share: str | None = None
+
+
+class BrregRoleLookup(BaseModel):
+    organization_number: str
+    roles: list[BrregRoleRecord] = Field(default_factory=list)
+
+
 class BrregIngestResult(BaseModel):
     investigation_id: UUID
     entity_id: UUID
