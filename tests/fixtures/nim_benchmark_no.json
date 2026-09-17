@@ -1,0 +1,98 @@
+{
+  "version": 1,
+  "language": "nb-NO",
+  "description": "Synthetic Norwegian benchmark cases for Analysen. No real persons or private data.",
+  "text_cases": [
+    {
+      "id": "structured_extraction",
+      "weight": 1.5,
+      "reasoning": false,
+      "system": "Du er en presis informasjonsuttrekker. Svar KUN med gyldig JSON uten markdown.",
+      "prompt": "Fiktivt registerutdrag: Kari Testperson, født 14.05.1987, er daglig leder i Nordlys Eksempel AS (org.nr. 923 456 789). Forretningsadresse er Teivegen 10, 2030 Nannestad. Returner JSON med feltene person_name, birth_date, role, organization, organization_number, place.",
+      "scorer": "json_fields",
+      "expected": {
+        "person_name": "Kari Testperson",
+        "birth_date": "1987-05-14",
+        "role": "daglig leder",
+        "organization": "Nordlys Eksempel AS",
+        "organization_number": "923456789",
+        "place": "Nannestad"
+      }
+    },
+    {
+      "id": "identity_disambiguation",
+      "weight": 2.0,
+      "reasoning": true,
+      "system": "Du arbeider med entity resolution. Ikke gjett når identifikatorene ikke passer. Svar KUN med gyldig JSON.",
+      "prompt": "Mål: Kari Testperson, født 14.05.1987, Nannestad, kjent styreverv i Fjordlys Demo AS. Kandidat A: Kari Testperson, født 1979, Bergen, ingen kobling til Fjordlys. Kandidat B: Kari Testperson, født 14.05.1987, Nannestad, styremedlem i Fjordlys Demo AS. Kandidat C: Kari Testperson, født 14.05.1987, Tromsø, ingen virksomhetskobling. Returner {\"match\": \"A|B|C|UNRESOLVED\", \"confidence\": \"high|medium|low\", \"reason\": \"kort begrunnelse\"}.",
+      "scorer": "json_fields",
+      "expected": {
+        "match": "B",
+        "confidence": "high"
+      }
+    },
+    {
+      "id": "source_conflict",
+      "weight": 2.0,
+      "reasoning": true,
+      "system": "Du verifiserer påstander mot kilder. Offisielt registeruttrekk er sterkere evidens enn en eldre sekundærartikkel. Svar KUN med gyldig JSON.",
+      "prompt": "Påstand: 'Per Eksempel ble styreleder i Demo Drift AS i 2022.' Evidens 1: BRREG-lignende offisielt registeruttrekk datert 2026 viser tiltredelsesdato 2023-02-01. Evidens 2: nettartikkel fra 2022 omtaler ham som 'påtroppende styreleder', uten registrert tiltredelsesdato. Klassifiser påstanden som SUPPORTED, PARTIALLY_SUPPORTED, CONTRADICTED eller INSUFFICIENT_EVIDENCE og begrunn kort.",
+      "scorer": "json_fields",
+      "expected": {
+        "status": "CONTRADICTED"
+      }
+    },
+    {
+      "id": "uncertainty_discipline",
+      "weight": 1.5,
+      "reasoning": true,
+      "system": "Du skal skille dokumenterte fakta fra mulige spor. Svar KUN med gyldig JSON.",
+      "prompt": "En søkeresultatsnutt sier at 'Kari Testperson kan være tilknyttet Nordhandel AS'. Originalsiden kan ikke hentes, og ingen andre kilder bekrefter koblingen. Kan systemet rapportere virksomhetskoblingen som et bekreftet faktum? Returner {\"can_report_as_fact\": true|false, \"classification\": \"...\", \"next_step\": \"...\"}.",
+      "scorer": "json_fields",
+      "expected": {
+        "can_report_as_fact": false,
+        "classification": "UNVERIFIED_LEAD"
+      }
+    },
+    {
+      "id": "tool_routing",
+      "weight": 1.0,
+      "reasoning": false,
+      "system": "Velg riktig datakilde/verktøy for oppgaven. Svar KUN med gyldig JSON.",
+      "prompt": "Oppgave: Finn dokumenterte norske styreverv for en identifisert person når navn og fødselsdato er kjent. Tilgjengelige verktøy: brreg_role_index, searxng_web_search, vision_model, embeddings. Velg primærverktøy og forklar med maks 15 ord.",
+      "scorer": "json_fields",
+      "expected": {
+        "tool": "brreg_role_index"
+      }
+    }
+  ],
+  "vision_cases": [
+    {
+      "id": "vision_ocr_norwegian",
+      "weight": 1.0,
+      "kind": "generated_text_image",
+      "text": "OSLO 2026",
+      "prompt": "Les all synlig tekst i bildet nøyaktig. Svar på norsk og ikke legg til tekst som ikke finnes.",
+      "scorer": "contains_all",
+      "expected": ["OSLO", "2026"]
+    },
+    {
+      "id": "vision_color_count",
+      "weight": 1.0,
+      "kind": "generated_color_image",
+      "prompt": "Bildet inneholder store fargede felt. Oppgi antall hovedfelt og hovedfargene på norsk.",
+      "scorer": "contains_groups",
+      "expected": [["2", "to"], ["rød", "red"], ["blå", "blue"]]
+    }
+  ],
+  "embedding_case": {
+    "id": "semantic_retrieval_no",
+    "query": "Hvem er daglig leder i Nordlys Eksempel AS?",
+    "documents": [
+      "Nordlys Eksempel AS har Kari Testperson registrert som daglig leder.",
+      "Værmeldingen for Oslo varsler regn og svak vind i morgen.",
+      "Denne oppskriften bruker poteter, smør og persille."
+    ],
+    "expected_top_index": 0
+  }
+}
