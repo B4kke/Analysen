@@ -7,7 +7,7 @@ roles:
   planner:
     primary: nvidia/nemotron-3-super-120b-a12b
     deep: nvidia/nemotron-3-ultra-550b-a55b
-    canary: z-ai/glm-5-3
+    canary: google/gemma-4-31b-it
     reasoning: true
   workhorse:
     primary: nvidia/nemotron-3.5-lightning-30b-a3b
@@ -15,20 +15,24 @@ roles:
     reasoning: true
   extractor:
     primary: nvidia/nemotron-3.5-lightning-30b-a3b
-    fallback: nvidia/nemotron-3-super-120b-a12b
+    fallback: google/gemma-4-31b-it
+    deep: nvidia/nemotron-3-super-120b-a12b
     reasoning: false
     json_mode: true
   verifier:
     primary: nvidia/nemotron-3-ultra-550b-a55b
     fallback: nvidia/nemotron-3-super-120b-a12b
+    norwegian_fallback: google/gemma-4-31b-it
     reasoning: true
   reporter:
     primary: nvidia/nemotron-3-super-120b-a12b
     deep: nvidia/nemotron-3-ultra-550b-a55b
+    norwegian_fallback: google/gemma-4-31b-it
     reasoning: true
   vision:
-    primary: moonshotai/kimi-k3
+    primary: google/gemma-4-31b-it
     fallback: nvidia/nemotron-3-nano-omni-30b-a3b-reasoning
+    note: Gemma 4 is primary for Norwegian/multilingual image and document understanding; Nano Omni is English-only per model card.
   embedding:
     primary: nvidia/nemotron-3-embed-1b
 
@@ -40,3 +44,11 @@ routing:
     - verifier_disagreement
     - long_multi_document_synthesis
   norwegian_eval_required: true
+  benchmark_dimensions:
+    - norwegian_quality
+    - structured_output_validity
+    - tool_call_validity
+    - vision_ocr_quality
+    - latency_first_token
+    - latency_total
+    - tokens_per_second
