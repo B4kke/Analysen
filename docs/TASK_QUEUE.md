@@ -56,7 +56,8 @@ En oppgave kan bare settes `DONE` når:
 **Acceptance:** Deaktivert modul kan ikke planlegges/kalles; scope-endringer auditeres.
 
 ### AQ-005 — Implement planner/lead scope gates
-**Status:** READY
+**Status:** IN_PROGRESS
+**Fremdrift 2026-09-17:** Deterministisk lead-admission (`lead_gate.py`) på plass: passive discovery-triggere lagres aldri som kjørbare leads, `CONTEXT_ONLY` stopper relasjonsleads, dybde/verifisert relasjon/materialitet/budsjett/kilde håndheves før PENDING. 12 enhetstester; hele suiten grønn (53 passerer, 9 databaseavhengige skips uten TEST_DATABASE_URL). Gjenstår: koble gaten mot en lead-persistens-rute/worker-kontrakt og oppdatere arkitekturdokumentasjon før DONE.
 **Prioritet:** P0
 **Avhenger av:** AQ-004
 **Leveranse:** Planner/lead generator får scope, expansion state, information need og source capabilities; blocked actions avvises deterministisk.
