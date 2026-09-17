@@ -1,7 +1,12 @@
 # Konkret implementasjonsplan
 
 ## Målbilde
-En bruker oppretter en investigation med navn, eventuelt fødselsdato/år, sted og kjente virksomheter. Analysen identifiserer målpersonen, henter offisielle registerdata, bygger relasjonsgraf, finner nye spor, søker åpne nettsider, verifiserer koblinger og produserer en rapport der hver vesentlige påstand kan åpnes tilbake til kilden.
+En bruker oppretter en investigation med navn, eventuelt fødselsdato/år, sted og kjente virksomheter, og velger eksplisitt hvilke bakgrunnssjekk-områder som skal undersøkes. Analysen identifiserer målpersonen/-virksomheten, bruker bare relevante kilder innen valgt scope, bygger dokumenterte relasjoner, følger nye spor når trigger-reglene tilsier det, verifiserer koblinger og produserer en rapport der hver vesentlige påstand kan åpnes tilbake til kilden.
+
+Canonical kontrakter:
+- `INVESTIGATION_SCOPE.md`: hva investigation får undersøke.
+- `SEARCH_TRIGGERS.md`: når/hvorfor den får søke videre.
+- `TASK_QUEUE.md`: aktiv arbeidskø for implementasjon.
 
 ## Fase 0 — grunnmur
 **Leveranser**
@@ -31,7 +36,7 @@ Implementer i denne rekkefølgen:
 
 **Exit:** gitt en norsk person med nok identifikatorer kan systemet vise dokumenterte virksomhetsroller og relasjoner uten kommersiell tredjeparts-API.
 
-## Fase 2 — evidence og entity resolution
+## Fase 2 — evidence, entity resolution og scope contract
 - raw-document store med SHA-256
 - `Source`, `Document`, `Evidence`, `Claim`, `ClaimEvidence`
 - deterministic normalization
@@ -39,10 +44,15 @@ Implementer i denne rekkefølgen:
 - identity scoring med harde negative signaler
 - `MATCH`, `PROBABLE_MATCH`, `UNRESOLVED`, `NOT_MATCH`
 - manuell merge/split
+- typed `scope_modules`
+- `expansion_policy`
+- `max_relation_depth`
+- `InvestigationModule`/coverage state
+- `InvestigationEntity.expansion_state`
 
-**Exit:** samme navn alene kan ikke merge personer. Alle grafkanter har provenance.
+**Exit:** samme navn alene kan ikke merge personer. Alle grafkanter har provenance. En deaktivert modul kan ikke autorisere research.
 
-## Fase 3 — web research
+## Fase 3 — web research/discovery
 - SearXNG discovery
 - URL canonicalization/dedup
 - Trafilatura fast path
@@ -52,20 +62,25 @@ Implementer i denne rekkefølgen:
 - robots/rate/domain budgets
 - Common Crawl/RDAP adapters
 - søkehistorikk og query dedup
+- typed query classes og search metadata
+- coverage ledger per modul
 
-**Exit:** discovery-snippets kan aldri bli evidence; rapportering krever hentet originalkilde.
+**Exit:** discovery-snippets kan aldri bli evidence; rapportering krever hentet originalkilde. Hvert søk kan forklares med originating lead, scope area, query class og reason.
 
 ## Fase 4 — agentisk research-loop
 - planner
 - researcher/workhorse
 - lead generator
+- trigger evaluator
 - verifier
 - contradiction detector
 - frontier priority queue
+- scope/expansion gate før execution
+- verifier-triggered missing-information leads
 - depth/budget/stop conditions
 - checkpoint/resume
 
-**Exit:** funn kan generere nye begrunnede leads, men ingen ubegrenset rekursjon.
+**Exit:** funn kan generere nye begrunnede leads, men discovery alene gir ikke auto-ekspansjon. Relaterte entities kan forbli `CONTEXT_ONLY`. Ingen ubegrenset rekursjon.
 
 ## Fase 5 — dokument/regnskap
 - PDF text/layout extraction
@@ -75,17 +90,19 @@ Implementer i denne rekkefølgen:
 - deterministiske finansnøkkeltall
 - year-over-year-analyse
 - noter/revisor/going-concern som claims med evidence
+- FINANCIALS scope/materiality gate
 
-**Exit:** tall beregnes i kode, ikke av LLM.
+**Exit:** tall beregnes i kode, ikke av LLM. Finansanalyse kjøres ikke automatisk for alle company-noder.
 
 ## Fase 6 — rapport og UI
-Fire hovedflater:
-- Investigation: input, live events, budgets.
-- Graph: personer/virksomheter/adresser/domener/dokumenter.
+Hovedflater:
+- New investigation: target, formål, scope, expansion policy og relation depth.
+- Investigation: live events, module cards, coverage og budgets.
+- Graph: personer/virksomheter/adresser/domener/dokumenter med target/material/context-only state.
 - Evidence: claims, støtte, motstrid, kildeviewer.
 - Report: draft/reviewed/final.
 
-Rapport: executive summary, identitetsgrunnlag, roller, virksomhetsnettverk, økonomi, tidslinje, web/media, material findings, contradictions, unresolved leads, metode og kilder.
+Rapporten er dynamisk etter valgt scope og viser eksplisitt hvilke områder som er `UNDERSØKT`, `UNDERSØKT_MED_GAPS`, `IKKE_UNDERSØKT` eller `BLOKKERT_UTILGJENGELIG`.
 
 ## Fase 7 — kvalitet og sikkerhet
 - norske gold fixtures
@@ -93,6 +110,9 @@ Rapport: executive summary, identitetsgrunnlag, roller, virksomhetsnettverk, øk
 - hallucination tests
 - citation entailment tests
 - false-positive entity-resolution suite
+- scope-gate suite
+- trigger-routing/no-loop suite
+- no-unnecessary-expansion suite
 - prompt-injection suite
 - SSRF suite
 - privacy policy tests
@@ -101,27 +121,29 @@ Rapport: executive summary, identitetsgrunnlag, roller, virksomhetsnettverk, øk
 ## Fase 8 — overvåking/endrede forhold
 Kun etter stabil MVP:
 - snapshot-to-snapshot diff
-- nye roller/status/regnskap
+- nye roller/status/regnskap innen valgte monitor-moduler
 - nye relevante åpne kilder
 - endringsrapport
 
-## Prioritert første sprint
-1. Schema + config.
-2. BRREG adapter.
-3. Bulk role importer + reverse-index.
-4. Person lookup API.
-5. Evidence/provenance.
-6. Entity resolution.
-7. Enkel graph endpoint.
-8. NIM extraction/verifier.
-9. SearXNG + crawler.
-10. Første kildebelagte HTML-rapport.
+Monitoring arver samme scope/expansion-regler; en monitor skal ikke gradvis utvide saken på egen hånd.
+
+## Prioritert neste arbeid
+Aktiv kø er autoritativ i `docs/TASK_QUEUE.md`. P0 etter dokumentoppdateringen:
+1. Implementer scope i API/domain/schema.
+2. Implementer scope/expansion gate i planner/scheduler.
+3. Implementer trigger evaluator og typed search metadata.
+4. Implementer coverage ledger og dynamisk UI/report.
+5. Legg til scope/trigger eval-suite.
 
 ## Definition of done for MVP
 - Norsk person kan identifiseres med eksplisitt usikkerhet.
-- Offentlige virksomhetsroller kan reverssøkes fra lokal BRREG-indeks.
-- Virksomheter, roller, konsern og årsregnskap kan hentes.
+- Bruker kan velge hvilke research-moduler som skal kjøres.
+- Deaktivert modul kan ikke kalles av planner/agent.
+- Offentlige virksomhetsroller kan reverssøkes fra lokal BRREG-indeks når relevant scope tillater det.
+- Virksomheter, roller, konsern og årsregnskap kan hentes når riktig modul/materialitet tillater det.
 - Web discovery og crawling fungerer uten betalt search API.
+- Nye funn utløser bare ekstra research gjennom eksplisitte trigger-regler.
 - Alle material claims har evidence.
 - Rapport skiller bekreftet, delvis støttet, motstridende og utilstrekkelig evidens.
+- Rapport viser hva som ikke ble undersøkt og kjente coverage-gaps.
 - Ingen sensitiv inferens eller person-risikoscore.
