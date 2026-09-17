@@ -6,29 +6,59 @@ Analysen er en kildebevisst OSINT- og bakgrunnsanalysemotor med Norge som primæ
 
 ## Status
 
-Prosjektet er i arkitektur- og grunnmursfasen. Første mål er en norsk MVP med Brønnøysundregistrene, Regnskapsregisteret, SearXNG, web-crawling, entity resolution, evidenslager og NVIDIA NIM.
+Grunnmur/arkitektur er etablert. Neste implementasjonssprint er norsk registerkjerne: BRREG entities/roles, åpen role-totalbestand med lokal reverse-index og Regnskapsregisteret.
 
-## Hovedkomponenter
-
-- Next.js/TypeScript frontend
+## Stack
+- Next.js 16.3 / React 19.3 frontend
 - FastAPI/Python backend
-- PostgreSQL + pgvector som canonical store
-- Redis + worker-kø
+- PostgreSQL + pgvector canonical store
+- Redis + Dramatiq workers
 - NVIDIA NIM via OpenAI-kompatibelt API
-- SearXNG for discovery
-- Crawl4AI + Trafilatura + Playwright for innhenting
-- FollowTheMoney-inspirert entity- og relasjonsmodell
-- Brønnøysundregistrene som primær norsk registerkilde
-- Kildeproveniens, motsigelser og påstand-til-evidens-sporing
+- SearXNG discovery
+- Crawl4AI + Trafilatura + Playwright
+- FollowTheMoney-inspirert entitymodell
 
-## Dokumentasjon
+## NIM-routing
+- Workhorse/extraction: `nvidia/nemotron-3.5-lightning-30b-a3b`
+- Planner/default reasoning: `nvidia/nemotron-3-super-120b-a12b`
+- Deep verification/planning: `nvidia/nemotron-3-ultra-550b-a55b`
+- Vision: `moonshotai/kimi-k3`, fallback Nemotron Nano Omni
+- Embeddings: `nvidia/nemotron-3-embed-1b`
+- Canary/alternativ: `z-ai/glm-5-3`
 
-Se `docs/IMPLEMENTATION_PLAN.md` og dokumentene under `docs/` før implementasjon. `AGENTS.md` er autoritativ arbeidsinstruks for kodeagenter.
+Se `docs/NIM_MODELS.md`; norske evals er obligatoriske før routing låses.
 
-## Viktige begrensninger
+## Første oppstart
+```bash
+cp .env.example .env
+# sett NIM_API_KEY i .env
+docker compose up --build
+```
 
-Analysen skal ikke omgå innlogging, tilgangskontroll, betalingsmurer, CAPTCHA, robots-/rate-begrensninger eller andre tekniske sperrer. Systemet skal ikke bygge skjulte profiler eller trekke sensitive slutninger om helse, religion, etnisitet, seksuell orientering eller politiske meninger. Opplysninger om straffedommer/lovovertredelser krever særskilt juridisk vurdering og er ikke en standard datakilde.
+Uten Docker:
+```bash
+python -m venv .venv
+source .venv/bin/activate
+pip install -r requirements-dev.txt
+make dev-api
+```
+
+Web kjører på `http://localhost:3000`, API på `http://localhost:8000`, SearXNG på `http://localhost:8080`.
+
+## Les før utvikling
+1. `AGENTS.md`
+2. `docs/IMPLEMENTATION_PLAN.md`
+3. `docs/ARCHITECTURE.md`
+4. `docs/NORWAY_SOURCES.md`
+5. `docs/EVIDENCE_PROVENANCE.md`
+6. `docs/ENTITY_RESOLUTION.md`
+7. `docs/PRIVACY_LEGAL.md`
+8. `docs/SECURITY.md`
+
+`docs/OPEN_SOURCE_REPOS.md` og `docs/REFERENCES.md` inneholder verktøy/kilder som ble vurdert.
+
+## Viktige grenser
+Analysen skal ikke omgå innlogging, tilgangskontroll, betalingsmurer, CAPTCHA eller private API-er. Systemet skal ikke inferere sensitive egenskaper eller lage en generell person-risikoscore. Opplysninger om straffedommer/lovovertredelser og tilgangsstyrte registre er policy-gatet.
 
 ## Lisens
-
-Ingen åpen kildekode-lisens er valgt ennå. Opphavsrett beholdes inntil en lisens eksplisitt legges til.
+Ingen prosjektlisens er valgt ennå. Opphavsrett beholdes inntil en lisens eksplisitt legges til.
