@@ -1,0 +1,71 @@
+name: NIM Benchmark
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - "scripts/nim_benchmark.py"
+      - "tests/fixtures/nim_benchmark_no.json"
+      - ".github/workflows/nim-benchmark.yml"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: nim-benchmark-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  benchmark:
+    runs-on: ubuntu-latest
+    timeout-minutes: 18
+    env:
+      NIM_API_KEY: ${{ secrets.NIM_API_KEY }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install benchmark dependency
+        run: python -m pip install --disable-pip-version-check "httpx>=0.28,<1"
+
+      - name: Verify NIM secret is present
+        shell: bash
+        run: |
+          if [ -z "${NIM_API_KEY:-}" ]; then
+            echo "NIM_API_KEY repository secret is missing" >&2
+            exit 1
+          fi
+
+      - name: Run bounded benchmark
+        run: |
+          python scripts/nim_benchmark.py \
+            --request-timeout 45 \
+            --max-attempts 2 \
+            --wall-limit 720 \
+            --workers 2 \
+            | tee nim-benchmark.log
+
+      - name: Publish summary
+        if: always()
+        shell: bash
+        run: |
+          if [ -f artifacts/nim-benchmark/summary.md ]; then
+            cat artifacts/nim-benchmark/summary.md >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+      - name: Upload benchmark artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: nim-benchmark-${{ github.run_id }}
+          path: |
+            artifacts/nim-benchmark/
+            nim-benchmark.log
+          if-no-files-found: warn
+          retention-days: 14
