@@ -2,8 +2,9 @@ import httpx
 from fastapi import APIRouter, HTTPException, Query
 
 from apps.api.app.domain.identifiers import InvalidOrganizationNumber
-from apps.api.app.domain.models import BrregOrganization
+from apps.api.app.domain.models import BrregOrganization, BrregRoleLookup
 from apps.api.app.services.brreg_normalization import normalize_brreg_organization
+from apps.api.app.services.brreg_roles import normalize_brreg_roles
 from apps.api.app.sources.brreg import BrregAdapter
 
 router = APIRouter(prefix="/api/v1/brreg", tags=["brreg"])
@@ -25,6 +26,23 @@ async def search_organizations(
 
     items = (payload.get("_embedded") or {}).get("enheter") or []
     return [normalize_brreg_organization(item) for item in items if isinstance(item, dict)]
+
+
+@router.get("/organizations/{orgnr}/roles", response_model=BrregRoleLookup)
+async def get_organization_roles(orgnr: str) -> BrregRoleLookup:
+    try:
+        async with BrregAdapter() as adapter:
+            record = await adapter.get_roles(orgnr)
+    except InvalidOrganizationNumber as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    except httpx.HTTPStatusError as exc:
+        if exc.response.status_code == 404:
+            raise HTTPException(status_code=404, detail="Organization not found in BRREG") from exc
+        raise HTTPException(status_code=502, detail="BRREG returned an upstream error") from exc
+    except httpx.HTTPError as exc:
+        raise HTTPException(status_code=502, detail="Could not reach BRREG") from exc
+
+    return normalize_brreg_roles(record.external_id, record.payload)
 
 
 @router.get("/organizations/{orgnr}", response_model=BrregOrganization)
