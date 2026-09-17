@@ -36,7 +36,7 @@
       "weight": 2.0,
       "reasoning": true,
       "system": "Du verifiserer påstander mot kilder. Offisielt registeruttrekk er sterkere evidens enn en eldre sekundærartikkel. Svar KUN med gyldig JSON.",
-      "prompt": "Påstand: 'Per Eksempel ble styreleder i Demo Drift AS i 2022.' Evidens 1: BRREG-lignende offisielt registeruttrekk datert 2026 viser tiltredelsesdato 2023-02-01. Evidens 2: nettartikkel fra 2022 omtaler ham som 'påtroppende styreleder', uten registrert tiltredelsesdato. Klassifiser påstanden som SUPPORTED, PARTIALLY_SUPPORTED, CONTRADICTED eller INSUFFICIENT_EVIDENCE og begrunn kort.",
+      "prompt": "Påstand: 'Per Eksempel ble styreleder i Demo Drift AS i 2022.' Evidens 1: BRREG-lignende offisielt registeruttrekk datert 2026 viser tiltredelsesdato 2023-02-01. Evidens 2: nettartikkel fra 2022 omtaler ham som 'påtroppende styreleder', uten registrert tiltredelsesdato. Klassifiser påstanden som SUPPORTED, PARTIALLY_SUPPORTED, CONTRADICTED eller INSUFFICIENT_EVIDENCE. Returner nøyaktig JSON-form: {\"status\": \"SUPPORTED|PARTIALLY_SUPPORTED|CONTRADICTED|INSUFFICIENT_EVIDENCE\", \"reason\": \"kort begrunnelse\"}.",
       "scorer": "json_fields",
       "expected": {
         "status": "CONTRADICTED"
@@ -59,7 +59,7 @@
       "weight": 1.0,
       "reasoning": false,
       "system": "Velg riktig datakilde/verktøy for oppgaven. Svar KUN med gyldig JSON.",
-      "prompt": "Oppgave: Finn dokumenterte norske styreverv for en identifisert person når navn og fødselsdato er kjent. Tilgjengelige verktøy: brreg_role_index, searxng_web_search, vision_model, embeddings. Velg primærverktøy og forklar med maks 15 ord.",
+      "prompt": "Oppgave: Finn dokumenterte norske styreverv for en identifisert person når navn og fødselsdato er kjent. Tilgjengelige verktøy: brreg_role_index, searxng_web_search, vision_model, embeddings. Returner nøyaktig JSON-form: {\"tool\": \"brreg_role_index|searxng_web_search|vision_model|embeddings\", \"reason\": \"maks 15 ord\"}.",
       "scorer": "json_fields",
       "expected": {
         "tool": "brreg_role_index"
