@@ -180,6 +180,26 @@ async def execute_lead_endpoint(
     return {"lead_id": str(lead_id), "status": status}
 
 
+@router.post("/{investigation_id}/research/run", status_code=status.HTTP_202_ACCEPTED)
+async def run_research_endpoint(
+    investigation_id: UUID, session: DatabaseSession
+) -> dict:
+    """Enqueue one bounded worker research pass over the admitted frontier.
+
+    Returns immediately; the worker commits each lead separately and audits a
+    RESEARCH_PASS_COMPLETED summary when the pass ends.
+    """
+    from apps.worker.app.tasks import run_research_pass_actor
+
+    try:
+        await get_investigation_record(session, investigation_id)
+    except InvestigationNotFound as exc:
+        raise HTTPException(status_code=404, detail="Investigation not found") from exc
+    run_research_pass_actor.send(str(investigation_id))
+    await session.commit()
+    return {"investigation_id": str(investigation_id), "status": "ENQUEUED"}
+
+
 @router.post(
     "/{investigation_id}/sources/brreg/organizations/{orgnr}",
     response_model=BrregIngestResult,

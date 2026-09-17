@@ -421,3 +421,21 @@ async def bump_module_coverage(
         """),
         {"id": investigation_id, "module": module.value, "provider": provider},
     )
+
+
+async def list_pending_leads(session: AsyncSession, investigation_id: UUID) -> list[dict]:
+    """All PENDING leads for frontier selection, highest priority first."""
+    rows = (
+        await session.execute(
+            text("""
+                SELECT id, lead_type, value, reason, originating_claim_id, priority,
+                    depth, status, scope_area, trigger_type, information_need,
+                    relation_depth, blocked_reason
+                FROM leads
+                WHERE investigation_id = :id AND status = 'PENDING'
+                ORDER BY priority DESC, depth ASC
+            """),
+            {"id": investigation_id},
+        )
+    ).mappings().all()
+    return [dict(row) for row in rows]

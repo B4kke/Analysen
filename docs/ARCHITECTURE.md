@@ -113,3 +113,7 @@ Planner/LLM kan bare foreslå leads via `POST /api/v1/investigations/{id}/leads`
 ## Trigger evaluator, frontier og eksekutor (AQ-012/AQ-013)
 
 `services/trigger_evaluator.py` ruter hvert forslag til én typed beslutning: `FOLLOW_UP_LEAD`, `VERIFICATION_LEAD`, `CONTEXT_ONLY`, `BLOCKED_BY_SCOPE` eller `STOP_*`. Uverifiserte relasjoner og passive triggere blir `CONTEXT_ONLY` — aldri auto-kjøring. Contradiction gir målrettet `VERIFICATION_LEAD` på samme entity. `services/frontier.py` velger høyeste prioritet blant `PENDING`-leads innen dybde og budsjett. `services/lead_executor.py` kjører valgte leads via `POST /investigations/{id}/leads/{lead_id}/execute`: kun allowlisted lead-typer (første: `brreg_organization_lookup` mot eksplisitt mål), gaten sjekkes på nytt ved verktøygrensen, og hvert utfall (COMPLETED/BLOCKED/FAILED) oppdaterer status, coverage og audit. Evaluator, velger og eksekutor er deterministiske og modellfrie.
+
+## Research-loop (AQ-015)
+
+`services/research_loop.py` kjører én avgrenset pass per kall: velg høyeste prioritet fra frontier, evaluer trigger, kjør eller parker leadet, commit separat per lead, stopp ved tom frontier/oppbrukt budsjett/nådd lead-cap. Passet auditerer `RESEARCH_PASS_COMPLETED` med sammendrag. `POST /investigations/{id}/research/run` legger passet på Dramatiq-køen (202); workeren kjører med live BRREG-adapter. Evaluator-nektede leads parkeres som `BLOCKED` med årsak slik at passet terminerer; de kan foreslås på nytt ved scope-endring.

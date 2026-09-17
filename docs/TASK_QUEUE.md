@@ -123,6 +123,14 @@ En oppgave kan bare settes `DONE` når:
 ### AQ-014 — Mobiltilgang på samme nett via Docker
 **Status:** DONE
 **Verifisert 2026-09-18:** `BIND_ADDRESS` (default loopback) binder web/API på LAN ved opt-in; CORS-validering godtar kun loopback + RFC1918 (offentlige verter, wildcard og https avvises — testet). Separat LAN-stack verifisert: web 200 og API ready på LAN-IP, preflight fra LAN-opprinnelse 200, fra offentlig opprinnelse 400, og web-bundel peker på LAN-API-URL (gjenoppbygd med `--build-arg`, dokumentert at `up --build` mister ad-hoc args). Postgres/Redis/SearXNG forblir på loopback. Oppskrift + advarsel (kun klarerte nett, ingen auth) i `DEPLOYMENT.md`.
+
+### AQ-015 — Worker-basert research-loop
+**Status:** DONE
+**Verifisert 2026-09-18:** `services/research_loop.py` kjører én avgrenset pass: frontier-valg → trigger-evaluator → eksekutor, til frontier er tom, budsjett oppbrukt eller maks leads nådd. Evaluator-nekt (CONTEXT_ONLY/BLOCKED_BY_SCOPE) parkerer leadet som BLOCKED med årsak; hvert lead committes separat; passet auditerer `RESEARCH_PASS_COMPLETED`-sammendrag. Dramatiq-actor + `POST /investigations/{id}/research/run` (202, uten sideeffekter i test via patchet send). 6 integrasjonstester (`test_research_loop.py`, fake fetch — ingen live-kall); 131 grønne totalt i Compose-nettverket.
+**Prioritet:** P0
+**Avhenger av:** AQ-013
+**Leveranse:** Dramatiq-actor + `POST /investigations/{id}/research/run` (202) som kjører én avgrenset research-pass: frontier-valg → trigger-evaluator → eksekutor, til frontier er tom, budsjett oppbrukt eller maks leads nådd. Hvert lead committes separat; passet auditerer sammendrag.
+**Acceptance:** En pass fullfører kjedede PENDING-leads, stopper deterministisk, rører aldri BLOCKED-leads, og gjør ingen live-kall i tester (fake fetch).
 **Prioritet:** P1
 **Leveranse:** Opt-in LAN-binding (`BIND_ADDRESS`), CORS for private nettadresser (RFC1918), dokumentert oppskrift for mobil på samme nett. Default forblir loopback.
 **Acceptance:** Web og API svarer på maskinens LAN-IP; CORS-preflight fra LAN-opprinnelse passerer; web-bundel peker på LAN-API-URL. Kun klarerte nett — ingen auth per ADR-017.

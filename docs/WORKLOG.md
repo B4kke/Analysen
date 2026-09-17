@@ -22,3 +22,4 @@ Kort, append-only oversikt over fullførte milepæler. Dette er ikke en ny TODO-
 - AQ-012 lukket: deterministisk trigger-evaluator og frontier-velger. Uverifiserte relasjoner/passive triggere blir CONTEXT_ONLY, contradiction gir målrettet verifikasjon, stopp er eksplisitte. 13 tester; 118 grønne i Compose-nettverket.
 - AQ-013 lukket: lead-eksekutor for BRREG-måloppslag med re-gating ved verktøygrensen, COMPLETED/BLOCKED/FAILED-terminaltilstander, coverage-økning og audit. 6 integrasjonstester; 125 grønne totalt.
 - AQ-014 lukket: opt-in LAN-binding for mobil på samme nett (default loopback), RFC1918-CORS, verifisert separat stack + bundel-URL. Postgres/Redis/SearXNG forblir loopback.
+- AQ-015 lukket: worker-basert research-loop med avgrensede passer, separat commit per lead og auditert sammendrag. Evaluator-nekt parkerer som BLOCKED. 6 integrasjonstester; 131 grønne totalt.
