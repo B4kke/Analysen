@@ -7,3 +7,5 @@ Kort, append-only oversikt over fullførte milepæler. Dette er ikke en ny TODO-
 - Etablert trigger-driven research design i `SEARCH_TRIGGERS.md`: søketriggere, query classes, source routing, verifier-retry, stop rules og coverage ledger.
 - Opprettet canonical AI-agent task queue med eksplisitt `READY/IN_PROGRESS/BLOCKED/DONE/CANCELLED`-flyt og definition of done.
 - Synkronisert canonical docs, README og AGENTS med scope-first/trigger-driven design; AQ-003 lukket som `DONE`.
+- Hentet Codex-arbeidskopien til `/home/b4kke/projects/Analysen` uten å endre originalen og pushet overtakelsespunkt `6f18fbb` til `codex/analysen-foundation` på GitHub.
+- Rettet JSON-dekoding av audit-payload i migreringstesten og tilhørende lint. Verifisert Ruff, mypy (49 kildefiler), 48 tester med PostgreSQL-integrasjon, `npm run typecheck` og `npm run build`. AQ-008 er ikke ferdig: full Compose-/worker-/nettlesersmoke gjenstår.

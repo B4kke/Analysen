@@ -1,5 +1,5 @@
-import os
 import json
+import os
 import secrets
 import subprocess
 import sys
@@ -9,10 +9,11 @@ from urllib.parse import urlsplit, urlunsplit
 import asyncpg
 import pytest
 
-
 TEST_DATABASE_URL = os.environ.get("TEST_DATABASE_URL")
 if not TEST_DATABASE_URL:
-    pytest.skip("TEST_DATABASE_URL is required for migration integration tests", allow_module_level=True)
+    pytest.skip(
+        "TEST_DATABASE_URL is required for migration integration tests", allow_module_level=True
+    )
 
 ROOT = Path(__file__).resolve().parents[2]
 
@@ -101,7 +102,7 @@ async def test_migrations_preserve_legacy_data_and_are_idempotent() -> None:
             investigation_id,
         )
         assert audit is not None
-        assert audit["payload"]["scope_modules"] == []
+        assert json.loads(audit["payload"])["scope_modules"] == []
 
         await database.close()
         result = subprocess.run(

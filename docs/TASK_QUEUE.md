@@ -76,7 +76,8 @@ En oppgave kan bare settes `DONE` når:
 **Acceptance:** Test-suite fanger firma-/person-autoekspansjon uten aktivt scope.
 
 ### AQ-008 — Kjørbar lokal grunnmur
-**Status:** IN_PROGRESS
+**Status:** READY
+**Overtakelse 2026-09-17:** Codex-arbeidet er bevart på `codex/analysen-foundation`. Migreringstestens JSON-dekoding og lint er rettet. Ruff, mypy, 48 tester med PostgreSQL-integrasjon, TypeScript og webbygg passerer lokalt. Full Compose-oppstart, worker-smoke og nettlesersmoke gjenstår før oppgaven kan lukkes.
 **Prioritet:** P0
 **Leveranse:** Versjonerte migreringer, validerte konfigurasjoner, fungerende Redis-worker, Compose healthchecks/oppstartsrekkefølge, låste avhengigheter, investigation-skjema i web og CI.
 **Acceptance:** Ren database kan migreres; gjentatt upgrade er trygg; API gir korrekt readiness; web oppretter/leser reell investigation med scope; integrerte tester og bygg passerer. Dette er grunnmur, ikke ferdig autonom research-/rapportmotor.
