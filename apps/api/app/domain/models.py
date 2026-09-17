@@ -216,6 +216,8 @@ class BrregPersonRoleSearch(BaseModel):
     birth_date: date
     snapshot_id: UUID
     matches: list[BrregPersonRoleMatch] = Field(default_factory=list)
+    incomplete: bool = False
+    unverified_organization_numbers: list[str] = Field(default_factory=list)
 
 
 class BrregIngestResult(BaseModel):
