@@ -52,7 +52,8 @@ def iter_inventory_objects(path: Path) -> Iterator[dict[str, Any]]:
     with gzip.open(path, "rb") as stream:
         for item in ijson.items(stream, "item"):
             if not isinstance(item, dict):
-                raise UnsupportedRoleInventoryFormat("Top-level role inventory items must be objects")
+                message = "Top-level role inventory items must be objects"
+                raise UnsupportedRoleInventoryFormat(message)
             yield item
 
 
