@@ -6,7 +6,7 @@ Analysen er en kildebevisst OSINT- og bakgrunnsanalysemotor med Norge som primæ
 
 ## Status
 
-Grunnmur/arkitektur er etablert. Neste implementasjonssprint er norsk registerkjerne: BRREG entities/roles, åpen role-totalbestand med lokal reverse-index og Regnskapsregisteret.
+Grunnmur/arkitektur er etablert. BRREG entities/roles, åpen role-totalbestand, lokal reverse-index, investigation persistence, entity resolution og NIM-provider er påbegynt/implementert. Neste store gap er bred person-/webresearch med eksplisitt sosial profil-, bilde- og adresse/sted-evidence samt agentisk research-loop.
 
 ## Stack
 - Next.js 16.3 / React 19.3 frontend
@@ -22,11 +22,11 @@ Grunnmur/arkitektur er etablert. Neste implementasjonssprint er norsk registerkj
 - Workhorse/extraction: `nvidia/nemotron-3.5-lightning-30b-a3b`
 - Planner/default reasoning: `nvidia/nemotron-3-super-120b-a12b`
 - Deep verification/planning: `nvidia/nemotron-3-ultra-550b-a55b`
-- Vision: `moonshotai/kimi-k3`, fallback Nemotron Nano Omni
+- Norwegian/multimodal + vision: `google/gemma-4-31b-it`
+- Vision fallback: `nvidia/nemotron-3-nano-omni-30b-a3b-reasoning`
 - Embeddings: `nvidia/nemotron-3-embed-1b`
-- Canary/alternativ: `z-ai/glm-5-3`
 
-Se `docs/NIM_MODELS.md`; norske evals er obligatoriske før routing låses.
+Kimi K3 er fjernet fra default routing på grunn av observert latency. Se `docs/NIM_MODELS.md`; norske evals er obligatoriske før routing låses.
 
 ## Første oppstart
 ```bash
@@ -44,6 +44,25 @@ make dev-api
 ```
 
 Web kjører på `http://localhost:3000`, API på `http://localhost:8000`, SearXNG på `http://localhost:8080`.
+
+## NIM smoke-test
+Etter at `NIM_API_KEY` er satt i `.env`:
+
+```bash
+make nim-smoke
+```
+
+Dette tester Lightning, Super, Ultra og Gemma 4 på en norsk faktasammenstillingsoppgave og skriver latency/resultat. Vision kan testes med:
+
+```bash
+python scripts/nim_smoke.py --suite vision --image-url "https://..."
+```
+
+Embedding:
+
+```bash
+python scripts/nim_smoke.py --suite embedding
+```
 
 ## Les før utvikling
 1. `AGENTS.md`
