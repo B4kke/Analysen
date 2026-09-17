@@ -20,6 +20,10 @@ class GleifAdapter(SourceAdapter):
 
     async def search_legal_name(self, name: str, page_size: int = 20) -> dict[str, Any]:
         url = f"{self.base_url}/lei-records"
-        response = await self.client.get(url, params={"filter[entity.legalName]": name, "page[size]": page_size})
+        params = {
+            "filter[entity.legalName]": name,
+            "page[size]": page_size,
+        }
+        response = await self.client.get(url, params=params)
         response.raise_for_status()
         return response.json()
