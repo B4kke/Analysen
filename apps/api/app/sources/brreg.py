@@ -76,10 +76,19 @@ class BrregAdapter(SourceAdapter):
         payload = await self._get_json(url)
         return SourceRecord("brreg_roles", normalized, payload, url)
 
-    async def get_legal_roles(self, orgnr: str) -> SourceRecord:
+    async def get_legal_roles(
+        self,
+        orgnr: str,
+        *,
+        search_after: str | None = None,
+        size: int = 100,
+    ) -> SourceRecord:
         normalized = normalize_orgnr(orgnr)
         url = f"{self.base_url}/roller/enheter/{normalized}/juridiskeroller"
-        payload = await self._get_json(url)
+        params: dict[str, Any] = {"size": min(max(size, 1), 1000)}
+        if search_after:
+            params["searchAfter"] = search_after
+        payload = await self._get_json(url, params=params)
         return SourceRecord("brreg_legal_roles", normalized, payload, url)
 
     async def get_group_structure(self, orgnr: str) -> SourceRecord:
