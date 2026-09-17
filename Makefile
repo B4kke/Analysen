@@ -1,4 +1,4 @@
-.PHONY: install dev-api worker web test lint compose-up compose-down
+.PHONY: install dev-api worker web test lint nim-smoke compose-up compose-down
 
 install:
 	python -m pip install -r requirements-dev.txt
@@ -22,6 +22,9 @@ test:
 lint:
 	ruff check .
 	mypy apps
+
+nim-smoke:
+	python scripts/nim_smoke.py --suite text
 
 compose-up:
 	docker compose up --build
