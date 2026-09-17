@@ -171,8 +171,24 @@ CREATE TABLE IF NOT EXISTS contradictions (
   created_at timestamptz NOT NULL DEFAULT now()
 );
 
+CREATE TABLE IF NOT EXISTS brreg_role_snapshots (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  sha256 char(64) NOT NULL UNIQUE,
+  etag text,
+  last_modified text,
+  storage_path text NOT NULL,
+  status text NOT NULL CHECK (status IN ('IMPORTING','ACTIVE','SUPERSEDED','FAILED')),
+  record_count bigint NOT NULL DEFAULT 0,
+  error_message text,
+  started_at timestamptz NOT NULL DEFAULT now(),
+  completed_at timestamptz
+);
+CREATE UNIQUE INDEX IF NOT EXISTS brreg_role_one_active_snapshot
+  ON brreg_role_snapshots ((status)) WHERE status = 'ACTIVE';
+
 CREATE TABLE IF NOT EXISTS brreg_role_index (
   id bigserial PRIMARY KEY,
+  snapshot_id uuid NOT NULL REFERENCES brreg_role_snapshots(id) ON DELETE CASCADE,
   normalized_name text NOT NULL,
   display_name text NOT NULL,
   birth_date date,
@@ -180,12 +196,13 @@ CREATE TABLE IF NOT EXISTS brreg_role_index (
   role_code text NOT NULL,
   role_description text,
   raw_record jsonb NOT NULL,
-  source_snapshot_hash char(64) NOT NULL,
   imported_at timestamptz NOT NULL DEFAULT now()
 );
-CREATE INDEX IF NOT EXISTS brreg_role_name_birth_idx ON brreg_role_index(normalized_name, birth_date);
-CREATE INDEX IF NOT EXISTS brreg_role_name_trgm ON brreg_role_index USING gin (normalized_name gin_trgm_ops);
-CREATE INDEX IF NOT EXISTS brreg_role_org_idx ON brreg_role_index(orgnr);
+CREATE INDEX IF NOT EXISTS brreg_role_name_birth_idx
+  ON brreg_role_index(normalized_name, birth_date, snapshot_id);
+CREATE INDEX IF NOT EXISTS brreg_role_name_trgm
+  ON brreg_role_index USING gin (normalized_name gin_trgm_ops);
+CREATE INDEX IF NOT EXISTS brreg_role_org_idx ON brreg_role_index(orgnr, snapshot_id);
 
 CREATE TABLE IF NOT EXISTS search_queries (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
