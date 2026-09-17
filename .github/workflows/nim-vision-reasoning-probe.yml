@@ -1,0 +1,57 @@
+name: NIM Vision Reasoning Probe
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - "scripts/nim_vision_reasoning_probe.py"
+      - ".github/workflows/nim-vision-reasoning-probe.yml"
+
+concurrency:
+  group: nim-vision-reasoning-probe-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  probe:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    env:
+      NIM_API_KEY: ${{ secrets.NIM_API_KEY }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install dependencies
+        run: >-
+          python -m pip install --disable-pip-version-check
+          "httpx>=0.28,<1" "Pillow>=11,<13"
+      - name: Verify NIM secret
+        shell: bash
+        run: |
+          if [ -z "${NIM_API_KEY:-}" ]; then
+            echo "NIM_API_KEY repository secret is missing" >&2
+            exit 1
+          fi
+      - name: Run vision reasoning probe
+        run: >-
+          python scripts/nim_vision_reasoning_probe.py
+          | tee nim-vision-reasoning-probe.log
+      - name: Publish summary
+        if: always()
+        shell: bash
+        run: |
+          echo "## NIM Vision Reasoning Probe" >> "$GITHUB_STEP_SUMMARY"
+          echo '```text' >> "$GITHUB_STEP_SUMMARY"
+          tail -n 22 nim-vision-reasoning-probe.log >> "$GITHUB_STEP_SUMMARY" || true
+          echo '```' >> "$GITHUB_STEP_SUMMARY"
+      - name: Upload artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: nim-vision-reasoning-probe-${{ github.run_id }}
+          path: |
+            artifacts/nim-vision-reasoning/
+            nim-vision-reasoning-probe.log
+          retention-days: 14
