@@ -1,0 +1,56 @@
+name: NIM Tool Routing Stress
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - "scripts/nim_tool_routing_stress.py"
+
+concurrency:
+  group: nim-tool-routing-stress-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  stress:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    env:
+      NIM_API_KEY: ${{ secrets.NIM_API_KEY }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install dependency
+        run: >-
+          python -m pip install --disable-pip-version-check
+          "httpx>=0.28,<1"
+      - name: Verify NIM secret
+        shell: bash
+        run: |
+          if [ -z "${NIM_API_KEY:-}" ]; then
+            echo "NIM_API_KEY repository secret is missing" >&2
+            exit 1
+          fi
+      - name: Run tool-routing stress
+        run: >-
+          python scripts/nim_tool_routing_stress.py
+          | tee nim-tool-routing-stress.log
+      - name: Publish summary
+        if: always()
+        shell: bash
+        run: |
+          echo "## NIM Tool Routing Stress" >> "$GITHUB_STEP_SUMMARY"
+          echo '```text' >> "$GITHUB_STEP_SUMMARY"
+          cat nim-tool-routing-stress.log >> "$GITHUB_STEP_SUMMARY" || true
+          echo '```' >> "$GITHUB_STEP_SUMMARY"
+      - name: Upload artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: nim-tool-routing-stress-${{ github.run_id }}
+          path: |
+            artifacts/nim-tool-routing-stress/
+            nim-tool-routing-stress.log
+          retention-days: 14
