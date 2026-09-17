@@ -1,19 +1,33 @@
 # AGENTS.md — autoritativ arbeidsinstruks
 
 ## Oppdrag
-Bygg Analysen som en norsk, kildebevisst OSINT-motor. Systemet skal undersøke personer og virksomheter ved hjelp av lovlig tilgjengelige åpne kilder, følge nye spor, verifisere påstander og produsere etterprøvbare rapporter.
+Bygg Analysen som en norsk, kildebevisst OSINT-motor. Systemet skal undersøke personer og virksomheter ved hjelp av lovlig tilgjengelige åpne kilder, følge relevante spor innen eksplisitt valgt scope, verifisere påstander og produsere etterprøvbare rapporter.
+
+## Source of truth
+Før arbeid skal agenten lese:
+1. `docs/TASK_QUEUE.md` — kanonisk arbeidskø og status.
+2. `docs/IMPLEMENTATION_PLAN.md` — leveransefaser.
+3. `docs/ARCHITECTURE.md` — systemarkitektur.
+4. `docs/INVESTIGATION_SCOPE.md` — hva en investigation får undersøke.
+5. `docs/SEARCH_TRIGGERS.md` — når/hvorfor systemet får søke videre.
+6. `docs/PRIVACY_LEGAL.md` — juridiske/personvernmessige grenser.
+7. relevante domene-/kildedokumenter for oppgaven.
+
+Ikke opprett parallelle TODO-lister i tilfeldige filer. Nye oppgaver føres i `docs/TASK_QUEUE.md`. Fullførte milepæler føres kort i `docs/WORKLOG.md`.
 
 ## Ikke-forhandlingsbare regler
 1. **Ingen påstand uten evidens.** Vesentlige rapportpåstander skal peke til lagret evidence med URL, hentetid, kilde og relevant tekst/strukturert felt.
 2. **LLM er ikke sannhetsdatabase.** Modeller planlegger, ekstraherer, foreslår og skriver. Deterministisk kode lagrer, normaliserer, beregner og håndhever policy.
 3. **Discovery er ikke evidence.** Søkeresultatsnutter brukes kun for å finne kilden. Originalsiden/dokumentet må hentes før en påstand kan støttes.
-4. **Identitetslikhet er ikke identitet.** Samme navn alene må aldri slå sammen personer. Fødselsdato, rollehistorikk, lokasjon, selskaper og tidslinje skal vurderes eksplisitt.
-5. **Primærkilder først.** Brønnøysund og andre offisielle registre prioriteres foran medier og tilfeldige nettsteder.
-6. **Ingen omgåelse.** Ikke omgå innlogging, CAPTCHA, betalingsmur, robots/rate-begrensning, privat API eller tilgangskontroll.
-7. **Ingen sensitive inferenser.** Ikke inferer helse, religion, etnisitet, seksuell orientering eller politiske meninger. Politiske registerdata skal være deaktivert som standard.
-8. **Straffedata er særskilt.** Systemet skal ikke bygge et omfattende straffedomregister. Slike data er deaktivert som standard og krever særskilt juridisk vurdering.
-9. **Ingen person-risikoscore.** Presenter dokumenterte funn, usikkerhet og motstrid; ikke en svart-boks score over en persons «risiko».
-10. **Ingen sletting av funksjoner for å få tester grønne.** Reparer årsaken.
+4. **Discovery er ikke autorisasjon til å ekspandere.** En ny entity kan lagres som kontekst, men videre research krever aktiv scope-modul, tillatt expansion policy, konkret information need og tilgjengelig budsjett/policy.
+5. **Identitetslikhet er ikke identitet.** Samme navn alene må aldri slå sammen personer. Fødselsdato, rollehistorikk, lokasjon, selskaper og tidslinje skal vurderes eksplisitt.
+6. **Primærkilder først.** Brønnøysund og andre offisielle registre prioriteres foran medier og tilfeldige nettsteder.
+7. **Ingen omgåelse.** Ikke omgå innlogging, CAPTCHA, betalingsmur, robots/rate-begrensning, privat API eller tilgangskontroll.
+8. **Ingen sensitive inferenser.** Ikke inferer helse, religion, etnisitet, seksuell orientering eller politiske meninger. Politiske registerdata skal være deaktivert som standard.
+9. **Straffedata er særskilt.** Systemet skal ikke bygge et omfattende straffedomregister. Slike data er deaktivert som standard og krever særskilt juridisk vurdering.
+10. **Ingen person-risikoscore.** Presenter dokumenterte funn, usikkerhet og motstrid; ikke en svart-boks score over en persons «risiko».
+11. **Ingen sletting av funksjoner for å få tester grønne.** Reparer årsaken.
+12. **Ingen skjult sidearbeid.** Nye funn som ikke hører til aktiv oppgave blir egne queue-items; ikke start dem halvveis.
 
 ## Arkitektur
 - `apps/api`: FastAPI og domene-API.
@@ -22,32 +36,39 @@ Bygg Analysen som en norsk, kildebevisst OSINT-motor. Systemet skal undersøke p
 - `config`: modell-, kilde- og policykonfigurasjon.
 - `prompts`: versjonerte LLM-kontrakter.
 - `db`: canonical schema/migrations.
-- `docs`: autoritativ design og beslutninger.
+- `docs`: autoritativ design, beslutninger og oppgavehygiene.
 
-PostgreSQL er canonical store. pgvector er et retrieval-indeks, ikke sannhetskilde. Redis er kø/cache. SearXNG brukes for discovery. Crawl4AI/Trafilatura/Playwright brukes til nettsider. BRREG er første norske registerintegrasjon.
+PostgreSQL er canonical store. pgvector er retrieval-indeks, ikke sannhetskilde. Redis er kø/cache. SearXNG brukes for discovery. Crawl4AI/Trafilatura/Playwright brukes til nettsider. BRREG er første norske registerintegrasjon.
 
-## Arbeidsrekkefølge
-1. Les `docs/IMPLEMENTATION_PLAN.md`, `docs/ARCHITECTURE.md`, `docs/PRIVACY_LEGAL.md` og relevante spesifikasjoner.
-2. Fullfør én vertikal oppgave før neste startes.
-3. Implementer typed schemas før agentlogikk.
-4. Implementer source adapters med fixtures og kontrakttester.
-5. Lagre raw evidence før LLM-ekstraksjon.
-6. Valider alle LLM-utdata mot Pydantic/JSON schema.
-7. Kjør entity-resolution og provenance-gates før rapportering.
-8. Oppdater `docs/DECISIONS.md` når arkitektur endres.
+## Arbeidsflyt for AI-agenter
+1. Velg høyest prioriterte `READY`-oppgave uten blocker i `docs/TASK_QUEUE.md`.
+2. Sett den `IN_PROGRESS` før større arbeid starter.
+3. Les alle canonical docs som oppgaven berører før endring.
+4. Fullfør én vertikal oppgave før neste startes.
+5. Implementer typed schemas før agentlogikk.
+6. Implementer source adapters med fixtures og kontrakttester.
+7. Lagre raw evidence før LLM-ekstraksjon.
+8. Valider alle LLM-utdata mot Pydantic/JSON schema.
+9. Kjør scope-gate, entity-resolution og provenance-gates før videre research/rapportering.
+10. Hvis en reell blocker oppstår, sett oppgaven `BLOCKED` og dokumenter nøyaktig blocker.
+11. Når acceptance criteria er oppfylt: sett `DONE`, oppdater relevante docs/tests og append kort linje i `WORKLOG.md`.
+12. Oppdater `docs/DECISIONS.md` når arkitektur eller ufravikelige designvalg endres.
 
-## Kvalitetsporter
-En feature er ikke ferdig før:
-- den har strukturert logging,
-- feiltilstander er eksplisitte,
+## Definition of done
+En feature/oppgave er ikke ferdig før:
+- avtalt scope er fullført uten skjulte halvferdige sidegrener,
+- strukturert logging og eksplisitte feiltilstander finnes der relevant,
 - datakilde og lisens/tilgangstype er dokumentert,
 - LLM-resultater valideres,
-- relevante unit/contract tests finnes,
+- relevante unit/contract/eval-tester finnes eller manglende kjørbarhet er eksplisitt dokumentert,
 - rapportpåstander kan spores til evidence,
-- sikkerhets- og personvernregler ikke omgås.
+- sikkerhets- og personvernregler ikke omgås,
+- relevante source-of-truth docs er synkronisert,
+- nye oppfølgingsbehov er egne queue-items,
+- oppgaven er markert `DONE` i `TASK_QUEUE.md`.
 
 ## Modellbruk
-Modellvalg er konfigurasjon. Hardkod aldri modellnavn i business logic. Se `config/models.yaml` og `docs/NIM_MODELS.md`. Norske tekstoppgaver må evalueres i prosjektets norske eval-sett; NVIDIA Nemotron-modellkortene lister ikke norsk som offisielt støttet språk.
+Modellvalg er konfigurasjon. Hardkod aldri modellnavn i business logic. Se `config/models.yaml` og `docs/NIM_MODELS.md`. Norske tekstoppgaver må evalueres i prosjektets norske eval-sett; modellkort alene er ikke tilstrekkelig kvalitetsbevis.
 
 ## Forbudte snarveier
 - Fake/mock research i produksjonsflyt.
@@ -57,4 +78,5 @@ Modellvalg er konfigurasjon. Hardkod aldri modellnavn i business logic. Se `conf
 - Automatisk sammenslåing ved navnelikhet.
 - Påstander fra snippets.
 - Ubegrenset crawling.
+- Automatisk full research av enhver nyoppdaget person/virksomhet.
 - Loggføring av secrets eller unødvendige personopplysninger.
