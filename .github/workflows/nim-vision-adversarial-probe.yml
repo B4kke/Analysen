@@ -6,6 +6,7 @@ on:
     branches: [main]
     paths:
       - "scripts/nim_vision_adversarial_probe.py"
+      - ".github/workflows/nim-vision-adversarial-probe.yml"
 
 concurrency:
   group: nim-vision-adversarial-probe-${{ github.ref }}
