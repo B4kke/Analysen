@@ -76,7 +76,8 @@ En oppgave kan bare settes `DONE` når:
 **Acceptance:** Test-suite fanger firma-/person-autoekspansjon uten aktivt scope.
 
 ### AQ-008 — Kjørbar lokal grunnmur
-**Status:** READY
+**Status:** BLOCKED
+**Blocker 2026-09-17:** Docker-bygg for API, worker, migrate og web passerer, men isolert Compose-oppstart (`analysen-opencode-check`) stopper ved bind-mount for SearXNG: Docker Desktop/WSL mangler `/run/guest-services/distro-services/ubuntu-24-04.sock`. Docker/WSL-integrasjonen må fungere før full oppstart, worker-smoke og nettlesersmoke kan verifiseres. Ingen workaround som svekker konfigurasjonen er lagt inn.
 **Overtakelse 2026-09-17:** Codex-arbeidet er bevart på `codex/analysen-foundation`. Migreringstestens JSON-dekoding og lint er rettet. Ruff, mypy, 48 tester med PostgreSQL-integrasjon, TypeScript og webbygg passerer lokalt. Full Compose-oppstart, worker-smoke og nettlesersmoke gjenstår før oppgaven kan lukkes.
 **Prioritet:** P0
 **Leveranse:** Versjonerte migreringer, validerte konfigurasjoner, fungerende Redis-worker, Compose healthchecks/oppstartsrekkefølge, låste avhengigheter, investigation-skjema i web og CI.
