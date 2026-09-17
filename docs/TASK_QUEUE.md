@@ -101,7 +101,8 @@ En oppgave kan bare settes `DONE` når:
 **Acceptance:** Ekstern/flerbrukerdrift har saksspesifikk tilgang og dokumentert datalivssyklus. Nåværende Compose er kun lokal énbrukerdrift.
 
 ### AQ-011 — NIM planner som forslagsgiver bak lead-gaten
-**Status:** IN_PROGRESS
+**Status:** DONE
+**Verifisert 2026-09-18:** Live NIM-kall mot `nvidia/nemotron-3-super-120b-a12b` med syntetisk kontekst. Første svar var skjemainvalid (`trigger_type: DIRECT_RELATION`, `priority: "high"`) og ble avvist av Pydantic-laget før lagring — deretter skjerpet `prompts/planner.md` med eksakte enum-verdier. Andre kall ga 3 skjemagyldige forslag; gaten slapp 1 gjennom (`WEAK_SOURCE_ONLY` → PENDING) og nektet 2 med presise årsaker (`MEDIA_CORROBORATION` → `passive_trigger_requires_review`, relasjonsforslag uten verifisert relasjon → `invalid_target`). Alt auditlogget (`LEAD_PROPOSED`). Testdata slettet via `DELETE` (204, deretter 404). Nøkkelen ble kun brukt som miljøvariabel og er ikke lagret i repoet.
 **Prioritet:** P0
 **Avhenger av:** AQ-005
 **Leveranse:** Typed planlegger-forslag (`domain/planner.py`), modell-uavhengig planlegger-tjeneste (`services/planner.py`) med Pydantic-validering, deterministisk dedup/cap, modellnavn fra `config/models.yaml`, og live-probe (`scripts/plan_probe.py`).
