@@ -349,3 +349,5 @@ def main() -> int:
 
 if __name__ == "__main__":
     raise SystemExit(main())
+
+# Benchmark trigger: 2026-09-17T15:16Z
