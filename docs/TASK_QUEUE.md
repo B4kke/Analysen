@@ -42,10 +42,10 @@ En oppgave kan bare settes `DONE` når:
 **Acceptance:** Verifier-triggered retry, coverage ledger og dataminimering i queries er definert.
 
 ### AQ-003 — Propagate scope/trigger contracts through docs
-**Status:** IN_PROGRESS  
+**Status:** DONE  
 **Prioritet:** P0  
-**Leveranse:** Oppdater `ARCHITECTURE`, `DATA_MODEL`, `AGENT_ORCHESTRATION`, `SEARCH_CRAWLING`, `ENTITY_RESOLUTION`, `FINANCIAL_ANALYSIS`, `UI_UX`, `REPORTING`, `API`, `TESTING`, `IMPLEMENTATION_PLAN`, `README`, `DECISIONS` og `AGENTS.md` der relevant.  
-**Acceptance:** Ingen dokument beskriver lenger generell auto-ekspansjon i konflikt med canonical scope/trigger-regler.
+**Leveranse:** `ARCHITECTURE`, `DATA_MODEL`, `AGENT_ORCHESTRATION`, `SEARCH_CRAWLING`, `ENTITY_RESOLUTION`, `FINANCIAL_ANALYSIS`, `UI_UX`, `REPORTING`, `API`, `TESTING`, `IMPLEMENTATION_PLAN`, `README`, `DECISIONS` og `AGENTS.md` er synkronisert med canonical scope/trigger-regler.  
+**Acceptance:** Ingen av de oppdaterte canonical dokumentene beskriver generell auto-ekspansjon i konflikt med scope/trigger-kontraktene.
 
 ### AQ-004 — Implement investigation scope in API/schema
 **Status:** READY  
@@ -76,4 +76,4 @@ En oppgave kan bare settes `DONE` når:
 **Acceptance:** Test-suite fanger firma-/person-autoekspansjon uten aktivt scope.
 
 ## Hygiene
-Når AQ-003 er ferdig skal den settes `DONE` og ikke bli stående `IN_PROGRESS`. Fullførte oppgaver beholdes her for sporbarhet inntil en senere opprydding flytter eldre historikk til changelog/release notes.
+Fullførte oppgaver beholdes her for sporbarhet inntil en senere opprydding flytter eldre historikk til changelog/release notes. En oppgave skal aldri bli stående `IN_PROGRESS` etter at leveransen er avsluttet.
