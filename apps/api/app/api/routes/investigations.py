@@ -29,6 +29,8 @@ from apps.api.app.repositories.brreg_ingest import persist_brreg_organization
 from apps.api.app.repositories.investigations import (
     InvestigationNotFound,
     create_investigation,
+    delete_investigation,
+    export_investigation,
     get_investigation,
     get_investigation_record,
     get_modules,
@@ -132,6 +134,29 @@ async def propose_lead_endpoint(
         raise HTTPException(status_code=404, detail="Investigation not found") from exc
     await session.commit()
     return {"lead_id": str(lead_id), "status": lead_status}
+
+
+@router.get("/{investigation_id}/export")
+async def export_investigation_endpoint(
+    investigation_id: UUID, session: DatabaseSession
+) -> dict:
+    """Full per-investigation export for data portability and retention review."""
+    try:
+        return await export_investigation(session, investigation_id)
+    except InvestigationNotFound as exc:
+        raise HTTPException(status_code=404, detail="Investigation not found") from exc
+
+
+@router.delete("/{investigation_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_investigation_endpoint(
+    investigation_id: UUID, session: DatabaseSession
+) -> None:
+    """Erase one investigation with all cascade-owned data; audited on the way out."""
+    try:
+        await delete_investigation(session, investigation_id)
+    except InvestigationNotFound as exc:
+        raise HTTPException(status_code=404, detail="Investigation not found") from exc
+    await session.commit()
 
 
 @router.post(

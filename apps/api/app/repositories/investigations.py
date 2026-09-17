@@ -271,3 +271,79 @@ async def propose_lead(
         },
     )
     return lead_id, status
+
+
+async def export_investigation(
+    session: AsyncSession, investigation_id: UUID
+) -> dict:
+    """Full data export for one investigation (GDPR data portability).
+
+    Includes record, modules, entities, claims, leads, documents (with raw
+    snapshot keys) and audit events. Raw bytes stay in the object store; the
+    export references them by hash so integrity can be verified after import.
+    """
+    from datetime import UTC, datetime
+
+    detail = await get_investigation(session, investigation_id)
+    lead_rows = (
+        await session.execute(
+            text("""
+                SELECT id, lead_type, value, reason, originating_claim_id, priority,
+                    depth, status, scope_area, trigger_type, information_need,
+                    relation_depth, blocked_reason, created_at
+                FROM leads WHERE investigation_id = :id ORDER BY created_at
+            """),
+            {"id": investigation_id},
+        )
+    ).mappings().all()
+    document_rows = (
+        await session.execute(
+            text("""
+                SELECT doc.id, doc.sha256, doc.raw_storage_key, doc.original_url,
+                    doc.canonical_url, doc.mime_type, doc.fetched_at
+                FROM investigation_documents d
+                JOIN documents doc ON doc.id = d.document_id
+                WHERE d.investigation_id = :id ORDER BY doc.fetched_at
+            """),
+            {"id": investigation_id},
+        )
+    ).mappings().all()
+    audit_rows = (
+        await session.execute(
+            text("""
+                SELECT event_type, actor, payload, created_at
+                FROM audit_log WHERE investigation_id = :id ORDER BY id
+            """),
+            {"id": investigation_id},
+        )
+    ).mappings().all()
+    return {
+        "investigation": detail.model_dump(mode="json"),
+        "modules": [module.model_dump(mode="json") for module in detail.modules],
+        "entities": [entity.model_dump(mode="json") for entity in detail.entities],
+        "claims": [claim.model_dump(mode="json") for claim in detail.claims],
+        "leads": [dict(row) for row in lead_rows],
+        "documents": [dict(row) for row in document_rows],
+        "audit_log": [dict(row) for row in audit_rows],
+        "exported_at": datetime.now(UTC).isoformat(),
+    }
+
+
+async def delete_investigation(session: AsyncSession, investigation_id: UUID) -> None:
+    """Delete one investigation and all cascade-owned data (GDPR erasure).
+
+    Deletion relies on ON DELETE CASCADE from investigations. Raw snapshots in
+    the object store are content-addressed and shared between documents; they
+    are intentionally not removed here. The deletion itself is audited on the
+    surviving audit row (investigation_id becomes NULL via ON DELETE SET NULL).
+    """
+    await get_investigation_record(session, investigation_id, for_update=True)
+    await _audit(
+        session,
+        investigation_id,
+        "INVESTIGATION_DELETED",
+        {"reason": "operator requested erasure"},
+    )
+    await session.execute(
+        text("DELETE FROM investigations WHERE id = :id"), {"id": investigation_id}
+    )
