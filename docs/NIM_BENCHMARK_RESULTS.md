@@ -9,9 +9,9 @@ This file records observed benchmark results from the synthetic Norwegian test s
 - **Nemotron 3 Ultra 550B** is currently the strongest text/reasoning verifier in the Norwegian stress tests. It completed the focused Norwegian language suite at 21/21 exact fields and the long-context suite at 3/3 exact cases.
 - **Nemotron 3 Super 120B** is very strong for general planning/reasoning and long-context work. It completed all three long-context placements exactly. Several missing stress-suite points came from hosted 503s or formatting rather than semantic errors.
 - **Nemotron 3.5 Lightning 30B** is very useful as a fast workhorse/tool-calling model, but should not be the only verifier for linguistically difficult claims. Confirmed weaknesses include one double-negation error and occasional malformed/truncated structured JSON.
-- **Gemma 4 31B IT** is exceptionally strong on exact Norwegian document OCR/vision, including difficult Unicode and adversarial images, but has shown one clear text-negation error and one clear visual arithmetic error. Hosted 529 overloads also occur.
+- **Gemma 4 31B IT** is exceptionally strong on exact Norwegian document OCR/vision, including difficult Unicode and adversarial images, but has shown one clear text-negation error and repeated visual arithmetic errors. Hosted 529 overloads also occur.
 - **Nemotron 3 Embed 1B** is performing extremely well for Norwegian retrieval, including hard negatives, but temporal/status metadata filtering is still recommended because some cosine margins are small.
-- **Nemotron Nano Omni 30B reasoning** is much faster than Gemma for vision in most observed calls, but Gemma has been slightly more exact on character-level OCR.
+- **Nemotron Nano Omni 30B reasoning** is much faster than Gemma for vision in most observed calls, but Gemma has been slightly more exact on character-level OCR. Omni hosted availability has been materially worse in some vision-reasoning runs.
 
 ## Structured Norwegian extraction
 
@@ -140,17 +140,35 @@ Role timeline with historical decoy:
 - Gemma: 2/2
 - Omni: 2/2
 
-Norwegian invoice arithmetic revealed a genuine Gemma error. Correct values were:
+### Initial invoice case
+
+Correct values:
 
 - subtotal ex VAT: 3117.50
 - VAT: 779.38
 - total inc VAT: 3896.88
 
-Gemma returned 3025.50 / 756.38 / 3781.88.
+Gemma returned 3025.50 / 756.38 / 3781.88, a genuine arithmetic/visual-reasoning failure. Omni could not be scored because both attempts received HTTP 503 `ResourceExhausted`.
 
-Omni could not be scored on that invoice in the same run because both attempts received HTTP 503 `ResourceExhausted`.
+### Isolated three-case vision-math suite
 
-An isolated multi-case vision-math suite is pending to determine whether the Gemma failure is systematic and to give Omni a clean retry.
+A second isolated run tested invoice arithmetic, financial-statement growth/margin, and signed bank-ledger totals.
+
+Gemma:
+
+- invoice VAT: **0/3**; returned 3126.50 / 781.63 / 3908.13
+- accounts growth/margin: **1/2**; growth 23.00% correct, operating margin 21.93% instead of 21.95%
+- signed ledger totals: **3/3**; credits 15600, debits 4650, net change 10950
+
+This repeat confirms that Gemma's earlier invoice error was not an isolated one. It appears reliable at OCR and straightforward signed summation but should not be the sole calculator for visual financial tables.
+
+Omni:
+
+- invoice VAT: unavailable after read timeout/retry
+- accounts growth/margin: unavailable after HTTP 503 `ResourceExhausted`
+- signed ledger totals: **3/3**, but required retry and took 31.41 s
+
+Omni therefore still lacks a clean quality score for the two harder visual-math cases; its failures here are availability failures, not semantic failures.
 
 ## Embeddings / retrieval
 
@@ -175,7 +193,7 @@ Observed service-level errors include:
 
 - HTTP 503 Service Unavailable / `ResourceExhausted`, especially on Super/Omni during some periods
 - HTTP 529 `Service temporarily overloaded`, repeatedly observed on Gemma
-- read timeouts on some long Lightning calls
+- read timeouts on some long Lightning and Omni calls
 - large run-to-run latency variation even for identical or similar requests
 
 These are tracked separately from semantic quality. A dedicated sequential-plus-small-burst reliability suite is still pending.
@@ -183,10 +201,11 @@ These are tracked separately from semantic quality. A dedicated sequential-plus-
 ## Pending benchmark suites
 
 - repeated consistency tests for negation/double-negation and temporal language
-- isolated multi-case vision/table arithmetic
 - competitive tool routing: registry vs web search vs internal semantic search vs no tool
 - hosted reliability/burst metrics: first-attempt success, retry recovery, status codes, median and p95 latency
-- further reasoning cases with conflicting multi-source evidence
+- source-conflict/evidence synthesis with explicit supporting source IDs
+- Norwegian company/register terminology
+- further isolated Omni visual arithmetic if hosted availability permits
 
 ## Current routing hypothesis
 
@@ -195,8 +214,8 @@ This is provisional and must be updated as pending suites complete:
 - **Fast workhorse / simple extraction / tool agent:** Lightning, with validation and escalation on difficult language or malformed JSON.
 - **General planner / long-context synthesis:** Super.
 - **Hard verification / difficult Norwegian reasoning:** Ultra.
-- **High-precision vision/OCR:** Gemma, especially where exact characters matter.
-- **Fast multimodal extraction:** Omni, with verification for exact identifiers.
+- **High-precision vision/OCR:** Gemma, especially where exact characters matter, but never use it as the sole calculator for financial tables.
+- **Fast multimodal extraction:** Omni, with verification for exact identifiers and availability-aware fallback.
 - **Retrieval embeddings:** Nemotron 3 Embed 1B plus temporal/status/source metadata filters.
 
 Do not turn this into a single combined leaderboard. Analysen needs task-specific routing, and service availability must remain distinct from model intelligence/quality.
