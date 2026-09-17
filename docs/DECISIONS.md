@@ -20,3 +20,12 @@
 
 ## ADR-007 — Native document parsing before VLM
 **Status:** accepted. Bedre kost/latency/provenance.
+
+## ADR-008 — Scope-first investigations
+**Status:** accepted. Brukeren velger eksplisitt hvilke research-moduler som skal aktiveres. Identitetsavklaring er alltid aktiv som systemhygiene, men discovery av relaterte entities gir ikke automatisk autorisasjon til videre research. Expansion styres av `expansion_policy`, `max_relation_depth`, materialitet, policy og budsjett. Canonical kontrakt: `INVESTIGATION_SCOPE.md`.
+
+## ADR-009 — Trigger-driven follow-up research
+**Status:** accepted. Nye søk/actions krever konkret `information_need` og eksplisitt trigger class. Source router foretrekker målrettede/offisielle adapters før bred websearch. Verifier kan foreslå missing-information leads, men kan ikke starte fri research direkte. Canonical kontrakt: `SEARCH_TRIGGERS.md`.
+
+## ADR-010 — Canonical agent task queue
+**Status:** accepted. `docs/TASK_QUEUE.md` er eneste kanoniske arbeidskø for AI-agenter; `docs/WORKLOG.md` er append-only milepælhistorikk. Parallelle TODO-lister i tilfeldige dokumenter skal unngås.
