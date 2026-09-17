@@ -1,3 +1,4 @@
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
@@ -6,6 +7,14 @@ from tenacity import retry, retry_if_exception_type, stop_after_attempt, wait_ex
 
 from apps.api.app.domain.identifiers import normalize_orgnr
 from apps.api.app.sources.base import SourceAdapter, SourceRecord
+
+
+@dataclass(frozen=True)
+class RoleInventoryDownload:
+    path: Path
+    etag: str | None
+    last_modified: str | None
+    content_type: str | None
 
 
 class BrregAdapter(SourceAdapter):
@@ -79,12 +88,28 @@ class BrregAdapter(SourceAdapter):
         payload = await self._get_json(url)
         return SourceRecord("brreg_group_structure", normalized, payload, url)
 
-    async def download_role_inventory(self, destination: Path) -> Path:
+    async def download_role_inventory(self, destination: Path) -> RoleInventoryDownload:
         url = f"{self.base_url}/roller/totalbestand"
         destination.parent.mkdir(parents=True, exist_ok=True)
-        async with self.client.stream("GET", url) as response:
-            response.raise_for_status()
-            with destination.open("wb") as handle:
-                async for chunk in response.aiter_bytes():
-                    handle.write(chunk)
-        return destination
+        temporary = destination.with_suffix(f"{destination.suffix}.part")
+        try:
+            async with self.client.stream(
+                "GET",
+                url,
+                headers={"Accept": "application/gzip, application/octet-stream, */*"},
+                timeout=None,
+            ) as response:
+                response.raise_for_status()
+                with temporary.open("wb") as handle:
+                    async for chunk in response.aiter_bytes():
+                        handle.write(chunk)
+                metadata = RoleInventoryDownload(
+                    path=destination,
+                    etag=response.headers.get("etag"),
+                    last_modified=response.headers.get("last-modified"),
+                    content_type=response.headers.get("content-type"),
+                )
+            temporary.replace(destination)
+            return metadata
+        finally:
+            temporary.unlink(missing_ok=True)
