@@ -280,12 +280,11 @@ def _claims_for_organization(organization: BrregOrganization) -> list[tuple[str,
     )
     claims.extend((predicate, value) for predicate, value in optional_values if value is not None)
     if organization.historical_names:
-        claims.append(
-            (
-                "historical_names",
-                [item.model_dump(mode="json", exclude_none=True) for item in organization.historical_names],
-            )
-        )
+        historical_names = [
+            item.model_dump(mode="json", exclude_none=True)
+            for item in organization.historical_names
+        ]
+        claims.append(("historical_names", historical_names))
     return claims
 
 
