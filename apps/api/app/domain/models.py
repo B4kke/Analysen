@@ -1,4 +1,4 @@
-from datetime import date, datetime
+from datetime import UTC, date, datetime
 from enum import StrEnum
 from typing import Any
 from uuid import UUID
@@ -132,7 +132,7 @@ class VerificationResult(BaseModel):
     rationale: str
     supporting_evidence_ids: list[UUID] = Field(default_factory=list)
     contradicting_evidence_ids: list[UUID] = Field(default_factory=list)
-    verified_at: datetime = Field(default_factory=datetime.utcnow)
+    verified_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
 
 
 class BrregAddress(BaseModel):
@@ -189,6 +189,33 @@ class BrregRoleRecord(BaseModel):
 class BrregRoleLookup(BaseModel):
     organization_number: str
     roles: list[BrregRoleRecord] = Field(default_factory=list)
+
+
+class BrregRoleIndexStatus(BaseModel):
+    available: bool
+    snapshot_id: UUID | None = None
+    sha256: str | None = None
+    record_count: int = 0
+    last_modified: str | None = None
+    completed_at: datetime | None = None
+
+
+class BrregPersonRoleMatch(BaseModel):
+    person_name: str
+    birth_date: date
+    organization_number: str
+    organization_name: str
+    organization_form_code: str | None = None
+    role_code: str
+    role_description: str | None = None
+    business_context_verified: bool = True
+
+
+class BrregPersonRoleSearch(BaseModel):
+    query_name: str
+    birth_date: date
+    snapshot_id: UUID
+    matches: list[BrregPersonRoleMatch] = Field(default_factory=list)
 
 
 class BrregIngestResult(BaseModel):
