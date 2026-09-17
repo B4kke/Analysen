@@ -1,12 +1,18 @@
 # Analysen
 
-Analysen er en kildebevisst OSINT- og bakgrunnsanalysemotor med Norge som primært bruksområde. Systemet skal undersøke personer, virksomheter og relasjoner ved å bruke lovlig tilgjengelige åpne kilder, følge nye spor, verifisere funn og produsere etterprøvbare rapporter.
+Analysen er en kildebevisst OSINT- og bakgrunnsanalysemotor med Norge som primært bruksområde. Systemet skal undersøke personer, virksomheter og relasjoner ved å bruke lovlig tilgjengelige åpne kilder, følge relevante spor innen eksplisitt valgt scope, verifisere funn og produsere etterprøvbare rapporter.
 
-> **Kjerneprinsipp:** LLM foreslår. Verktøy henter. Kode beregner. Evidens dokumenterer. Verifikator kontrollerer. Mennesket vurderer.
+> **Kjerneprinsipp:** Brukeren velger scope. LLM foreslår. Policy/scope gate godkjenner. Verktøy henter. Kode beregner. Evidens dokumenterer. Verifikator kontrollerer. Mennesket vurderer.
 
 ## Status
+Grunnmur/arkitektur er etablert. BRREG entities/roles, åpen role-totalbestand, lokal reverse-index, investigation persistence, entity resolution og NIM-provider er påbegynt/implementert.
 
-Grunnmur/arkitektur er etablert. BRREG entities/roles, åpen role-totalbestand, lokal reverse-index, investigation persistence, entity resolution og NIM-provider er påbegynt/implementert. Neste store gap er bred person-/webresearch med eksplisitt sosial profil-, bilde- og adresse/sted-evidence samt agentisk research-loop.
+Research-arkitekturen er nå eksplisitt **scope-first og trigger-driven**:
+- `docs/INVESTIGATION_SCOPE.md` definerer hvilke områder en investigation får undersøke og hvordan relaterte entities kan ekspanderes.
+- `docs/SEARCH_TRIGGERS.md` definerer når/hvorfor nye søk får startes, source routing, query classes og stop conditions.
+- `docs/TASK_QUEUE.md` er kanonisk arbeidskø for AI-agenter; `docs/WORKLOG.md` er kort historikk over fullførte milepæler.
+
+Neste store implementasjonsgap er å føre disse kontraktene inn i API/schema/planner/runtime og bygge bred person-/webresearch med eksplisitt coverage.
 
 ## Stack
 - Next.js 16.3 / React 19.3 frontend
@@ -66,18 +72,23 @@ python scripts/nim_smoke.py --suite embedding
 
 ## Les før utvikling
 1. `AGENTS.md`
-2. `docs/IMPLEMENTATION_PLAN.md`
-3. `docs/ARCHITECTURE.md`
-4. `docs/NORWAY_SOURCES.md`
-5. `docs/EVIDENCE_PROVENANCE.md`
-6. `docs/ENTITY_RESOLUTION.md`
-7. `docs/PRIVACY_LEGAL.md`
-8. `docs/SECURITY.md`
+2. `docs/TASK_QUEUE.md`
+3. `docs/IMPLEMENTATION_PLAN.md`
+4. `docs/ARCHITECTURE.md`
+5. `docs/INVESTIGATION_SCOPE.md`
+6. `docs/SEARCH_TRIGGERS.md`
+7. `docs/NORWAY_SOURCES.md`
+8. `docs/EVIDENCE_PROVENANCE.md`
+9. `docs/ENTITY_RESOLUTION.md`
+10. `docs/PRIVACY_LEGAL.md`
+11. `docs/SECURITY.md`
 
 `docs/OPEN_SOURCE_REPOS.md` og `docs/REFERENCES.md` inneholder verktøy/kilder som ble vurdert.
 
 ## Viktige grenser
 Analysen skal ikke omgå innlogging, tilgangskontroll, betalingsmurer, CAPTCHA eller private API-er. Systemet skal ikke inferere sensitive egenskaper eller lage en generell person-risikoscore. Opplysninger om straffedommer/lovovertredelser og tilgangsstyrte registre er policy-gatet.
+
+Discovery av en ny person/virksomhet er ikke automatisk tillatelse til å starte full research på den. Scope, expansion policy, konkret information need og policy/budget må tillate videre arbeid.
 
 ## Lisens
 Ingen prosjektlisens er valgt ennå. Opphavsrett beholdes inntil en lisens eksplisitt legges til.
