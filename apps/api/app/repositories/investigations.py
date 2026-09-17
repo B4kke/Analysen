@@ -38,7 +38,9 @@ async def create_investigation(
                     :purpose,
                     :legal_basis_note
                 )
-                RETURNING id, target_input, purpose, legal_basis_note, status, created_at, updated_at
+                RETURNING
+                    id, target_input, purpose, legal_basis_note,
+                    status, created_at, updated_at
                 """
             ),
             {
