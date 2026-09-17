@@ -1,13 +1,35 @@
+from collections.abc import AsyncIterator
+from contextlib import asynccontextmanager
+
 from fastapi import FastAPI
 
+from apps.api.app.api.routes.brreg import router as brreg_router
+from apps.api.app.api.routes.investigations import router as investigations_router
 from apps.api.app.core.config import get_settings
+from apps.api.app.core.database import database_ready, dispose_database
 
-app = FastAPI(title="Analysen API", version="0.1.0")
+
+@asynccontextmanager
+async def lifespan(_: FastAPI) -> AsyncIterator[None]:
+    yield
+    await dispose_database()
+
+
+app = FastAPI(title="Analysen API", version="0.1.0", lifespan=lifespan)
+app.include_router(investigations_router)
+app.include_router(brreg_router)
 
 
 @app.get("/health")
 async def health() -> dict[str, str]:
     return {"status": "ok"}
+
+
+@app.get("/ready")
+async def ready() -> dict[str, str]:
+    if await database_ready():
+        return {"status": "ready", "database": "ok"}
+    return {"status": "degraded", "database": "unavailable"}
 
 
 @app.get("/api/v1/models")
