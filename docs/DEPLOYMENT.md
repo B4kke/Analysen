@@ -28,6 +28,29 @@ docker compose down
 
 Ikke bruk `down -v` for en installasjon med data som skal beholdes.
 
+## Backup og restore
+
+To datakilder sikkerhetskopieres separat: PostgreSQL (`postgres_data`) og raw evidence (`app_data`). Verifisert roundtrip 2026-09-17: dump, restore til scratch-database og identiske radtellinger.
+
+```bash
+# Database: dump til fil (kjør fra repo-roten, tilpass prosjektnavn ved behov).
+docker compose exec -T postgres pg_dump -U analysen --format=plain --no-owner analysen > analysen-$(date +%F).sql
+
+# Restore-verifisering til scratch-database før en eventuell reell restore:
+docker compose exec -T postgres psql -U analysen -d postgres -c 'CREATE DATABASE analysen_restore_probe;'
+docker compose exec -T postgres psql -U analysen -d analysen_restore_probe -q -f - < analysen-DATO.sql
+docker compose exec -T postgres psql -U analysen -d analysen_restore_probe -tAc \
+  "SELECT count(*) FROM investigations; SELECT count(*) FROM audit_log; SELECT version_num FROM alembic_version;"
+# Sammenlign med live database, deretter:
+docker compose exec -T postgres psql -U analysen -d postgres -c 'DROP DATABASE analysen_restore_probe;'
+
+# Raw evidence (hash-adresserte snapshots i app_data-volumet):
+docker run --rm -v analysen_app_data:/data -v "$PWD":/backup alpine \
+  tar -czf /backup/app-data-DATO.tgz -C /data .
+```
+
+Reell restore av databasen: stopp api/worker, dropp og gjenskap databasen, last inn dumpen, kjør `alembic upgrade head` for sikkerhets skyld, start tjenestene og kontroller `/ready`. Raw snapshots gjenopprettes ved å pakke ut arkivet til et tomt `app_data`-volum før oppstart — innholdet er innholdsadressert, så duplikater er ufarlige. Ta backup før alle migreringer; fremoverrettede migreringer kan ikke rulles tilbake uten backup.
+
 Compose bruker navngitte volumer for PostgreSQL (`postgres_data`) og felles API-/worker-data (`app_data`). SearXNG-konfigurasjonen bygges inn via `docker/searxng.Dockerfile`; endringer i `config/searxng/settings.yml` krever nytt bygg. Oppstart krever derfor ingen host bind-mounts og fungerer også med Windows Docker CLI fra WSL uten distro-mount-integrasjon.
 
 **Eksisterende data:** Tidligere Compose brukte `./data:/app/data`. Innhold i `./data` blir ikke automatisk flyttet til `app_data`. Behold originalen, ta backup og kopier/verifiser innholdet i volumet før gammel lagring tas ut av bruk. PostgreSQL-volumet er uendret.

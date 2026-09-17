@@ -37,6 +37,9 @@
 ## ADR-012 — Lokal grunnmur med låste og delte avhengigheter
 **Status:** accepted. Runtime/dev installeres fra hver sin lås; crawler-/dokumentpakker ligger i valgfri research-lås. Web bruker npm ci og standalone-bygg. Lokale tjenester binder loopback, ingen modellnøkkel kreves ved oppstart. Auth/RBAC er nødvendig før ekstern drift.
 
+## ADR-017 — Ingen auth på lokalt nettverk
+**Status:** accepted. Analysen er et lokalt én-operatør-verktøy på lukket nett. Auth/RBAC bygges ikke: alle tjenester binder loopback, ingen porter eksponeres eksternt, og operatøridentitet er fast `local-operator` i audit. Dersom driftsmodellen noen gang endres til delt/ekstern tilgang, må auth, operatøridentitet og tilgangskontroll leveres først — da som egen oppgave, ikke som tillegg her.
+
 ## ADR-016 — Per-sak eksport og auditert sletting
 **Status:** accepted. `export_investigation` samler sak, moduler, entities, claims, leads, dokumenter med raw-nøkler og audit i én portabel pakke (raw bytes forblir i object store, referert per hash). `delete_investigation` sletter cascade-eide data i én transaksjon etter `INVESTIGATION_DELETED`-audit; audit-rader overlever via `ON DELETE SET NULL`. Innholdsadresserte raw snapshots deles mellom dokumenter og slettes ikke ved sakssletting. Auth/RBAC og backup/restore er separate leveranser før ekstern drift.
 

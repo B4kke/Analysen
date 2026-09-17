@@ -94,8 +94,8 @@ En oppgave kan bare settes `DONE` når:
 **Acceptance:** Hvert material claim kan åpnes tilbake til den originale lagrede responsen. Dagens BRREG-ingest lagrer normalisert evidens, men raw_storage_key fylles ikke ennå.
 
 ### AQ-010 — Tilgang og retention før ekstern drift
-**Status:** IN_PROGRESS
-**Fremdrift 2026-09-17:** Datalivssyklus per sak levert: `GET /investigations/{id}/export` (full eksport av sak, moduler, entities, claims, leads, dokumenter med raw-nøkler og audit) og `DELETE /investigations/{id}` (sletter cascade-eide data i én transaksjon, etterlater `INVESTIGATION_DELETED`-audit som overlever via `ON DELETE SET NULL`). Raw snapshots deles innholdsadressert og slettes bevisst ikke. 4 integrasjonstester (`test_lifecycle.py`); 96 tester grønne totalt. Gjenstår: Auth/RBAC, operatøridentitet og backup/restore før ekstern drift.
+**Status:** DONE
+**Verifisert 2026-09-17:** Auth/RBAC er eksplisitt avvist per ADR-017 (lokal én-operatør-drift, loopback, fast `local-operator`-aktør). Levert i stedet: per-sak eksport (`GET /investigations/{id}/export`), auditert sletting (`DELETE /investigations/{id}` med overlevende `INVESTIGATION_DELETED`-spor) og backup/restore-runbook med verifisert roundtrip (dump → scratch-restore → identiske tellinger: 11 saker, 275 audit-rader, skjema 0002_scope). 4 integrasjonstester (`test_lifecycle.py`); 96 tester grønne totalt.
 **Prioritet:** P1
 **Leveranse:** Auth/RBAC, operatøridentitet, retention, export/deletion og backup/restore.
 **Acceptance:** Ekstern/flerbrukerdrift har saksspesifikk tilgang og dokumentert datalivssyklus. Nåværende Compose er kun lokal énbrukerdrift.
