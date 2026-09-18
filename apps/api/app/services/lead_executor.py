@@ -1,13 +1,16 @@
-"""Deterministic lead executor, first slice: BRREG target lookups (AQ-013).
+"""Deterministic lead executor with typed source routing (AQ-013/AQ-024).
 
-Executes one admitted PENDING lead end to end: re-gates at the tool boundary
-(scope may have narrowed since admission), fetches through the injected
-adapter, persists via the normal ingest path, and records status, coverage
-and audit. Only explicitly allowlisted lead types run; anything else fails
-closed with a reason. No model calls.
+Executes one admitted PENDING lead end to end: routes the lead type to
+exactly one executor via services.source_router, re-gates at the tool
+boundary (scope may have narrowed since admission), runs the type-specific
+handler with injected tools, and records status, coverage and audit. Only
+explicitly allowlisted lead types run; anything else fails closed with a
+reason. No model calls.
 """
 
 from collections.abc import Awaitable, Callable
+from dataclasses import dataclass
+from typing import TYPE_CHECKING, Any
 from uuid import UUID
 
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -21,25 +24,45 @@ from apps.api.app.services.brreg_normalization import normalize_brreg_organizati
 from apps.api.app.services.lead_gate import gate_lead
 from apps.api.app.sources.base import SourceRecord
 
-# The only lead types the executor knows how to run. Everything else fails
-# closed instead of being guessed at.
-SUPPORTED_LEAD_TYPES = frozenset({"brreg_organization_lookup"})
+if TYPE_CHECKING:
+    from apps.api.app.services.pdf_extraction import ExtractedDocument
+    from apps.api.app.services.url_canonicalization import FetchResult
+    from apps.api.app.sources.base import DiscoveryResult
 
 FetchFn = Callable[[str], Awaitable[SourceRecord]]
+SearxngSearchFn = Callable[[str], Awaitable[list["DiscoveryResult"]]]
+WebFetchFn = Callable[[str], Awaitable["FetchResult"]]
+PdfExtractFn = Callable[[bytes], "ExtractedDocument"]
+
+
+@dataclass(frozen=True)
+class ExecutorTools:
+    """Injected source capabilities; absent tools fail closed as unavailable."""
+
+    brreg_fetch: FetchFn | None = None
+    searxng_search: SearxngSearchFn | None = None
+    web_fetch: WebFetchFn | None = None
+    pdf_extract: PdfExtractFn | None = None
 
 
 async def execute_lead(
     session: AsyncSession,
     investigation_id: UUID,
     lead_id: UUID,
-    fetch: FetchFn,
+    tools: ExecutorTools | None = None,
 ) -> str:
     """Execute one PENDING lead; return the terminal status.
 
     Terminal statuses: COMPLETED, BLOCKED (gate refused at execution time),
-    FAILED (unsupported type, bad reference, or source error). Every outcome
-    is audited; failures carry a machine-readable blocked_reason.
+    FAILED (unknown type, unavailable executor, bad reference, or source
+    error). Every outcome is audited; failures carry a machine-readable
+    blocked_reason.
     """
+    tools = tools if tools is not None else ExecutorTools()
+    # Deferred imports: the router and executors land as independent
+    # deliverables; execute_lead must stay importable without them.
+    from apps.api.app.services.source_router import UnknownLeadType, route_lead
+
     investigation = await repository.get_investigation_record(
         session, investigation_id, for_update=True
     )
@@ -74,12 +97,77 @@ async def execute_lead(
         )
         return "BLOCKED"
 
-    if lead.lead_type not in SUPPORTED_LEAD_TYPES:
+    try:
+        executor_name = route_lead(lead.lead_type)
+    except UnknownLeadType:
         return await _fail(
             session, investigation_id, lead_id, "unsupported_lead_type"
         )
+
+    decision = gate_lead(
+        investigation,
+        lead,
+        expansion_state=ExpansionState.TARGET,
+        source_enabled=True,
+    )
+    if decision is not None:
+        return await refuse(decision)
+
+    if executor_name == "brreg":
+        return await _execute_brreg(
+            session, investigation_id, lead_id, investigation, lead, tools
+        )
+    if executor_name == "searxng":
+        if tools.searxng_search is None:
+            return await _fail(session, investigation_id, lead_id, "executor_unavailable")
+        from apps.api.app.services.executors.searxng_discovery import (
+            execute_searxng_discovery,
+        )
+
+        return await execute_searxng_discovery(
+            session, investigation_id, lead_id, lead, tools.searxng_search
+        )
+    if executor_name == "web_fetch":
+        if tools.web_fetch is None:
+            return await _fail(session, investigation_id, lead_id, "executor_unavailable")
+        from apps.api.app.services.executors.web_fetch import execute_web_fetch
+
+        return await execute_web_fetch(
+            session, investigation_id, lead_id, lead, tools.web_fetch
+        )
+    if executor_name == "pdf":
+        if tools.pdf_extract is None:
+            return await _fail(session, investigation_id, lead_id, "executor_unavailable")
+        from apps.api.app.services.executors.pdf_process import execute_pdf_process
+
+        return await execute_pdf_process(
+            session, investigation_id, lead_id, lead, tools.pdf_extract
+        )
+    return await _fail(session, investigation_id, lead_id, "unsupported_lead_type")
+
+
+async def _execute_brreg(
+    session: AsyncSession,
+    investigation_id: UUID,
+    lead_id: UUID,
+    investigation: Any,
+    lead: Lead,
+    tools: ExecutorTools,
+) -> str:
+    """BRREG target lookup: the original AQ-013 path, unchanged in behavior."""
+    if tools.brreg_fetch is None:
+        return await _fail(session, investigation_id, lead_id, "executor_unavailable")
     if lead.scope_area != ScopeModule.BUSINESS_ROLES:
-        return await refuse("module_disabled")
+        await repository.set_lead_status(
+            session, investigation_id, lead_id, "BLOCKED", "module_disabled"
+        )
+        await repository._audit(
+            session,
+            investigation_id,
+            "LEAD_EXECUTION_REFUSED",
+            {"lead_id": str(lead_id), "reason": "module_disabled"},
+        )
+        return "BLOCKED"
 
     orgnr = (lead.value or {}).get("orgnr") if isinstance(lead.value, dict) else None
     try:
@@ -95,21 +183,22 @@ async def execute_lead(
     if not is_target:
         # Related entities require the scheduler/materiality workflow (later):
         # the executor never follows a relation on its own.
-        return await refuse("not_explicit_target")
-
-    decision = gate_lead(
-        investigation,
-        lead,
-        expansion_state=ExpansionState.TARGET,
-        source_enabled=True,
-    )
-    if decision is not None:
-        return await refuse(decision)
+        await repository.set_lead_status(
+            session, investigation_id, lead_id, "BLOCKED", "not_explicit_target"
+        )
+        await repository._audit(
+            session,
+            investigation_id,
+            "LEAD_EXECUTION_REFUSED",
+            {"lead_id": str(lead_id), "reason": "not_explicit_target"},
+        )
+        return "BLOCKED"
 
     await repository.set_lead_status(session, investigation_id, lead_id, "RUNNING")
     try:
         assert orgnr is not None
-        record = await fetch(orgnr)
+        assert tools.brreg_fetch is not None
+        record = await tools.brreg_fetch(orgnr)
         organization = normalize_brreg_organization(record.payload)
         await persist_brreg_organization(session, investigation_id, record, organization)
     except Exception as exc:

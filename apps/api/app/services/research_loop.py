@@ -24,7 +24,7 @@ from apps.api.app.domain.scope import ExpansionState
 from apps.api.app.domain.trigger_eval import FrontierLead, TriggerDecision
 from apps.api.app.repositories import investigations as repository
 from apps.api.app.services.frontier import select_next
-from apps.api.app.services.lead_executor import FetchFn, execute_lead
+from apps.api.app.services.lead_executor import ExecutorTools, execute_lead
 from apps.api.app.services.planner import (
     ChatProvider,
     PlannerContext,
@@ -121,7 +121,7 @@ async def _plan_and_admit(
 async def _run_research_pass(
     session: AsyncSession,
     investigation_id: UUID,
-    fetch: FetchFn,
+    tools: ExecutorTools,
     *,
     max_leads: int = 10,
     budget_available: bool = True,
@@ -198,7 +198,7 @@ async def _run_research_pass(
             TriggerDecision.FOLLOW_UP_LEAD,
             TriggerDecision.VERIFICATION_LEAD,
         ):
-            outcome = await execute_lead(session, investigation_id, lead_id, fetch)
+            outcome = await execute_lead(session, investigation_id, lead_id, tools)
             if outcome == "COMPLETED":
                 executed += 1
             elif outcome == "BLOCKED":
@@ -232,7 +232,7 @@ async def _run_research_pass(
 async def run_research_pass(
     session: AsyncSession,
     investigation_id: UUID,
-    fetch: FetchFn,
+    tools: ExecutorTools | None = None,
     *,
     max_leads: int = 10,
     budget_available: bool = True,
@@ -242,6 +242,7 @@ async def run_research_pass(
 ) -> dict:
     """Persist real pass lifecycle separately from module coverage/completion."""
     job_id = job_id or uuid4()
+    resolved_tools = tools if tools is not None else ExecutorTools()
     await repository.get_investigation_record(session, investigation_id)
     await repository.mark_investigation_active(session, investigation_id)
     await repository._audit(
@@ -254,7 +255,7 @@ async def run_research_pass(
         return await _run_research_pass(
             session,
             investigation_id,
-            fetch,
+            resolved_tools,
             max_leads=max_leads,
             budget_available=budget_available,
             job_id=job_id,

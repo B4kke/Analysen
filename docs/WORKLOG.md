@@ -42,3 +42,4 @@ Kort, append-only oversikt over fullførte milepæler. Dette er ikke en ny TODO-
 - AQ-023 lukket: planner integrert i research-loop (tom frontier → ett planner-kall → gate → fortsatt loop). Rerun dupliserer ikke terminalt arbeid; invalid output stopper deterministisk. 4 nye tester; 291 grønne totalt. Fikset API-kontraktsdrift (`planned` falt ut av ResearchPassSummary ved lesing).
 - AQ-019 lukket: finansielle nøkkeltall som claims via deterministisk mapping (subagent-leveranse, verifisert av orchestrator). 6 tester.
 - AQ-030 lukket: subject-scoped claim-fingerprint + migrering 0005 med lenkebevaring. 0004-tester pint til 0004; readiness krever migrert sjekk-DB. 297 grønne totalt.
+- AQ-024 lukket: typed source-router + 3 nye executors (SearXNG-discovery, web-fetch, PDF-prosessering) levert av 3 subagents parallelt, dispatch + tools-bundle + integrasjon av orchestrator. 27 nye tester; 324 grønne totalt.

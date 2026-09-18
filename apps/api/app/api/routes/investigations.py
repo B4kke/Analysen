@@ -223,8 +223,25 @@ async def execute_lead_endpoint(
     can keep working through refusals and failures.
     """
     try:
-        async with BrregAdapter() as adapter:
-            status = await execute_lead(session, investigation_id, lead_id, adapter.fetch)
+        from apps.api.app.services.document_fetcher import DocumentFetcher
+        from apps.api.app.services.lead_executor import ExecutorTools
+        from apps.api.app.services.pdf_extraction import extract_pdf_document
+        from apps.api.app.sources.searxng import SearxngAdapter
+
+        async with (
+            BrregAdapter() as adapter,
+            httpx.AsyncClient(timeout=30.0, follow_redirects=False) as http_client,
+            DocumentFetcher() as fetcher,
+        ):
+            settings = get_settings()
+            searxng = SearxngAdapter(settings.searxng_base_url, http_client)
+            tools = ExecutorTools(
+                brreg_fetch=adapter.fetch,
+                searxng_search=searxng.search,
+                web_fetch=fetcher.fetch,
+                pdf_extract=extract_pdf_document,
+            )
+            status = await execute_lead(session, investigation_id, lead_id, tools)
     except InvestigationNotFound as exc:
         raise HTTPException(status_code=404, detail="Investigation or lead not found") from exc
     await session.commit()

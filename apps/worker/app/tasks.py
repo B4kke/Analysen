@@ -51,25 +51,41 @@ def run_research_pass_actor(
     from apps.api.app.core.config import get_settings
     from apps.api.app.core.database import get_session_factory
     from apps.api.app.providers.nim import NIMProvider
+    from apps.api.app.services.document_fetcher import DocumentFetcher
+    from apps.api.app.services.lead_executor import ExecutorTools
+    from apps.api.app.services.pdf_extraction import extract_pdf_document
     from apps.api.app.services.planner import planner_model_from_config
     from apps.api.app.services.research_loop import run_research_pass
+    from apps.api.app.sources.searxng import SearxngAdapter
 
     async def run() -> dict[str, Any]:
         factory = get_session_factory()
+        settings = get_settings()
         try:
-            provider: Any | None = NIMProvider(get_settings())
+            provider: Any | None = NIMProvider(settings)
             model: str | None = planner_model_from_config()
         except ValueError:
             provider, model = None, None
         async with BrregAdapter() as adapter, factory() as session:
-            return await run_research_pass(
-                session,
-                UUID(investigation_id),
-                adapter.fetch,
-                max_leads=max_leads,
-                job_id=UUID(job_id) if job_id else None,
-                planner_provider=provider,
-                planner_model=model,
-            )
+            searxng = SearxngAdapter(settings.searxng_base_url)
+            try:
+                async with DocumentFetcher() as fetcher:
+                    tools = ExecutorTools(
+                        brreg_fetch=adapter.fetch,
+                        searxng_search=searxng.search,
+                        web_fetch=fetcher.fetch,
+                        pdf_extract=extract_pdf_document,
+                    )
+                    return await run_research_pass(
+                        session,
+                        UUID(investigation_id),
+                        tools,
+                        max_leads=max_leads,
+                        job_id=UUID(job_id) if job_id else None,
+                        planner_provider=provider,
+                        planner_model=model,
+                    )
+            finally:
+                await searxng.client.aclose()
 
     return asyncio.run(run())

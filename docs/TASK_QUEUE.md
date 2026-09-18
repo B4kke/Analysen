@@ -201,9 +201,8 @@ Fullførte oppgaver beholdes her for sporbarhet inntil en senere opprydding flyt
 **Recovery etter AQ-025:** Durable outbox for REQUESTED→publish, hard-crash/stale RUNNING, korrelert replay av job_id og terminal-jobb-dedup må være eksplisitt. Ikke gjetting av jobbliveness eller stille nullstilling av aktivitet.
 
 ### AQ-024 — Typed source router og executor-utvidelse
-**Status:** BLOCKED
-**Prioritet:** P0
-**Agent:** `research-orchestration`
+**Status:** DONE
+**Verifisert 2026-09-19:** `services/source_router.py` ruter hver lead-type til nøyaktig én executor; `ExecutorTools`-bundle injiserer capabilities (manglende verktøy → `executor_unavailable`, aldri krasj). Nye executors: SearXNG-discovery (kun metadata, snippets aldri evidence), web-fetch (immutable raw snapshots, ingen claims), PDF-prosessering (ekstraksjon til dokumentet). 7 router-tester + 5/5/6 executor-tester + 4 dispatch-integrasjonstester; 324 grønne totalt i Compose. Levert av 3 subagents + orchestrator-dispatch, integrert verifisert samlet.
 **Avhenger av:** AQ-020, AQ-021, AQ-023, AQ-030
 **Leveranse:** Allowlisted source router og executors for BRREG target/roles, SearXNG discovery, web document fetch og PDF/document processing.
 **Acceptance:** Lead type rutes eksplisitt til én executor; ingen arbitrary tool execution; alle fetch-paths går gjennom scope/trigger/provenance/coverage; source-feil gir eksplisitt FAILED/BLOCKED/coverage state.

@@ -79,7 +79,7 @@ Graph/read models skal eksponere `relation_depth` og `expansion_state` slik at U
 ## Leads, eksekvering og research-loop
 Implementert (alle deterministiske og modellfrie; modellen foreslår, gaten bestemmer):
 - `POST /investigations/{id}/leads`: valider og lagr forslag; returnerer `PENDING` eller `BLOCKED` med årsak + `LEAD_PROPOSED`-audit. Passive discovery-triggere kan aldri bli `PENDING`.
-- `POST /investigations/{id}/leads/{lead_id}/execute`: kjør ett PENDING-lead (kun allowlisted typer, i dag `brreg_organization_lookup` mot eksplisitt mål). Gaten sjekkes på nytt ved kjøring. Returnerer terminal `COMPLETED`/`BLOCKED`/`FAILED` med coverage-oppdatering og audit.
+- `POST /investigations/{id}/leads/{lead_id}/execute`: kjør ett PENDING-lead (allowlisted typer: `brreg_organization_lookup`, `searxng_discovery`, `web_document_fetch`, `pdf_document_process`, hver til sin executor via source-router). Gaten sjekkes på nytt ved kjøring. Returnerer terminal `COMPLETED`/`BLOCKED`/`FAILED` med coverage-oppdatering og audit.
 - `POST /investigations/{id}/research/run`: 202 med `{investigation_id, status: ENQUEUED, job_id}`. REQUESTED committes før publisering, ENQUEUED etter bekreftet send. Aktiv REQUESTED/ENQUEUED/RUNNING gir 409; broker-feil lagres som FAILED/enqueue_failed og gir 503. Passet har default maks 10 leads, velger frontier → evaluerer trigger → kjører og committer per lead. STARTED/COMPLETED/FAILED har samme jobb-ID. Ukjent/unexpected worker-feil rulles tilbake og får eksplisitt FAILED/research_pass_failed uten raw exception-tekst. Kilde-/lead-feil er terminale leads og vises i summary.failed for et ellers fullført pass.
 
 ## Claims/evidence

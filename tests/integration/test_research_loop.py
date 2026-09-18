@@ -112,10 +112,12 @@ def _fake_fetch(payload: dict):
 
 
 async def _run_pass(factory, investigation_id: str, fetch, **kwargs) -> dict:
+    from apps.api.app.services.lead_executor import ExecutorTools
     from apps.api.app.services.research_loop import run_research_pass
 
     async with factory() as session:
-        return await run_research_pass(session, uuid.UUID(investigation_id), fetch, **kwargs)
+        tools = ExecutorTools(brreg_fetch=fetch)
+        return await run_research_pass(session, uuid.UUID(investigation_id), tools, **kwargs)
 
 
 async def test_pass_executes_chained_pending_leads(loop_client) -> None:

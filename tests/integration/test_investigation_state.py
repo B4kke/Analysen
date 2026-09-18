@@ -408,7 +408,10 @@ async def test_pass_failure_is_persisted_without_exception_text_and_source_failu
         )
         with pytest.raises(RuntimeError, match="secret inner failure"):
             async with factory() as session:
-                await run_research_pass(session, UUID(investigation_id), _fake_fetch({})[0])
+                from apps.api.app.services.lead_executor import ExecutorTools
+
+                tools = ExecutorTools(brreg_fetch=_fake_fetch({})[0])
+                await run_research_pass(session, UUID(investigation_id), tools)
     detail = await _detail(http, investigation_id)
     assert detail["research"]["status"] == "FAILED"
     assert detail["research"]["error_code"] == "research_pass_failed"
@@ -421,7 +424,11 @@ async def test_pass_failure_is_persisted_without_exception_text_and_source_failu
         raise ConnectionError("fixture source failure")
 
     async with factory() as session:
-        summary = await run_research_pass(session, UUID(fresh_id), source_error)
+        from apps.api.app.services.lead_executor import ExecutorTools
+
+        summary = await run_research_pass(
+            session, UUID(fresh_id), ExecutorTools(brreg_fetch=source_error)
+        )
     assert summary["failed"] == 1
     assert summary["executed"] == 0
     detail = await _detail(http, fresh_id)
