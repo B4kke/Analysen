@@ -251,8 +251,7 @@ Fullførte oppgaver beholdes her for sporbarhet inntil en senere opprydding flyt
 **Acceptance:** Gjeldende head er ready, eldre/ukjent schema feiler lukket; runtime- og ekte PostgreSQL-sjekk passerer uten endringer i eksisterende prosjektdata.
 
 ### AQ-030 — Claim-dedup på tvers av subjects
-**Status:** READY
-**Prioritet:** P1
-**Avhenger av:** AQ-020
+**Status:** DONE
+**Verifisert 2026-09-19:** Fingerprint inkluderer kanonisk subject-segment (`claims_evidence.claim_fingerprint` + BRREG-forfatter samlet); migrering 0005 recomputer eksisterende fingerprints på plass (frossen formel, IDer og evidenslenker bevart). 3 fingerprint-enhetstester, 2 subject-integrasjonstester (separate claims + idempotent re-ingest), legacy-migreringstest med lenkebevaring. 0004-testene pint til 0004 der de isolerer den migreringen. 297 grønne totalt i Compose.
 **Leveranse:** Inkluder canonical subject-identitet i claim-fingerprint og migrer eksisterende fingerprints uten å miste evidenskoblinger.
 **Acceptance:** To forskjellige entities med samme predicate/verdi i én investigation beholder separate claims; re-ingest av samme subject er idempotent. Multi-entity source routing skal ikke aktiveres før denne kontrakten er verifisert. Dagens executor er begrenset til ett eksplisitt BRREG-mål.

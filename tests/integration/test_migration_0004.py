@@ -227,7 +227,7 @@ async def test_0004_upgrades_legacy_rows_and_is_idempotent() -> None:
         )
         await database.close()
 
-        _upgrade(scratch_url)
+        _upgrade(scratch_url, "0004_claims_reconcile")
 
         database = await asyncpg.connect(_asyncpg_url(scratch_url))
         evidence_rows = await database.fetch(
@@ -304,7 +304,7 @@ async def test_0004_upgrades_legacy_rows_and_is_idempotent() -> None:
         await database.close()
 
         # Repeat upgrade is a safe no-op.
-        _upgrade(scratch_url)
+        _upgrade(scratch_url, "0004_claims_reconcile")
 
         database = await asyncpg.connect(_asyncpg_url(scratch_url))
         assert await database.fetchval("SELECT version_num FROM alembic_version") == (
@@ -342,7 +342,7 @@ async def test_0004_fresh_database_upgrades_cleanly() -> None:
 
         database = await asyncpg.connect(_asyncpg_url(scratch_url))
         assert await database.fetchval("SELECT version_num FROM alembic_version") == (
-            "0004_claims_reconcile"
+            "0005_claim_fingerprint_subject"
         )
 
         for table in TABLES_0003_ONLY:

@@ -274,7 +274,7 @@ async def _upsert_claim(
     json_value = value.isoformat() if hasattr(value, "isoformat") else value
     # Canonical investigation-scoped idempotency key (same formula as
     # claims_evidence.upsert_claim); matches ON CONFLICT (investigation_id, fingerprint).
-    fingerprint = claim_fingerprint(investigation_id, predicate, json_value)
+    fingerprint = claim_fingerprint(investigation_id, entity_id, predicate, json_value)
     row = (
         await session.execute(
             text(

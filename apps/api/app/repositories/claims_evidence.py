@@ -50,10 +50,19 @@ def evidence_content_hash(
     ).hexdigest()
 
 
-def claim_fingerprint(investigation_id: UUID, predicate: str, value: Any) -> str:
-    """Idempotency key: same investigation + predicate + value, same claim."""
+def claim_fingerprint(
+    investigation_id: UUID, subject_entity_id: UUID | None, predicate: str, value: Any
+) -> str:
+    """Idempotency key: same investigation + subject + predicate + value.
+
+    The subject is part of the key so two different entities with the same
+    predicate/value keep separate claims. A missing subject hashes as an
+    empty segment and is stable across calls. Changing this formula requires
+    a data migration (see 0005); never edit it in place.
+    """
+    subject_key = str(subject_entity_id) if subject_entity_id is not None else ""
     return hashlib.sha256(
-        f"{investigation_id}:{predicate}:{_canonical_json(value)}".encode()
+        f"{investigation_id}:{subject_key}:{predicate}:{_canonical_json(value)}".encode()
     ).hexdigest()
 
 
@@ -254,7 +263,7 @@ async def upsert_claim(
             raise ValueError(
                 "evidence must exist and be attached to the investigation"
             )
-    fingerprint = claim_fingerprint(investigation_id, predicate, value)
+    fingerprint = claim_fingerprint(investigation_id, subject_entity_id, predicate, value)
     row = (
         await session.execute(
             text("""
