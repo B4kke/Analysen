@@ -29,3 +29,6 @@
 
 ## ADR-010 — Canonical agent task queue
 **Status:** accepted. `docs/TASK_QUEUE.md` er eneste kanoniske arbeidskø for AI-agenter; `docs/WORKLOG.md` er append-only milepælhistorikk. Parallelle TODO-lister i tilfeldige dokumenter skal unngås.
+
+## ADR-011 — NB metadata is open discovery; content capture is rights-gated
+**Status:** accepted. Nasjonalbibliotekets katalog/fulltekstsøk kan brukes til discovery og bibliografiske metadata, men søkbarhet betyr ikke at OCR/bilde kan persisteres. Adapteren må lese `accessInfo`; default capture-policy tillater bare digitalisert public-domain-materiale uten kjent legal-deposit/geografi/viewability-begrensning. Begrensede treff beholdes som metadata/lenker, ikke som lokalt kopiert innhold.
