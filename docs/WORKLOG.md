@@ -46,3 +46,5 @@ Kort, append-only oversikt over fullførte milepæler. Dette er ikke en ny TODO-
 - AQ-026 lukket: deterministisk verifier med citation-gate, contradiction-par og verifier-triggered leads gjennom gaten (subagent-leveranse + orchestrator-ruter). Sannferdig PARTIAL/context-kontrakt i stedet for workaround. 45 verifier-tester; 369 grønne totalt.
 - AQ-027 lukket: full rapportpipeline (JSON-builder + HTML/PDF fra samme kontrakt) levert av 2 subagents, integrert av orchestrator. Ruter report.json/.html/.pdf. Fikset CI-brekk (mypy i pdf_extraction) og lock-synk (research-lock manglet fpdf2). 404 grønne totalt.
 - AQ-028 lukket: E2E MVP-suite (company + person/identity) mot ekte PostgreSQL, fakes kun på nettverk/modell-grensen, rerun-idempotent. 406 grønne totalt. MVP komplett: alle AQ-001–030 DONE.
+
+- AQ-031 forberedt: canonical Nasjonalbiblioteket-kontrakt i `docs/NATIONAL_LIBRARY.md`, egen `nb-media`-subagent og `analysen-nb-media` skill lagt inn. Arkitekturvalget om item-level mixed-rights/direct-source er ført som ADR-021. Ingen NB-runtimekode er implementert ennå.
