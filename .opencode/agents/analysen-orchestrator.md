@@ -31,6 +31,7 @@ Do not serialize independent work merely because one agent could do all of it. D
 
 - db-provenance: schema/migrations/claims/evidence/provenance
 - research-runtime: SearXNG/crawling/runtime dependencies/security
+- nb-media: Nasjonalbiblioteket Catalog/DH-lab/IIIF, item-level rights, avis-OCR/crops og media mentions
 - research-orchestration: planner/frontier/trigger/source-router/executors
 - entity-resolution: identity matching and negative signals
 - ui-reporting: web/API contracts, evidence UX and reports
