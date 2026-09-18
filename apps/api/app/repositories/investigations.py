@@ -620,3 +620,24 @@ async def list_pending_leads(session: AsyncSession, investigation_id: UUID) -> l
         .all()
     )
     return [dict(row) for row in rows]
+
+
+async def list_lead_identity_rows(
+    session: AsyncSession, investigation_id: UUID
+) -> list[dict]:
+    """Minimal identity of every lead for planner dedup across reruns."""
+    rows = (
+        (
+            await session.execute(
+                text("""
+                SELECT lead_type, scope_area, value, status
+                FROM leads
+                WHERE investigation_id = :id
+            """),
+                {"id": investigation_id},
+            )
+        )
+        .mappings()
+        .all()
+    )
+    return [dict(row) for row in rows]

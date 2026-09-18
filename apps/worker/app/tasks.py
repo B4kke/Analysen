@@ -42,16 +42,25 @@ def run_research_pass_actor(
     """Execute one bounded research pass for an investigation.
 
     Thin wrapper over services.research_loop: opens a session, runs the pass
-    with the live BRREG adapter, and returns the audited summary. No retries:
-    every lead outcome is already terminal and committed separately.
+    with the live BRREG adapter and — when a NIM key is configured — the live
+    planner for empty frontiers. No retries: every lead outcome is already
+    terminal and committed separately.
     """
     from uuid import UUID
 
+    from apps.api.app.core.config import get_settings
     from apps.api.app.core.database import get_session_factory
+    from apps.api.app.providers.nim import NIMProvider
+    from apps.api.app.services.planner import planner_model_from_config
     from apps.api.app.services.research_loop import run_research_pass
 
     async def run() -> dict[str, Any]:
         factory = get_session_factory()
+        try:
+            provider: Any | None = NIMProvider(get_settings())
+            model: str | None = planner_model_from_config()
+        except ValueError:
+            provider, model = None, None
         async with BrregAdapter() as adapter, factory() as session:
             return await run_research_pass(
                 session,
@@ -59,6 +68,8 @@ def run_research_pass_actor(
                 adapter.fetch,
                 max_leads=max_leads,
                 job_id=UUID(job_id) if job_id else None,
+                planner_provider=provider,
+                planner_model=model,
             )
 
     return asyncio.run(run())

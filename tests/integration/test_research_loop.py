@@ -137,6 +137,7 @@ async def test_pass_executes_chained_pending_leads(loop_client) -> None:
         "executed": 2,
         "blocked": 0,
         "failed": 0,
+        "planned": 0,
         "stopped_reason": "no_executable_leads",
     }
     assert calls == ["974760673", "974760673"]
@@ -219,6 +220,7 @@ async def test_pass_on_empty_frontier_stops_cleanly(loop_client) -> None:
         "executed": 0,
         "blocked": 0,
         "failed": 0,
+        "planned": 0,
         "stopped_reason": "no_executable_leads",
     }
 
@@ -251,3 +253,129 @@ async def test_run_route_404_for_unknown_investigation(loop_client) -> None:
     http, _created, _factory = loop_client
     response = await http.post(f"/api/v1/investigations/{uuid.uuid4()}/research/run")
     assert response.status_code == 404
+
+
+class _FakePlanner:
+    """Deterministic stand-in for the NIM chat provider."""
+
+    def __init__(self, payload: dict | Exception) -> None:
+        self.payload = payload
+
+    async def chat_json(self, **kwargs):
+        if isinstance(self.payload, Exception):
+            raise self.payload
+        return self.payload
+
+
+def _brreg_proposal(**overrides) -> dict:
+    payload = {
+        "lead_type": "brreg_organization_lookup",
+        "value": {"orgnr": "974760673"},
+        "reason": "Verify the explicitly identified target organization",
+        "information_need": "Confirm registered details of the target organization",
+        "scope_area": "BUSINESS_ROLES",
+        "trigger_type": "WEAK_SOURCE_ONLY",
+        "relation_depth": 0,
+        "priority": 0.8,
+        "expected_information_gain": "Confirms target identity from the primary registry",
+    }
+    payload.update(overrides)
+    return payload
+
+
+async def _lead_statuses(factory, investigation_id: str) -> list:
+    async with factory() as session:
+        rows = (
+            await session.execute(
+                text("SELECT status FROM leads WHERE investigation_id = CAST(:id AS uuid)"),
+                {"id": investigation_id},
+            )
+        ).scalars().all()
+    return list(rows)
+
+
+async def test_empty_frontier_plans_admits_and_executes(loop_client) -> None:
+    http, created, factory = loop_client
+    investigation_id = await _create_company(http, created)
+    fetch, calls = _fake_fetch(
+        {
+            "organisasjonsnummer": "974760673",
+            "navn": "Research Loop Probe AS",
+            "organisasjonsform": {"kode": "AS", "beskrivelse": "Aksjeselskap"},
+        }
+    )
+    planner = _FakePlanner({"actions": [_brreg_proposal()]})
+
+    summary = await _run_pass(
+        factory, investigation_id, fetch, planner_provider=planner, planner_model="test-model"
+    )
+
+    assert summary == {
+        "executed": 1,
+        "blocked": 0,
+        "failed": 0,
+        "planned": 1,
+        "stopped_reason": "no_executable_leads",
+    }
+    assert calls == ["974760673"]
+    assert await _lead_statuses(factory, investigation_id) == ["COMPLETED"]
+
+
+async def test_schema_invalid_planner_output_stops_pass(loop_client) -> None:
+    http, created, factory = loop_client
+    investigation_id = await _create_company(http, created)
+    fetch, calls = _fake_fetch({})
+    planner = _FakePlanner({"actions": [{"not_a_proposal": True}]})
+
+    summary = await _run_pass(
+        factory, investigation_id, fetch, planner_provider=planner, planner_model="test-model"
+    )
+
+    assert summary["executed"] == 0
+    assert summary["planned"] == 0
+    assert summary["stopped_reason"].startswith("planner_output_rejected")
+    assert calls == []
+    assert await _lead_statuses(factory, investigation_id) == []
+
+
+async def test_rerun_does_not_duplicate_planned_leads(loop_client) -> None:
+    http, created, factory = loop_client
+    investigation_id = await _create_company(http, created)
+    fetch, calls = _fake_fetch(
+        {
+            "organisasjonsnummer": "974760673",
+            "navn": "Research Loop Probe AS",
+            "organisasjonsform": {"kode": "AS", "beskrivelse": "Aksjeselskap"},
+        }
+    )
+    planner = _FakePlanner({"actions": [_brreg_proposal()]})
+
+    first = await _run_pass(
+        factory, investigation_id, fetch, planner_provider=planner, planner_model="test-model"
+    )
+    second = await _run_pass(
+        factory, investigation_id, fetch, planner_provider=planner, planner_model="test-model"
+    )
+
+    assert (first["planned"], first["executed"]) == (1, 1)
+    assert second["planned"] == 0
+    assert second["executed"] == 0
+    assert second["stopped_reason"] == "no_executable_leads"
+    assert calls == ["974760673"]
+    assert await _lead_statuses(factory, investigation_id) == ["COMPLETED"]
+
+
+async def test_out_of_scope_proposal_is_blocked_not_executed(loop_client) -> None:
+    http, created, factory = loop_client
+    investigation_id = await _create_company(http, created)
+    fetch, calls = _fake_fetch({})
+    planner = _FakePlanner({"actions": [_brreg_proposal(scope_area="SANCTIONS")]})
+
+    summary = await _run_pass(
+        factory, investigation_id, fetch, planner_provider=planner, planner_model="test-model"
+    )
+
+    assert summary["planned"] == 0
+    assert summary["executed"] == 0
+    assert calls == []
+    assert await _lead_statuses(factory, investigation_id) == ["BLOCKED"]

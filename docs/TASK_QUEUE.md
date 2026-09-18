@@ -163,9 +163,9 @@ Fullførte oppgaver beholdes her for sporbarhet inntil en senere opprydding flyt
 **Verifisert 2026-09-18:** PDF text/layout extraction, table extraction, OCR fallback, deterministic financial ratios, year-over-year analysis, auditor notes/going-concern detection. 18 enhetstester + 6 integrasjonstester (`test_pdf_extraction.py`); 131 tester grønne i Compose-nettverket. Raw snapshots i object store bevares via hash-adressert `raw_store`.
 
 ### AQ-019 — Finansanalyse-modul
-**Status:** READY
+**Status:** IN_PROGRESS
 **Prioritet:** P0
-**Agent:** `db-provenance` + `verification`
+**Agent:** `verification` (subagent, startet 2026-09-19)
 **Avhenger av:** AQ-018, AQ-020, AQ-021
 **Leveranse:** Finansielle nøkkeltall (profitability, liquidity, solvency, efficiency), år-over-år analyse, regnskapsuttrekk, revisjonsmerknader, going-concern deteksjon — alt som claims med evidence.
 **Acceptance:** Nøkkeltall beregnes deterministisk i kode (ingen LLM); år-over-år forandringer med null-base håndtering; revisjonsmerknader og going-concern detekteres og lagres som claims.
@@ -194,9 +194,8 @@ Fullførte oppgaver beholdes her for sporbarhet inntil en senere opprydding flyt
 
 
 ### AQ-023 — Planner integrert i research-loop
-**Status:** READY
-**Prioritet:** P0
-**Agent:** `research-orchestration`
+**Status:** DONE
+**Verifisert 2026-09-19:** Tom frontier trigger én planner-kall per pass; forslag valideres (skjemainvalid → `planner_output_rejected`), duplikater av alle eksisterende leads hoppes over, resten innvilges via gaten. 4 nye integrasjonstester (plan→admit→execute, invalid-output-stopp, rerun-dedup, out-of-scope-blokk); `ResearchPassSummary` utvidet med `planned` (default 0, bakoverkompatibel). Fant og fikset kontraktsdrift: API-modellen droppet `planned` ved lesing. 291 grønne totalt i Compose.
 **Avhenger av:** AQ-020
 **Leveranse:** Ny/tom investigation kan gå fra stored scope til typed planner proposals, deterministisk lead admission, frontier/trigger-evaluering og checkpointed pass.
 **Acceptance:** En tom frontier kan planlegge lovlige leads; schema-invalid planner-output avvises; `max_relation_depth` kommer fra investigation; budget/repeated-loop/STOP er deterministiske; restart/rerun dupliserer ikke terminalt arbeid.

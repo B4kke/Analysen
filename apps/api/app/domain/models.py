@@ -123,6 +123,7 @@ class ResearchPassSummary(BaseModel):
     executed: int = Field(ge=0)
     blocked: int = Field(ge=0)
     failed: int = Field(ge=0)
+    planned: int = Field(default=0, ge=0)
     stopped_reason: str
 
 
