@@ -255,3 +255,143 @@ class BrregIngestResult(BaseModel):
     evidence_id: UUID
     claim_ids: list[UUID]
     organization: BrregOrganization
+
+
+# =============================================================================
+# Claims, Evidence & Provenance (AQ-020)
+# =============================================================================
+
+
+class SourceRecord(BaseModel):
+    """Raw source record as returned by a SourceAdapter."""
+
+    source_id: str
+    external_id: str
+    source_url: str
+    payload: dict[str, Any]
+
+
+class DocumentRecord(BaseModel):
+    """Canonical document record."""
+
+    id: UUID
+    source_id: str
+    original_url: str
+    canonical_url: str
+    mime_type: str
+    sha256: str
+    raw_storage_key: str | None = None
+    extracted_text: str | None = None
+    parser_metadata: dict[str, Any]
+    fetched_at: datetime
+
+
+class EvidenceRecord(BaseModel):
+    """Immutable evidence snippet anchored to a document."""
+
+    id: UUID
+    document_id: UUID
+    locator_type: str
+    locator: dict[str, Any]
+    excerpt: str | None = None
+    structured_value: dict[str, Any] | None = None
+    content_hash: str
+
+
+class ClaimRecord(BaseModel):
+    """A verifiable claim with evidence support."""
+
+    id: UUID
+    investigation_id: UUID
+    subject_entity_id: UUID | None = None
+    predicate: str
+    value: Any | None = None
+    status: ClaimStatus
+    created_at: datetime
+    verified_at: datetime | None = None
+
+
+class ClaimEvidenceRecord(BaseModel):
+    """Link between a claim and supporting evidence."""
+
+    claim_id: UUID
+    evidence_id: UUID
+    role: str = "SUPPORTS"  # SUPPORTS | CONTRADICTS | PARTIAL
+
+
+class EntityRecord(BaseModel):
+    """Resolved entity with canonical attributes."""
+
+    id: UUID
+    entity_schema: str  # Person, Organization, Company, etc.
+    canonical_name: str | None = None
+    attributes: dict[str, Any]
+    resolution_state: ResolutionState
+
+
+class EntityAliasRecord(BaseModel):
+    """Alternative name/identifier for an entity."""
+
+    entity_id: UUID
+    alias: str
+    source_id: str | None = None
+    confidence: float = 1.0
+
+
+class EntityRelationRecord(BaseModel):
+    """Relationship between two entities."""
+
+    id: UUID
+    source_entity_id: UUID
+    target_entity_id: UUID
+    relation_type: str
+    confidence: float
+    evidence_ids: list[UUID]
+    valid_from: date | None = None
+    valid_to: date | None = None
+
+
+class EntityResolutionCandidate(BaseModel):
+    """Candidate for entity resolution."""
+
+    investigation_id: UUID
+    entity_id: UUID
+    candidate_entity_id: UUID
+    match_score: float = Field(ge=0, le=1)
+    resolution_status: str = "UNRESOLVED"  # MATCH | PROBABLE_MATCH | UNRESOLVED | NOT_MATCH
+    negative_signals: list[str] = Field(default_factory=list)
+
+
+class SourceRegistryRecord(BaseModel):
+    """Source registry record."""
+
+    id: str
+    name: str
+    evidence_tier: int | None = None
+    access_class: str
+    base_url: str | None = None
+    license: str | None = None
+    metadata: dict[str, Any] = Field(default_factory=dict)
+
+
+class DocumentRecordFull(BaseModel):
+    """Full document record with content."""
+
+    id: UUID
+    source_id: str
+    original_url: str
+    canonical_url: str
+    mime_type: str
+    sha256: str
+    raw_storage_key: str | None = None
+    extracted_text: str | None = None
+    parser_metadata: dict[str, Any]
+    fetched_at: datetime
+
+
+class ClaimEvidenceLink(BaseModel):
+    """Link between claim and evidence with role."""
+
+    claim_id: UUID
+    evidence_id: UUID
+    role: str = "SUPPORTS"  # SUPPORTS | CONTRADICTS | PARTIAL
