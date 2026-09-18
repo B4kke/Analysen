@@ -163,8 +163,8 @@ Ingen P0 kan settes DONE før:
 
 ## Prioritert rekkefølge
 
-1. AQ-020R — claims/evidence schema recovery
-2. AQ-021R — research runtime/crawler recovery
+1. AQ-020 — claims/evidence schema recovery
+2. AQ-021 — research runtime/crawler recovery
 3. AQ-023 — planner integrated into research loop
 4. AQ-024 — typed source router + executor expansion
 5. AQ-025 — UI/API contract and live-state repair
@@ -174,4 +174,4 @@ Ingen P0 kan settes DONE før:
 9. AQ-027 — full report pipeline
 10. AQ-028 — end-to-end MVP proof
 
-AQ-020R og AQ-021R skal starte samtidig via separate subagents.
+AQ-020 og AQ-021 skal starte samtidig via separate subagents.
