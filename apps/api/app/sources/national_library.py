@@ -12,7 +12,6 @@ from apps.api.app.domain.national_library import (
 )
 from apps.api.app.sources.base import DiscoveryAdapter, DiscoveryResult, SourceAdapter, SourceRecord
 
-
 _EM_RE = re.compile(r"</?em>", re.IGNORECASE)
 
 
