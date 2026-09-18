@@ -28,9 +28,7 @@ class NationalLibraryAccess(BaseModel):
             return False
 
         viewability = (self.viewability or "").strip().upper()
-        if viewability in {"NONE", "NO", "NOT_VIEWABLE", "RESTRICTED"}:
-            return False
-        return True
+        return viewability not in {"NONE", "NO", "NOT_VIEWABLE", "RESTRICTED"}
 
 
 class NationalLibraryItem(BaseModel):
