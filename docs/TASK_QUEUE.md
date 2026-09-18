@@ -153,3 +153,10 @@ En oppgave kan bare settes `DONE` når:
 
 ## Hygiene
 Fullførte oppgaver beholdes her for sporbarhet inntil en senere opprydding flytter eldre historikk til changelog/release notes. En oppgave skal aldri bli stående `IN_PROGRESS` etter at leveransen er avsluttet.
+
+### AQ-018 — PDF extraction pipeline
+**Status:** IN_PROGRESS
+**Prioritet:** P0
+**Avhenger av:** AQ-017
+**Leveranse:** PDF text/layout extraction, table extraction, OCR/multimodal fallback, deterministic financial ratios, year-over-year analysis, notes/auditor/going-concern as claims with evidence, FINANCIALS scope/materiality gate.
+**Acceptance:** PDF text/layout extracted reliably; tables extracted as structured data; OCR fallback for scanned docs; financial ratios computed deterministically in code (not LLM); year-over-year analysis; auditor notes/going-concern as claims with evidence; FINANCIALS gate enforces materiality.
