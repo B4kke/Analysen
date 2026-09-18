@@ -46,7 +46,10 @@ async def get_organization_group_structure(orgnr: str) -> BrregGroupStructure:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
     except httpx.HTTPStatusError as exc:
         if exc.response.status_code == 404:
-            raise HTTPException(status_code=404, detail="Group structure not found in BRREG") from exc
+            raise HTTPException(
+                status_code=404,
+                detail="Group structure not found in BRREG",
+            ) from exc
         raise HTTPException(status_code=502, detail="BRREG returned an upstream error") from exc
     except httpx.HTTPError as exc:
         raise HTTPException(status_code=502, detail="Could not reach BRREG") from exc
