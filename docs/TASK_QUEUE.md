@@ -155,8 +155,19 @@ En oppgave kan bare settes `DONE` når:
 Fullførte oppgaver beholdes her for sporbarhet inntil en senere opprydding flytter eldre historikk til changelog/release notes. En oppgave skal aldri bli stående `IN_PROGRESS` etter at leveransen er avsluttet.
 
 ### AQ-018 — PDF extraction pipeline
-**Status:** IN_PROGRESS
+**Status:** DONE
+**Verifisert 2026-09-18:** PDF text/layout extraction, table extraction, OCR fallback, deterministic financial ratios, year-over-year analysis, auditor notes/going-concern detection. 18 enhetstester + 6 integrasjonstester (`test_pdf_extraction.py`); 131 tester grønne i Compose-nettverket. Raw snapshots i object store bevares via hash-adressert `raw_store`.
+
+### AQ-019 — Finansanalyse-modul
+**Status:** READY
 **Prioritet:** P0
-**Avhenger av:** AQ-017
-**Leveranse:** PDF text/layout extraction, table extraction, OCR/multimodal fallback, deterministic financial ratios, year-over-year analysis, notes/auditor/going-concern as claims with evidence, FINANCIALS scope/materiality gate.
-**Acceptance:** PDF text/layout extracted reliably; tables extracted as structured data; OCR fallback for scanned docs; financial ratios computed deterministically in code (not LLM); year-over-year analysis; auditor notes/going-concern as claims with evidence; FINANCIALS gate enforces materiality.
+**Avhenger av:** AQ-018
+**Leveranse:** Finansielle nøkkeltall (profitability, liquidity, solvency, efficiency), år-over-år analyse, regnskapsuttrekk, revisjonsmerknader, going-concern deteksjon — alt som claims med evidence.
+**Acceptance:** Nøkkeltall beregnes deterministisk i kode (ingen LLM); år-over-år forandringer med null-base håndtering; revisjonsmerknader og going-concern detekteres og lagres som claims.
+
+### AQ-020 — Claims/Evidence pipeline og provenance
+**Status:** READY
+**Prioritet:** P0
+**Avhenger av:** AQ-019
+**Leveranse:** `Source`, `Document`, `Evidence`, `Claim`, `ClaimEvidence` modeller; deterministisk normalisering; kandidatgenerering; identitetsscoring med negative signaler; `MATCH`/`PROBABLE_MATCH`/`UNRESOLVED`/`NOT_MATCH`; manuell merge/split; provenance-kontrakttester.
+**Acceptance:** Hvert material claim kan åpnes tilbake til original lagret respons (raw snapshot + evidence); entity resolution merging med hard negative signals; LLM brukes kun for ekstraksjon, aldri for beregning.
