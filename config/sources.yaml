@@ -39,6 +39,23 @@ sources:
     access: PUBLIC_WEB
     evidence_tier: 1
     url: https://www.brreg.no/registersok/kunngjoringer/
+
+  national_library_no:
+    enabled: true
+    access: OPEN_NO_KEY
+    evidence_tier: 2
+    base_url: https://api.nb.no/catalog/v1
+    search_endpoint: /items
+    item_endpoint: /items/{id}
+    content_fragments_endpoint: /items/{id}/contentfragments
+    metadata_endpoint: /metadata/{id}/{format}
+    license: PER_ITEM_ACCESSINFO
+    content_capture_policy: PUBLIC_DOMAIN_ONLY
+    notes:
+      - Catalog metadata and full-text search may return restricted items.
+      - OCR content capture requires adapter access-policy approval.
+      - Never bypass legal-deposit login, geography, viewability, or other access controls.
+
   beneficial_owners_no:
     enabled: false
     access: ENTITLEMENT_REQUIRED
@@ -48,6 +65,7 @@ sources:
     enabled: false
     access: DISABLED_BY_POLICY
     reason: Article 10 / Personal Data Act legal gate; no comprehensive criminal-record index
+
   searxng:
     enabled: true
     access: SELF_HOSTED
@@ -80,3 +98,112 @@ sources:
     access: OPEN_NO_KEY
     evidence_tier: 1
     reference: https://data.europa.eu/data/datasets/consolidated-list-of-persons-groups-and-entities-subject-to-eu-financial-sanctions?locale=en
+
+  finanstilsynet_registry:
+    enabled: false
+    candidate: true
+    access: OPEN_NO_KEY
+    evidence_tier: 1
+    base_url: https://api.finanstilsynet.no/registry/
+    reason: High-value licence/authorization source; adapter and contract tests not implemented yet.
+
+  patentstyret_ipr:
+    enabled: false
+    candidate: true
+    access: PUBLIC_API_KEY_REQUIRED
+    evidence_tier: 1
+    base_url: https://developer.patentstyret.no/
+    license: NLOD
+    reason: Open patent/trademark/design data, but API access requires login/subscription key.
+
+  doffin_public:
+    enabled: false
+    candidate: true
+    access: PUBLIC_REGISTRATION_REQUIRED
+    evidence_tier: 1
+    reference: https://github.com/anskaffelser/eforms-sdk-nor/blob/main/docs/doffin-api.md
+    reason: Public API supports search/download of published procurement notices; adapter not implemented yet.
+
+  einnsyn:
+    enabled: false
+    candidate: true
+    access: API_KEY_REQUIRED
+    evidence_tier: 1
+    base_url: https://api.einnsyn.no
+    reason: Public-sector journal/document metadata is valuable, but API authentication and rate/use policy must be configured first.
+
+  arbeidstilsynet_staffing:
+    enabled: false
+    candidate: true
+    access: OPEN_NO_KEY
+    evidence_tier: 1
+    endpoint: https://data.arbeidstilsynet.no/bemanningsforetaksregisteret2/api
+    reason: Continuously updated approval/status data with organization numbers; adapter not implemented yet.
+
+  arbeidstilsynet_cleaning:
+    enabled: false
+    candidate: true
+    access: OPEN_NO_KEY
+    evidence_tier: 1
+    endpoint: https://registerdata.arbeidstilsynet.no/renhold_register.xml
+    license: NLOD
+    reason: Daily approval/status data for cleaning companies; XML adapter not implemented yet.
+
+  dibk_central_approval:
+    enabled: false
+    candidate: true
+    access: OPEN_NO_KEY
+    evidence_tier: 1
+    base_url: https://sgregister.dibk.no/api
+    retention_policy: LOOKUP_PREFERRED
+    reason: Open/free central-approval lookup. Publisher recommends direct/periodic lookup rather than permanent storage.
+
+  kartverket_addresses:
+    enabled: false
+    candidate: true
+    access: OPEN_NO_KEY
+    evidence_tier: 1
+    reason: Address normalization/entity-resolution support only; not a source of land-registry ownership.
+
+  mattilsynet_smilefjes:
+    enabled: false
+    candidate: true
+    access: OPEN_NO_KEY
+    evidence_tier: 1
+    endpoint: https://smilefjes.mattilsynet.no/api/tilsyn.csv
+    license: CC-BY-4.0
+    reason: Sector-specific inspection history for food-service establishments; adapter not implemented yet.
+
+  fiskeridir_vessels:
+    enabled: false
+    candidate: true
+    access: PUBLIC_ACCESS
+    evidence_tier: 1
+    base_url: https://api.fiskeridir.no/vessel-api/
+    license: NLOD-2.0
+    reason: Vessel and owner data; adapter/access behavior must be contract-tested before enablement.
+
+  luftfartstilsynet_aircraft:
+    enabled: false
+    candidate: true
+    access: OPEN_DOWNLOAD
+    evidence_tier: 1
+    endpoint: https://data.caa.no/nlr/norgesluftfartoyregister.json
+    reason: Daily authoritative aircraft and public owner data; activate only for relevant asset/aviation scope.
+
+  tilskudd_no:
+    enabled: false
+    candidate: true
+    access: PUBLIC_WEB_DOWNLOAD
+    evidence_tier: 1
+    reference: https://tilskudd.dfo.no/
+    reason: State grants and recipients from 2021 onward; no registered API, use documented export when relevant.
+
+  sodir_factmaps:
+    enabled: false
+    candidate: true
+    access: PUBLIC_ACCESS
+    evidence_tier: 1
+    license: NLOD-1.0
+    reference: https://factmaps.sodir.no/
+    reason: Sector-specific petroleum licences/fields/wells; activate only for relevant company/industry scope.

@@ -152,7 +152,6 @@ def add_deterministic_noise(image: Image.Image, amount: int = 20) -> Image.Image
 
 def add_stamp(image: Image.Image) -> Image.Image:
     overlay = Image.new("RGBA", image.size, (255, 255, 255, 0))
-    draw = ImageDraw.Draw(overlay)
     stamp_font = font(96, bold=True)
     stamp = Image.new("RGBA", (900, 180), (255, 255, 255, 0))
     stamp_draw = ImageDraw.Draw(stamp)

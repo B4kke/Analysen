@@ -351,7 +351,12 @@ def png_bytes(width: int, height: int, pixels: list[tuple[int, int, int]]) -> by
             + struct.pack(">I", zlib.crc32(kind + data) & 0xFFFFFFFF)
         )
 
-    return b"\x89PNG\r\n\x1a\n" + chunk(b"IHDR", header) + chunk(b"IDAT", zlib.compress(bytes(raw), 9)) + chunk(b"IEND", b"")
+    return (
+        b"\x89PNG\r\n\x1a\n"
+        + chunk(b"IHDR", header)
+        + chunk(b"IDAT", zlib.compress(bytes(raw), 9))
+        + chunk(b"IEND", b"")
+    )
 
 
 FONT_5X7 = {
@@ -490,8 +495,19 @@ def embedding_request(
     deadline: float,
 ) -> CallResult:
     variants = [
-        {"model": EMBED_MODEL, "input": texts, "input_type": input_type, "encoding_format": "float", "truncate": "END"},
-        {"model": EMBED_MODEL, "input": texts, "input_type": input_type, "encoding_format": "float"},
+        {
+            "model": EMBED_MODEL,
+            "input": texts,
+            "input_type": input_type,
+            "encoding_format": "float",
+            "truncate": "END",
+        },
+        {
+            "model": EMBED_MODEL,
+            "input": texts,
+            "input_type": input_type,
+            "encoding_format": "float",
+        },
         {"model": EMBED_MODEL, "input": texts, "encoding_format": "float"},
     ]
     last: CallResult | None = None
@@ -508,7 +524,12 @@ def embedding_request(
             return last
         if last.status_code not in {400, 422}:
             return last
-    return last or CallResult(ok=False, latency_s=0.0, attempts=0, error="embedding call not attempted")
+    return last or CallResult(
+        ok=False,
+        latency_s=0.0,
+        attempts=0,
+        error="embedding call not attempted",
+    )
 
 
 def run_embedding_case(
@@ -647,7 +668,12 @@ def summarize(results: list[CaseResult]) -> dict[str, Any]:
                 "median_latency_s": round(statistics.median(latencies), 3) if latencies else None,
                 "p95_latency_s": round(max(latencies), 3) if latencies else None,
                 "json_valid_rate_pct": (
-                    round(100.0 * sum(1 for item in json_items if item.json_valid) / len(json_items), 2)
+                    round(
+                        100.0
+                        * sum(1 for item in json_items if item.json_valid)
+                        / len(json_items),
+                        2,
+                    )
                     if json_items
                     else None
                 ),
@@ -684,17 +710,23 @@ def write_outputs(results: list[CaseResult], metadata: dict[str, Any]) -> tuple[
         "|---|---:|---:|---:|---:|",
     ]
     for item in summary["models"]:
-        json_rate = "-" if item["json_valid_rate_pct"] is None else f"{item['json_valid_rate_pct']:.1f}%"
+        json_rate = (
+            "-"
+            if item["json_valid_rate_pct"] is None
+            else f"{item['json_valid_rate_pct']:.1f}%"
+        )
         latency = "-" if item["median_latency_s"] is None else f"{item['median_latency_s']:.2f}s"
         lines.append(
-            f"| `{item['model']}` | {item['score_pct']:.1f}% | {item['successful_cases']}/{item['cases']} | {latency} | {json_rate} |"
+            f"| `{item['model']}` | {item['score_pct']:.1f}% | "
+            f"{item['successful_cases']}/{item['cases']} | {latency} | {json_rate} |"
         )
     lines.extend(["", "## Cases", ""])
     for result in results:
         status = "PASS" if result.ok else "FAIL"
         lines.append(
             f"- **{status}** `{result.model}` / `{result.suite}` / `{result.case_id}`: "
-            f"{result.score:.2f}/{result.max_score:.2f}, {result.latency_s:.2f}s, attempts={result.attempts}"
+            f"{result.score:.2f}/{result.max_score:.2f}, "
+            f"{result.latency_s:.2f}s, attempts={result.attempts}"
         )
         if result.error:
             lines.append(f"  - Error: `{result.error[:500]}`")
@@ -704,7 +736,9 @@ def write_outputs(results: list[CaseResult], metadata: dict[str, Any]) -> tuple[
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description="Bounded benchmark for NVIDIA NIM models used by Analysen")
+    parser = argparse.ArgumentParser(
+        description="Bounded benchmark for NVIDIA NIM models used by Analysen"
+    )
     parser.add_argument("--fixture", type=Path, default=FIXTURE_PATH)
     parser.add_argument("--request-timeout", type=float, default=45.0)
     parser.add_argument("--max-attempts", type=int, default=2)

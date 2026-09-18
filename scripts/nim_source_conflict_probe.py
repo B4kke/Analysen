@@ -31,7 +31,10 @@ CASES: list[dict[str, Any]] = [
                 "id": "D2",
                 "type": "local_news",
                 "published": "2026-08-20",
-                "text": "Avisen omtaler Ola Kontroll som selskapets styreleder, uten lenke til register.",
+                "text": (
+                    "Avisen omtaler Ola Kontroll som selskapets styreleder, "
+                    "uten lenke til register."
+                ),
             },
             {
                 "id": "D3",
@@ -60,7 +63,10 @@ CASES: list[dict[str, Any]] = [
                 "id": "A2",
                 "type": "official_registry",
                 "published": "2026-09-15",
-                "text": "Forretningsadresse: Fjordvegen 18, 6003 Ålesund. Sist oppdatert 2026-09-15.",
+                "text": (
+                    "Forretningsadresse: Fjordvegen 18, 6003 Ålesund. "
+                    "Sist oppdatert 2026-09-15."
+                ),
             },
             {
                 "id": "A3",
@@ -321,7 +327,8 @@ def main() -> int:
                 results.append(result)
                 print(
                     f"{model} [{case['id']}] all={result.all_correct} "
-                    f"status={result.status_ok} value={result.value_ok} sources={result.sources_ok} "
+                    f"status={result.status_ok} value={result.value_ok} "
+                    f"sources={result.sources_ok} "
                     f"json={result.json_ok} latency={result.latency_s:.2f}s "
                     f"attempts={result.attempts} error={result.error or '-'}"
                 )

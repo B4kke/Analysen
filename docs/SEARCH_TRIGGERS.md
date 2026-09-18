@@ -32,7 +32,8 @@ Når et historisk navn, virksomhetsnavn, domene eller annen verifisert alias opp
 Søk:
 - eksakt alias,
 - alias + allerede verifiserte identifikatorer,
-- tidsavgrensede søk når aliaset har valid-time.
+- tidsavgrensede søk når aliaset har valid-time,
+- Nasjonalbiblioteket når aliaset kan opptre i historiske aviser/publikasjoner.
 
 ### `MATERIAL_RELATION`
 Når en dokumentert relasjon er relevant for aktiv scope-modul og expansion policy tillater videre research.
@@ -41,6 +42,8 @@ Eksempler:
 - styreleder/daglig leder -> virksomhetskontekst,
 - mor/datterselskap -> selskapsnettverk,
 - kjent virksomhetsdomene -> domain/web research.
+
+Sektorregistre (Finanstilsynet, Arbeidstilsynet, DiBK, Patentstyret, Fiskeridirektoratet m.fl.) skal bare brukes når target/relasjonen faktisk gjør registeret relevant og adapteren er aktivert.
 
 ### `WEAK_SOURCE_ONLY`
 Når en material claim bare støttes av svak kilde.
@@ -60,6 +63,7 @@ Når datoer, roller eller hendelser ikke passer sammen eller mangler overgang.
 
 Søk:
 - tidsbegrenset web,
+- Nasjonalbibliotekets historiske avis-/publikasjonssøk når relevant,
 - historiske snapshots,
 - offisielle historikkfelt,
 - dokumenter nær overgangstidspunktet.
@@ -99,7 +103,9 @@ Bruk:
 ### `MEDIA_CORROBORATION`
 Når en vesentlig påstand finnes i ett medium eller én sekundærkilde.
 
-Hent originalartikkelen først. Søk deretter etter primærkilde eller uavhengig bekreftelse dersom påstanden er material.
+Hent originalartikkelen først. Søk deretter etter primærkilde eller uavhengig bekreftelse dersom påstanden er material. For eldre norsk presse/publikasjoner skal NB vurderes før bredere websearch.
+
+NB-katalogtreff dokumenterer treff/publikasjon, men OCR-tekst kan bare persisteres når itemets `accessInfo` passerer capture-policy.
 
 ### `SANCTIONS_CANDIDATE`
 Kun når `SANCTIONS` er aktiv.
@@ -129,12 +135,24 @@ Foretrekk den mest autoritative og målrettede kilden fremfor websearch:
 - konsern -> BRREG konsernstruktur,
 - regnskap -> Regnskapsregisteret,
 - kunngjøringer -> BRREG offentlig kunngjøring,
+- historisk norsk presse/publikasjon/alias -> Nasjonalbiblioteket,
 - domene -> RDAP + offisiell nettside,
 - historisk kjent URL/domene -> Common Crawl,
 - generell omtale -> SearXNG,
 - nyhetsdiscovery -> SearXNG/GDELT.
 
-Search-result snippets er discovery only. Originalkilden må hentes før claim/evidence.
+Når respektive adapter er implementert/aktivert:
+- finansielle konsesjoner/autorisasjoner -> Finanstilsynet,
+- patent/varemerke/design -> Patentstyret,
+- offentlige anskaffelser -> Doffin Public API,
+- offentlig journal-/dokumentmetadata -> eInnsyn,
+- bemanning/renhold -> Arbeidstilsynet,
+- sentral godkjenning bygg -> DiBK,
+- adresse-normalisering -> Kartverket,
+- serveringstilsyn -> Mattilsynet Smilefjes,
+- fartøy/eierdata -> Fiskeridirektoratet.
+
+Search-result snippets er discovery only. Originalkilden må hentes før claim/evidence. Et NB-metadataresultat er evidence for bibliografiske metadata, ikke automatisk for innholdet i OCR-treffet.
 
 ## Dataminimering i queries
 Ikke send mer persondata til offentlig søkemotor enn nødvendig. Fødselsdato som finnes i lokal/offisiell indeks brukes primært internt til entity resolution og skal ikke automatisk inngå i webqueries.
