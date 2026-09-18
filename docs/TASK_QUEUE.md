@@ -251,3 +251,28 @@ Fullførte oppgaver beholdes her for sporbarhet inntil en senere opprydding flyt
 **Verifisert 2026-09-19:** Fingerprint inkluderer kanonisk subject-segment (`claims_evidence.claim_fingerprint` + BRREG-forfatter samlet); migrering 0005 recomputer eksisterende fingerprints på plass (frossen formel, IDer og evidenslenker bevart). 3 fingerprint-enhetstester, 2 subject-integrasjonstester (separate claims + idempotent re-ingest), legacy-migreringstest med lenkebevaring. 0004-testene pint til 0004 der de isolerer den migreringen. 297 grønne totalt i Compose.
 **Leveranse:** Inkluder canonical subject-identitet i claim-fingerprint og migrer eksisterende fingerprints uten å miste evidenskoblinger.
 **Acceptance:** To forskjellige entities med samme predicate/verdi i én investigation beholder separate claims; re-ingest av samme subject er idempotent. Multi-entity source routing skal ikke aktiveres før denne kontrakten er verifisert. Dagens executor er begrenset til ett eksplisitt BRREG-mål.
+
+
+### AQ-031 — Nasjonalbiblioteket media-/avispipeline
+**Status:** READY
+**Prioritet:** P0
+**Agent:** `nb-media` + `research-orchestration` + `db-provenance` + `ui-reporting`
+**Reviewer:** `integration-reviewer`
+**Avhenger av:** AQ-020, AQ-021, AQ-022, AQ-024, AQ-026, AQ-027
+**Canonical kontrakt:** `docs/NATIONAL_LIBRARY.md`
+**Leveranse:** Direkte Nasjonalbiblioteket-integrasjon for person/media research med Catalog FULL_TEXT_SEARCH, page locator, IIIF OCR-koordinater, DH-lab concordance, item-level rights policy, permitted article OCR/crops, MediaMention persistence, entity resolution, claims/evidence/verifier og rapportering i felles JSON/HTML/PDF/web-kontrakt.
+**Acceptance:**
+- PERSON + `WEB_MEDIA` får deterministic, deduplisert NB exact-name seed uten å være avhengig av planner.
+- `nb_newspaper_search` er allowlisted og går gjennom eksisterende lead/scope/source-router-kjede.
+- Catalog/contentsearch/DH-lab-responser som brukes som evidence lagres immutable før parsing.
+- `contentfragments` behandles som page locator og aldri som garantert artikkeltekst.
+- IIIF `xywh` bevares som evidence locator og brukes som anchor ved tillatt page/crop extraction.
+- DH-lab concordance merkes `PARTIAL_CONTEXT`; fulltekst merkes `FULL` bare når faktisk lovlig tilgjengelig og hentet.
+- Item-level rights/access feiler lukket; restricted/library-only testcase kaller aldri page-image downloader.
+- Permitted testcase kan gå page bytes -> raw store -> article crop -> norsk OCR -> Document/Evidence.
+- Same-name treff er `UNRESOLVED` uten corroboration og kan ikke auto-merges til target.
+- Nettavis/original-URL kan opprette gated `web_document_fetch` lead til eksisterende safe fetcher.
+- `ReportDocument.media_mentions` brukes konsekvent av JSON, HTML, PDF og Next.js.
+- Next.js rapportside bruker full report-kontrakt, ikke bare `/report/sections`, og mobile smoke ved 390 px passerer.
+- E2E bruker ekte PostgreSQL/repositories/research-loop/verifier/report builder; bare ekstern NB/model-boundary kan fakes.
+- Rerun er idempotent; full test/type/build/review-gate passerer før DONE.
