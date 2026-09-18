@@ -231,9 +231,8 @@ Fullførte oppgaver beholdes her for sporbarhet inntil en senere opprydding flyt
 **Acceptance:** Rapport skiller supported/partial/contradicted/insufficient og investigated/not-investigated; hver material finding har evidence; context-only entities fremstilles ikke som full research; HTML/PDF kommer fra samme report JSON.
 
 ### AQ-028 — End-to-end MVP proof
-**Status:** BLOCKED
-**Prioritet:** P0
-**Agent:** `research-orchestration`
+**Status:** DONE
+**Verifisert 2026-09-19:** `tests/integration/test_e2e_mvp.py` beviser hele kjeden mot ekte PostgreSQL (fakes kun på nettverk/modell-grensen): company-case (create → planner → gate → frontier → router → fetch → raw → document → evidence → claim → verifier → coverage → report.json med citation url+sha) og person-case (negative signaler + manuell MATCH-review + 409 ved tvang), begge med rerun-idempotens. 406 grønne totalt i Compose.
 **Reviewer:** `integration-reviewer`
 **Avhenger av:** AQ-020, AQ-021, AQ-022, AQ-023, AQ-024, AQ-025, AQ-026
 **Leveranse:** Reell vertical integration suite for minst én company-case og én person/identity-case.
