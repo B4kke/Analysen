@@ -159,23 +159,83 @@ Fullførte oppgaver beholdes her for sporbarhet inntil en senere opprydding flyt
 **Verifisert 2026-09-18:** PDF text/layout extraction, table extraction, OCR fallback, deterministic financial ratios, year-over-year analysis, auditor notes/going-concern detection. 18 enhetstester + 6 integrasjonstester (`test_pdf_extraction.py`); 131 tester grønne i Compose-nettverket. Raw snapshots i object store bevares via hash-adressert `raw_store`.
 
 ### AQ-019 — Finansanalyse-modul
-**Status:** READY
+**Status:** BLOCKED
 **Prioritet:** P0
-**Avhenger av:** AQ-018
+**Agent:** `db-provenance` + `verification`
+**Avhenger av:** AQ-018, AQ-020, AQ-021
 **Leveranse:** Finansielle nøkkeltall (profitability, liquidity, solvency, efficiency), år-over-år analyse, regnskapsuttrekk, revisjonsmerknader, going-concern deteksjon — alt som claims med evidence.
 **Acceptance:** Nøkkeltall beregnes deterministisk i kode (ingen LLM); år-over-år forandringer med null-base håndtering; revisjonsmerknader og going-concern detekteres og lagres som claims.
 
 ### AQ-020 — Claims/Evidence pipeline og provenance
-**Status:** DONE
-**Verifisert 2026-09-18:** `repositories/claims_evidence.py` + `domain/models.py` med modeller for `Source`, `Document`, `Evidence`, `Claim`, `Entity`, `EntityRelation`, `EntityResolutionCandidate` og provenance-linking. `repositories/claims_evidence.py` implementerer deterministisk persistens med content-addressed evidence, claim-evidence linking, entity resolution candidates med negative signals. 149 tester grønne i Compose-nettverket.
-
-### AQ-021 — SearXNG discovery og dokumentfetch
-**Status:** DONE
-**Verifisert 2026-09-18:** SearXNG discovery adapter, URL canonicalisering/dedup (`services/url_canonicalization.py`), document fetcher med fallback chain (Trafilatura → Crawl4AI → Playwright) i `services/document_fetcher.py`. SSRF/egress guard i `services/crawler_security.py`, URL canonicalisering/dedup i `services/url_canonicalization.py`. 149 tester grønne i Compose.
-
-### AQ-022 — Entity resolution med negative signals
 **Status:** READY
 **Prioritet:** P0
+**Agent:** `db-provenance`
+**Reopened 2026-09-18 etter kodeaudit:** Tidligere DONE-status var for optimistisk. Baseline/0003 og repository-kontrakter er inkonsistente: eksisterende tabeller oppgraderes ikke av `CREATE TABLE IF NOT EXISTS`, repository forventer felt/constraints som ikke er bevist på migrert schema, og claim/evidence status/fingerprint/alias-kontrakter må harmoniseres.
+**Leveranse:** Reparert Alembic-kjede og én canonical Source -> Document -> Evidence -> Claim -> ClaimEvidence-kontrakt med immutable raw provenance.
+**Acceptance:** Fresh og legacy database migrerer til head; gjentatt upgrade er trygg; ekte PostgreSQL repository-roundtrip passerer; claim/evidence-status og constraints er konsistente mellom SQL/Pydantic/repository; stored raw bytes hasher til dokumentets SHA.
+
+### AQ-021 — SearXNG discovery og dokumentfetch
+**Status:** READY
+**Prioritet:** P0
+**Agent:** `research-runtime`
+**Reopened 2026-09-18 etter kodeaudit:** Runtime-image installerer ikke research dependency-settet; generisk raw-store-path lagrer canonical URL i stedet for fetched content; robots/rate/content-size er ikke reelt håndhevet; redirect/final URL mangler full SSRF revalidation.
+**Leveranse:** Kjørbar research-runtime med SearXNG discovery, sikker fetch-waterfall, immutable raw web snapshots og eksplisitte crawl-budsjetter.
+**Acceptance:** Docker worker/API-path som kjører research har nødvendige pakker/browser; local fixture integration dekker redirect/private redirect/content limit/failure; fetched content lagres og hash-verifiseres; snippets kan aldri bli evidence.
+
+### AQ-022 — Entity resolution med negative signals
+**Status:** BLOCKED
+**Prioritet:** P0
+**Agent:** `entity-resolution`
 **Avhenger av:** AQ-020
 **Leveranse:** Deterministisk kandidatgenerering, scoring med negative signaler (samme navn, ulike fødselsdatoer, geografisk uoverensstemmelse, tidslinjekonflikter), `MATCH`/`PROBABLE_MATCH`/`UNRESOLVED`/`NOT_MATCH` klassifisering, manuell merge/split API.
 **Acceptance:** Samme navn alene kan ikke merge personer; negative signaler (ulike fødselsdato, uoverensstemmelse i roller/tidslinje) blokkerer automatisk merge; manuell godkjenning kreves for `PROBABLE_MATCH`.
+
+
+### AQ-023 — Planner integrert i research-loop
+**Status:** BLOCKED
+**Prioritet:** P0
+**Agent:** `research-orchestration`
+**Avhenger av:** AQ-020
+**Leveranse:** Ny/tom investigation kan gå fra stored scope til typed planner proposals, deterministisk lead admission, frontier/trigger-evaluering og checkpointed pass.
+**Acceptance:** En tom frontier kan planlegge lovlige leads; schema-invalid planner-output avvises; `max_relation_depth` kommer fra investigation; budget/repeated-loop/STOP er deterministiske; restart/rerun dupliserer ikke terminalt arbeid.
+
+### AQ-024 — Typed source router og executor-utvidelse
+**Status:** BLOCKED
+**Prioritet:** P0
+**Agent:** `research-orchestration`
+**Avhenger av:** AQ-020, AQ-021, AQ-023
+**Leveranse:** Allowlisted source router og executors for BRREG target/roles, SearXNG discovery, web document fetch og PDF/document processing.
+**Acceptance:** Lead type rutes eksplisitt til én executor; ingen arbitrary tool execution; alle fetch-paths går gjennom scope/trigger/provenance/coverage; source-feil gir eksplisitt FAILED/BLOCKED/coverage state.
+
+### AQ-025 — UI/API-kontrakter og live investigation-state
+**Status:** READY
+**Prioritet:** P0
+**Agent:** `ui-reporting`
+**Avhenger av:** AQ-004
+**Leveranse:** Reparer frontend request-shapes og erstatt statiske placeholder-states med reell worker/module/claim/evidence state.
+**Acceptance:** `known_orgnrs`/`known_organizations` sendes som arrays; web kan opprette company/person targets med valgfrie felter; detaljsiden viser faktisk state og sier aldri "ikke startet"/"ingen funn" i strid med database; mobil smoke passerer.
+
+### AQ-026 — Verifier, contradiction og citation gate
+**Status:** BLOCKED
+**Prioritet:** P0
+**Agent:** `verification`
+**Avhenger av:** AQ-020, AQ-023
+**Leveranse:** Evidence-entailment verifier med typed status, contradiction handling og missing-information feedback som går tilbake gjennom trigger/scope gate.
+**Acceptance:** Material claim uten evidence kan ikke bli supported/reviewed; invalid modelloutput failer lukket; contradiction genererer målrettet verification need; SQL/Pydantic/report-status er konsistente.
+
+### AQ-027 — Full report pipeline
+**Status:** BLOCKED
+**Prioritet:** P1
+**Agent:** `ui-reporting`
+**Avhenger av:** AQ-019, AQ-025, AQ-026
+**Leveranse:** `verified claims + coverage -> report JSON -> HTML -> PDF` med norsk standardrapport og klikkbar provenance.
+**Acceptance:** Rapport skiller supported/partial/contradicted/insufficient og investigated/not-investigated; hver material finding har evidence; context-only entities fremstilles ikke som full research; HTML/PDF kommer fra samme report JSON.
+
+### AQ-028 — End-to-end MVP proof
+**Status:** BLOCKED
+**Prioritet:** P0
+**Agent:** `research-orchestration`
+**Reviewer:** `integration-reviewer`
+**Avhenger av:** AQ-020, AQ-021, AQ-022, AQ-023, AQ-024, AQ-025, AQ-026
+**Leveranse:** Reell vertical integration suite for minst én company-case og én person/identity-case.
+**Acceptance:** `create -> planner -> gate -> frontier -> source router -> fetch -> raw -> document -> evidence -> claim -> verifier -> coverage -> report API/UI` passerer mot ekte PostgreSQL/worker-state. Bare external network/model boundary kan fakes. Rerun er idempotent.
