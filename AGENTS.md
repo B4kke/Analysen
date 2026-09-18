@@ -11,7 +11,8 @@ Før arbeid skal agenten lese:
 4. `docs/INVESTIGATION_SCOPE.md` — hva en investigation får undersøke.
 5. `docs/SEARCH_TRIGGERS.md` — når/hvorfor systemet får søke videre.
 6. `docs/PRIVACY_LEGAL.md` — juridiske/personvernmessige grenser.
-7. relevante domene-/kildedokumenter for oppgaven.
+7. `docs/NATIONAL_LIBRARY.md` — canonical kontrakt for Nasjonalbiblioteket/DH-lab/IIIF når NB/media berøres.
+8. relevante domene-/kildedokumenter for oppgaven.
 
 Ikke opprett parallelle TODO-lister i tilfeldige filer. Nye oppgaver føres i `docs/TASK_QUEUE.md`. Fullførte milepæler føres kort i `docs/WORKLOG.md`.
 
@@ -101,6 +102,7 @@ Primær OpenCode2-agent er `analysen-orchestrator`. Se `docs/RECOVERY_ACTION_PLA
 ### Tilgjengelige prosjektagenter
 - `db-provenance`
 - `research-runtime`
+- `nb-media`
 - `research-orchestration`
 - `entity-resolution`
 - `verification`
