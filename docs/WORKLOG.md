@@ -28,3 +28,5 @@ Kort, append-only oversikt over fullførte milepæler. Dette er ikke en ny TODO-
 - AQ-017 lukket: research-startknapp i UI med smoke-dekning; avdekket og dokumentert at native servere må restartes etter kodeendringer.
 - AQ-020 lukket: Claims/Evidence/Provenance pipeline med deterministiske modeller, repository, database migration. Content-addressed evidence, claim-evidence linking, entity resolution kandidater med negative signals. 149 tester grønne i Compose.
 - AQ-021 lukket: SearXNG discovery adapter, URL canonicalisering/dedup, document fetcher med fallback chain (Trafilatura → Crawl4AI → Playwright). SSRF/egress guard, URL canonicalisering/dedup. 149 tester grønne i Compose.
+
+- OpenCode2-orchestrering lagt inn: `analysen-orchestrator` som default primary, sju spesialiserte subagents, ni prosjekt-skills og delegert recovery-plan. AQ-020/AQ-021 reåpnet etter kodeaudit; AQ-023–AQ-028 opprettet for planner-loop, source routing, UI-kontrakter, verifier, full rapport og E2E-MVP.
