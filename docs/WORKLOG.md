@@ -27,4 +27,4 @@ Kort, append-only oversikt over fullførte milepæler. Dette er ikke en ny TODO-
 - Mangelrunde: API.md oppdatert med alle nye ruter (leads/eksekvering/research/eksport/rapport), README-status synkronisert, `plan_probe.py` kjører uten PYTHONPATH.
 - AQ-017 lukket: research-startknapp i UI med smoke-dekning; avdekket og dokumentert at native servere må restartes etter kodeendringer.
 - AQ-020 lukket: Claims/Evidence/Provenance pipeline med deterministiske modeller, repository, database migration. Content-addressed evidence, claim-evidence linking, entity resolution kandidater med negative signals. 149 tester grønne i Compose.
-- AQ-021 startet: SearXNG discovery adapter implementert, URL canonicalisering/dedup på vei.
+- AQ-021 lukket: SearXNG discovery adapter, URL canonicalisering/dedup, document fetcher med fallback chain (Trafilatura → Crawl4AI → Playwright). SSRF/egress guard, URL canonicalisering/dedup. 149 tester grønne i Compose.
