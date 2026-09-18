@@ -75,5 +75,12 @@ En oppgave kan bare settes `DONE` når:
 **Leveranse:** Tester for trigger selection, scope blocking, contradiction retry, no-loop og no-unnecessary-expansion.  
 **Acceptance:** Test-suite fanger firma-/person-autoekspansjon uten aktivt scope.
 
+### AQ-008 — Nasjonalbiblioteket + norske åpne kilder
+**Status:** IN_PROGRESS  
+**Prioritet:** P0  
+**Bestilt eksplisitt:** 2026-09-18  
+**Leveranse:** Implementer rettighetsbevisst adapter for Nasjonalbibliotekets katalog/fulltekstsøk, item-oppslag og tillatte OCR-fragmenter. Dokumenter og prioriter ytterligere norske åpne kilder med tilgangs-/lisensstatus og konkrete brukstilfeller.  
+**Acceptance:** NB-search gir typed resultater; begrenset materiale kan ikke hentes som OCR-evidence via adapteren; source-config og source-routing er oppdatert; kontrakttester dekker åpent og begrenset materiale; nye kilder er kategorisert som aktive kandidater eller senere adaptere uten å late som de allerede er implementert.
+
 ## Hygiene
 Fullførte oppgaver beholdes her for sporbarhet inntil en senere opprydding flytter eldre historikk til changelog/release notes. En oppgave skal aldri bli stående `IN_PROGRESS` etter at leveransen er avsluttet.
