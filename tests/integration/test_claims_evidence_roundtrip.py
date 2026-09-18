@@ -192,7 +192,7 @@ async def test_claim_source_to_claim_roundtrip_is_idempotent(claims_client) -> N
         claim = await repo.get_claim(session, claim_id)
     assert claim is not None
     assert claim["fingerprint"] == repo.claim_fingerprint(
-        investigation_id, predicate, value
+        investigation_id, None, predicate, value
     )
 
     async with factory() as session:
