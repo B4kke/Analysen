@@ -182,3 +182,28 @@ sources:
     base_url: https://api.fiskeridir.no/vessel-api/
     license: NLOD-2.0
     reason: Vessel and owner data; adapter/access behavior must be contract-tested before enablement.
+
+  luftfartstilsynet_aircraft:
+    enabled: false
+    candidate: true
+    access: OPEN_DOWNLOAD
+    evidence_tier: 1
+    endpoint: https://data.caa.no/nlr/norgesluftfartoyregister.json
+    reason: Daily authoritative aircraft and public owner data; activate only for relevant asset/aviation scope.
+
+  tilskudd_no:
+    enabled: false
+    candidate: true
+    access: PUBLIC_WEB_DOWNLOAD
+    evidence_tier: 1
+    reference: https://tilskudd.dfo.no/
+    reason: State grants and recipients from 2021 onward; no registered API, use documented export when relevant.
+
+  sodir_factmaps:
+    enabled: false
+    candidate: true
+    access: PUBLIC_ACCESS
+    evidence_tier: 1
+    license: NLOD-1.0
+    reference: https://factmaps.sodir.no/
+    reason: Sector-specific petroleum licences/fields/wells; activate only for relevant company/industry scope.
