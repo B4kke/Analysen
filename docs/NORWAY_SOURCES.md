@@ -170,6 +170,27 @@ Kartverkets adresse-API krever ikke registrering og søker i adresseinformasjon 
 
 Fiskeridirektoratet har også andre offentlige API-er (bl.a. akvakultur-/autorisasjonsregistre) som bør vurderes etter sektor-trigger.
 
+### Luftfartstilsynet — Norges luftfartøyregister
+- JSON: `https://data.caa.no/nlr/norgesluftfartoyregister.json`
+- autoritativ kilde, oppdatert daglig.
+
+Datasettet inneholder registreringsmerke, type/produsent, serienummer, luftdyktighetsinformasjon og offentlige opplysninger om juridiske personer/organisasjoner som eiere, inkludert orgnr når tilgjengelig.
+
+**Bruk:** verifisert luftfartøy-/eierrelasjon når ASSETS/AVIATION-lignende scope senere finnes. Ikke bruk fravær av orgnr som bevis på fravær av eier, siden datasettet kan være ufullstendig på enkelte felt.
+
+### Tilskudd.no
+Landingsside: `https://tilskudd.dfo.no/`
+
+Gir oversikt over statlige tilskuddsordninger, tildelinger og mottakere, med registrerte tildelinger fra 2021 og eksportmulighet til Excel.
+
+**Bruk:** organisasjons-/virksomhetskontekst rundt dokumenterte statlige tilskudd. Ikke opprett personprofil bare fordi en privat mottaker finnes i datasettet.  
+**Teknisk:** ingen registrert API per nå; implementer dokumentert fil-/eksportinngest hvis kilden prioriteres.
+
+### Sokkeldirektoratet — FactMaps/utvinningstillatelser
+Sokkeldirektoratet publiserer åpne FactMaps REST/WFS-data om blant annet brønner, funn, felt og utvinningstillatelser under NLOD 1.0.
+
+**Bruk:** sektor-spesifikk selskapskontekst for petroleum/offshore, inkludert lisenser/operatørforhold. Ikke kjør mot ordinære targets uten dokumentert bransjerelevans.
+
 ## Source discovery: data.norge.no
 Data.norge.no brukes som **katalog for å finne nye offentlige datasett/API-er**, ikke som evidens for claims om target når originalregisteret kan brukes.
 
