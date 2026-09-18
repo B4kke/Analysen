@@ -15,6 +15,7 @@ from apps.api.app.domain.models import (
     InvestigationDetail,
     InvestigationRecord,
     Lead,
+    ResolutionReview,
     TargetType,
 )
 from apps.api.app.domain.scope import (
@@ -198,6 +199,53 @@ async def run_research_endpoint(
     run_research_pass_actor.send(str(investigation_id))
     await session.commit()
     return {"investigation_id": str(investigation_id), "status": "ENQUEUED"}
+
+
+@router.get("/{investigation_id}/resolution/candidates")
+async def list_resolution_candidates_endpoint(
+    investigation_id: UUID, session: DatabaseSession
+) -> list[dict]:
+    """List entity resolution candidates with scores and negative signals."""
+    from apps.api.app.repositories import entity_resolution as resolution_repo
+
+    try:
+        await get_investigation_record(session, investigation_id)
+    except InvestigationNotFound as exc:
+        raise HTTPException(status_code=404, detail="Investigation not found") from exc
+    return await resolution_repo.list_resolution_candidates(session, investigation_id)
+
+
+@router.post("/{investigation_id}/resolution/{entity_id}/{candidate_entity_id}")
+async def review_resolution_candidate_endpoint(
+    investigation_id: UUID,
+    entity_id: UUID,
+    candidate_entity_id: UUID,
+    request: ResolutionReview,
+    session: DatabaseSession,
+) -> dict:
+    """Apply a manual review decision to a resolution candidate.
+
+    Only PROBABLE_MATCH -> MATCH/NOT_MATCH and UNRESOLVED -> NOT_MATCH are
+    permitted; anything else is a 409 Conflict. The decision is audited.
+    """
+    from apps.api.app.repositories import entity_resolution as resolution_repo
+    from apps.api.app.repositories.entity_resolution import IllegalResolutionTransition
+
+    try:
+        outcome = await resolution_repo.review_resolution_candidate(
+            session,
+            investigation_id,
+            entity_id,
+            candidate_entity_id,
+            request.status,
+            request.reason,
+        )
+    except InvestigationNotFound as exc:
+        raise HTTPException(status_code=404, detail="Investigation not found") from exc
+    except IllegalResolutionTransition as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+    await session.commit()
+    return {"entity_id": str(entity_id), "candidate_entity_id": str(candidate_entity_id), **outcome}
 
 
 @router.post(

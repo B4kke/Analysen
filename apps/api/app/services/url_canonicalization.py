@@ -2,7 +2,7 @@
 
 import re
 from dataclasses import dataclass
-from urllib.parse import parse_qsl, urlencode, urlparse, urlunparse
+from urllib.parse import parse_qsl, quote, urlencode, urlparse, urlunparse
 
 # Query parameters to strip for deduplication
 _TRACKING_PARAMS = frozenset({
@@ -65,11 +65,25 @@ def _normalize_fragment(fragment: str) -> str:
 
 
 def canonicalize_url(url: str) -> str:
-    """Return canonical form of URL for deduplication."""
+    """Return canonical form of URL for deduplication.
+
+    Always yields an absolute https URL: inputs without a scheme are treated
+    as host[/path]. Input that cannot be parsed as a URL at all is
+    percent-encoded under the reserved "invalid" host so the output stays a
+    string in URL shape (and can never resolve to a real host). Empty input
+    keeps the legacy "https:///" value.
+    """
+    if not url or not url.strip():
+        return "https:///"
+    text = url.strip()
+    if "://" not in text:
+        text = "https://" + text.lstrip("/")
     try:
-        parsed = urlparse(url)
+        parsed = urlparse(text)
     except Exception:
-        return url
+        return "https://invalid/" + quote(url.strip(), safe="")
+    if not parsed.netloc:
+        return "https://invalid/" + quote(url.strip(), safe="")
 
     # Normalize scheme to https
     scheme = "https"

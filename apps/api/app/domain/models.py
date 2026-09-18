@@ -1,6 +1,6 @@
 from datetime import UTC, date, datetime
 from enum import StrEnum
-from typing import Any
+from typing import Any, Literal
 from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field, HttpUrl, field_validator, model_validator
@@ -395,3 +395,12 @@ class ClaimEvidenceLink(BaseModel):
     claim_id: UUID
     evidence_id: UUID
     role: str = "SUPPORTS"  # SUPPORTS | CONTRADICTS | PARTIAL
+
+
+class ResolutionReview(BaseModel):
+    """Manual review decision for an entity resolution candidate."""
+
+    model_config = ConfigDict(extra="forbid", str_strip_whitespace=True)
+
+    status: Literal["MATCH", "NOT_MATCH"]
+    reason: str = Field(min_length=3, max_length=1000)

@@ -111,6 +111,10 @@ En oppgave kan bare settes `DONE` når:
 ### AQ-012 — Trigger evaluator og frontier-valg
 **Status:** DONE
 **Verifisert 2026-09-18:** `services/trigger_evaluator.py` + `services/frontier.py` med typed beslutninger (`domain/trigger_eval.py`). Uverifiserte relasjoner og passive triggere blir `CONTEXT_ONLY`; contradiction på målet gir `VERIFICATION_LEAD`; finansanomalier krever valgt FINANCIALS + materialitet; besvarte/uttømte spørsmål og budsjett gir eksplisitte `STOP_*`. Frontier velger høyeste prioritet blant PENDING innen dybde. 13 tester (`test_trigger_decisions.py`); 118 grønne i Compose-nettverket. Eksekutor (faktisk innhenting) er neste steg.
+**Prioritet:** P0
+**Avhenger av:** AQ-005, AQ-011
+**Leveranse:** Deterministisk trigger-evaluator (`FOLLOW_UP_LEAD`, `VERIFICATION_LEAD`, `CONTEXT_ONLY`, `BLOCKED_BY_SCOPE`, `STOP_*`) og frontier-velger som ordner PENDING-leads etter prioritet innen scope/budsjett. Ingen live innhenting — eksekutor kommer senere.
+**Acceptance:** Relasjonsforslag uten verifisert relasjon blir `CONTEXT_ONLY`, aldri auto-kjøring; contradiction gir målrettet verifikasjon; løkker og budsjett stopper deterministisk.
 
 ### AQ-013 — Lead-eksekutor for valgte leads
 **Status:** DONE
@@ -123,33 +127,33 @@ En oppgave kan bare settes `DONE` når:
 ### AQ-014 — Mobiltilgang på samme nett via Docker
 **Status:** DONE
 **Verifisert 2026-09-18:** `BIND_ADDRESS` (default loopback) binder web/API på LAN ved opt-in; CORS-validering godtar kun loopback + RFC1918 (offentlige verter, wildcard og https avvises — testet). Separat LAN-stack verifisert: web 200 og API ready på LAN-IP, preflight fra LAN-opprinnelse 200, fra offentlig opprinnelse 400, og web-bundel peker på LAN-API-URL (gjenoppbygd med `--build-arg`, dokumentert at `up --build` mister ad-hoc args). Postgres/Redis/SearXNG forblir på loopback. Oppskrift + advarsel (kun klarerte nett, ingen auth) i `DEPLOYMENT.md`.
+**Prioritet:** P1
+**Leveranse:** Opt-in LAN-binding (`BIND_ADDRESS`), CORS for private nettadresser (RFC1918), dokumentert oppskrift for mobil på samme nett. Default forblir loopback.
+**Acceptance:** Web og API svarer på maskinens LAN-IP; CORS-preflight fra LAN-opprinnelse passerer; web-bundel peker på LAN-API-URL. Kun klarerte nett — ingen auth per ADR-017.
 
 ### AQ-015 — Worker-basert research-loop
 **Status:** DONE
 **Verifisert 2026-09-18:** `services/research_loop.py` kjører én avgrenset pass: frontier-valg → trigger-evaluator → eksekutor, til frontier er tom, budsjett oppbrukt eller maks leads nådd. Evaluator-nekt (CONTEXT_ONLY/BLOCKED_BY_SCOPE) parkerer leadet som BLOCKED med årsak; hvert lead committes separat; passet auditerer `RESEARCH_PASS_COMPLETED`-sammendrag. Dramatiq-actor + `POST /investigations/{id}/research/run` (202, uten sideeffekter i test via patchet send). 6 integrasjonstester (`test_research_loop.py`, fake fetch — ingen live-kall); 131 grønne totalt i Compose-nettverket.
+**Prioritet:** P0
+**Avhenger av:** AQ-013
+**Leveranse:** Dramatiq-actor + `POST /investigations/{id}/research/run` (202) som kjører én avgrenset research-pass over admitted frontier.
+**Acceptance:** En pass fullfører kjedede PENDING-leads, stopper deterministisk, rører aldri BLOCKED-leads, og gjør ingen live-kall i tester.
 
 ### AQ-016 — Rapport-UI i web
 **Status:** DONE
 **Verifisert 2026-09-18:** Rapportside `/investigations/[id]/report` rendrer de fem seksjonene fra API-et med tellinger, coverage (søk/dokumenter/kilder) og stoppårsaker; «Ikke valgt» forklarer eksplisitt at fravær av funn ikke er negativt funn. Lenket fra detaljsiden. Nettlesersmoke dekker opprettelse → detalj → reload → rapport med seksjonsoverskrifter og modulnavn.
-
-### AQ-017 — Research-start fra UI-et
-**Status:** DONE
-**Verifisert 2026-09-18:** «Start research-pass»-knapp på detaljsiden legger worker-pass på kø via `POST /research/run` og viser status. Hjemmesidens utdaterte «orkestratoren kommer senere»-tekst oppdatert. Smoke dekker kølegging. Sidespor avdekket at nativ API serverte gammel kode uten research-ruten (404 → «Not Found» i UI); dokumentert restart-krav i `DEPLOYMENT.md`.
 **Prioritet:** P1
 **Avhenger av:** AQ-006
 **Leveranse:** Rapportside per investigation som rendrer de fem seksjonene fra `GET /report/sections` med coverage og stop-årsaker, lenket fra detaljsiden.
 **Acceptance:** Siden skiller undersøkt/ufullstendig/ikke undersøkt/utilgjengelig/ikke valgt; uvalgte moduler presenteres aldri som negative funn; nettlesersmoke dekker siden.
+
+### AQ-017 — Research-start fra UI-et
+**Status:** DONE
+**Verifisert 2026-09-18:** «Start research-pass»-knapp på detaljsiden legger worker-pass på kø via `POST /research/run` og viser status. Hjemmesidens utdaterte «orkestratoren kommer senere»-tekst oppdatert. Smoke dekker kølegging. Sidespor avdekket at nativ API serverte gammel kode uten research-ruten (404 → «Not Found» i UI); dokumentert restart-krav i `DEPLOYMENT.md`.
 **Prioritet:** P0
 **Avhenger av:** AQ-013
 **Leveranse:** Dramatiq-actor + `POST /investigations/{id}/research/run` (202) som kjører én avgrenset research-pass: frontier-valg → trigger-evaluator → eksekutor, til frontier er tom, budsjett oppbrukt eller maks leads nådd. Hvert lead committes separat; passet auditerer sammendrag.
 **Acceptance:** En pass fullfører kjedede PENDING-leads, stopper deterministisk, rører aldri BLOCKED-leads, og gjør ingen live-kall i tester (fake fetch).
-**Prioritet:** P1
-**Leveranse:** Opt-in LAN-binding (`BIND_ADDRESS`), CORS for private nettadresser (RFC1918), dokumentert oppskrift for mobil på samme nett. Default forblir loopback.
-**Acceptance:** Web og API svarer på maskinens LAN-IP; CORS-preflight fra LAN-opprinnelse passerer; web-bundel peker på LAN-API-URL. Kun klarerte nett — ingen auth per ADR-017.
-**Prioritet:** P0
-**Avhenger av:** AQ-005, AQ-011
-**Leveranse:** Deterministisk trigger-evaluator (`FOLLOW_UP_LEAD`, `VERIFICATION_LEAD`, `CONTEXT_ONLY`, `BLOCKED_BY_SCOPE`, `STOP_*`) og frontier-velger som ordner PENDING-leads etter prioritet innen scope/budsjett. Ingen live innhenting — eksekutor kommer senere.
-**Acceptance:** Relasjonsforslag uten verifisert relasjon blir `CONTEXT_ONLY`, aldri auto-kjøring; contradiction gir målrettet verifikasjon; løkker og budsjett stopper deterministisk.
 
 ## Hygiene
 Fullførte oppgaver beholdes her for sporbarhet inntil en senere opprydding flytter eldre historikk til changelog/release notes. En oppgave skal aldri bli stående `IN_PROGRESS` etter at leveransen er avsluttet.
@@ -174,7 +178,8 @@ Fullførte oppgaver beholdes her for sporbarhet inntil en senere opprydding flyt
 **Verifisert 2026-09-18:** SearXNG discovery adapter, URL canonicalisering/dedup (`services/url_canonicalization.py`), document fetcher med fallback chain (Trafilatura → Crawl4AI → Playwright) i `services/document_fetcher.py`. SSRF/egress guard i `services/crawler_security.py`, URL canonicalisering/dedup i `services/url_canonicalization.py`. 149 tester grønne i Compose.
 
 ### AQ-022 — Entity resolution med negative signals
-**Status:** READY
+**Status:** DONE
+**Verifisert 2026-09-19:** `services/entity_resolution.py` utvidet med fødselsår-konflikt som hard negative, geografisk mismatch-penalty (-0.25) og strukturell name-only-cap under PROBABLE_MATCH terskel. `repositories/entity_resolution.py` persisterer scorer-kandidater med negative signaler; manuell review via `GET/POST .../resolution/...` tillater kun PROBABLE_MATCH → MATCH/NOT_MATCH og UNRESOLVED → NOT_MATCH (ellers 409), alt auditert. 11 scoring-enhetstester + 7 review-integrasjonstester; 188 grønne totalt i Compose. Fikset samtidig `_store_raw`-bug (lagret URL i stedet for innhold) og versjonsavhengig `canonicalize_url`-oppførsel (Python 3.12.3 vs 3.12.14).
 **Prioritet:** P0
 **Avhenger av:** AQ-020
 **Leveranse:** Deterministisk kandidatgenerering, scoring med negative signaler (samme navn, ulike fødselsdatoer, geografisk uoverensstemmelse, tidslinjekonflikter), `MATCH`/`PROBABLE_MATCH`/`UNRESOLVED`/`NOT_MATCH` klassifisering, manuell merge/split API.

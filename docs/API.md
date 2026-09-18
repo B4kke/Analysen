@@ -52,6 +52,10 @@ Implementert:
 `legal-roles` returnerer også `next_search_after` når siden kan ha flere treff. Klienten sender denne tilbake som `search_after` i neste kall.
 
 ## Entities/graph
+Implementert:
+- `GET /investigations/{id}/resolution/candidates`: list scorer-produserte kandidater med score, status og negative signaler.
+- `POST /investigations/{id}/resolution/{entity_id}/{candidate_id}`: manuell review med `{status: MATCH|NOT_MATCH, reason}`. Kun PROBABLE_MATCH → MATCH/NOT_MATCH og UNRESOLVED → NOT_MATCH er tillatt; alt annet er 409. Hver beslutning auditeres (`RESOLUTION_REVIEWED`).
+
 Planlagt:
 - `GET /investigations/{id}/entities`
 - `GET /investigations/{id}/graph`

@@ -61,7 +61,9 @@ async def run_research_pass(
             if str(row["id"]) not in attempted
         ]
         selected, reason = select_next(
-            [lead for _, lead in pairs], max_depth=10, budget_available=budget_available
+            [lead for _, lead in pairs],
+            max_depth=investigation.max_relation_depth,
+            budget_available=budget_available,
         )
         if selected is None:
             stopped_reason = reason

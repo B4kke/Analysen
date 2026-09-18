@@ -8,11 +8,14 @@ Priority order:
 All fetchers respect robots.txt, rate limits, and SSRF guards.
 """
 
-import hashlib
 from dataclasses import dataclass
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import httpx
+
+if TYPE_CHECKING:
+    import trafilatura  # type: ignore[import-not-found]
+    from crawl4ai import AsyncWebCrawler  # type: ignore[import-not-found]
 
 try:
     import trafilatura
@@ -39,7 +42,6 @@ from apps.api.app.services.crawler_security import validate_public_http_url
 from apps.api.app.services.raw_store import store_raw_snapshot
 from apps.api.app.services.url_canonicalization import (
     FetchResult,
-    canonicalize_url,
 )
 
 
@@ -248,10 +250,9 @@ class DocumentFetcher:
             )
 
     async def _store_raw(self, url: str, content: str) -> str:
-        """Store raw content in object store, return storage key."""
-        canonical = canonicalize_url(url)
-        store_raw_snapshot(canonical)
-        return hashlib.sha256(canonical.encode("utf-8")).hexdigest()
+        """Store raw content in object store, return the content digest."""
+        digest, _storage_key = store_raw_snapshot(content)
+        return digest
 
 
 async def fetch_document(url: str, config: FetchConfig | None = None) -> "FetchResult":
