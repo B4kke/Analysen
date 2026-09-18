@@ -1,8 +1,7 @@
-from types import SimpleNamespace
-
 import pytest
 
 from apps.api.app.core import database
+from apps.api.app.core.config import Settings
 
 
 class _Connection:
@@ -16,7 +15,7 @@ class _Connection:
         return None
 
     async def scalar(self, _query):
-        return "0002_scope"
+        return Settings(_env_file=None).expected_schema_revision
 
 
 class _Engine:
@@ -26,20 +25,23 @@ class _Engine:
 
 @pytest.mark.asyncio
 async def test_database_ready_requires_expected_schema(monkeypatch) -> None:
-    settings = SimpleNamespace(expected_schema_revision="0002_scope", readiness_timeout_seconds=1)
+    settings = Settings(_env_file=None)
     monkeypatch.setattr(database, "get_settings", lambda: settings)
     monkeypatch.setattr(database, "get_engine", lambda: _Engine())
     assert await database.database_ready() is True
 
 
 @pytest.mark.asyncio
-async def test_database_ready_fails_for_old_schema(monkeypatch) -> None:
-    settings = SimpleNamespace(expected_schema_revision="0002_scope", readiness_timeout_seconds=1)
+@pytest.mark.parametrize(
+    "revision", ["0001_baseline", "0002_scope", "0003_claims_evidence", "unknown"]
+)
+async def test_database_ready_fails_for_old_or_unknown_schema(monkeypatch, revision) -> None:
+    settings = Settings(_env_file=None)
     monkeypatch.setattr(database, "get_settings", lambda: settings)
 
     class OldConnection(_Connection):
         async def scalar(self, _query):
-            return "0001_baseline"
+            return revision
 
     class OldEngine(_Engine):
         def connect(self):
@@ -47,6 +49,22 @@ async def test_database_ready_fails_for_old_schema(monkeypatch) -> None:
 
     monkeypatch.setattr(database, "get_engine", lambda: OldEngine())
     assert await database.database_ready() is False
+
+
+def test_readiness_default_tracks_packaged_migration_head() -> None:
+    from pathlib import Path
+
+    from alembic.script import ScriptDirectory
+
+    root = Path(__file__).resolve().parents[1]
+    head = ScriptDirectory(str(root / "db" / "migrations")).get_current_head()
+    assert head is not None
+    assert Settings(_env_file=None).expected_schema_revision == head
+
+
+def test_readiness_schema_can_be_explicitly_overridden(monkeypatch) -> None:
+    monkeypatch.setenv("EXPECTED_SCHEMA_REVISION", "deployment_override")
+    assert Settings(_env_file=None).expected_schema_revision == "deployment_override"
 
 
 @pytest.mark.asyncio

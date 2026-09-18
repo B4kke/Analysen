@@ -33,9 +33,9 @@ compose-down:
 	docker compose down
 
 lock:
-	uv pip compile requirements.txt -o requirements.lock
-	uv pip compile requirements-dev.txt -o requirements-dev.lock
-	uv pip compile requirements-research.txt -o requirements-research.lock
+	uv pip compile requirements.txt --python-version 3.12 -o requirements.lock
+	uv pip compile requirements-dev.txt --python-version 3.12 -c requirements.lock -o requirements-dev.lock
+	uv pip compile requirements-research.txt --python-version 3.12 -c requirements.lock -o requirements-research.lock
 
 migrate:
 	alembic upgrade head

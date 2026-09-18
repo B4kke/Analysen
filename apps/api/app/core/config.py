@@ -4,10 +4,21 @@ from pathlib import Path
 from urllib.parse import urlsplit
 
 import yaml
+from alembic.script import ScriptDirectory
 from pydantic import Field, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 from apps.api.app.core.config_models import ModelsConfig, PoliciesConfig, SourcesConfig
+
+
+def _packaged_schema_revision() -> str:
+    """Require the schema shipped with this application, including future migrations."""
+    migrations = Path(__file__).resolve().parents[4] / "db" / "migrations"
+    head = ScriptDirectory(str(migrations)).get_current_head()
+    if head is None:
+        raise ValueError("the application must ship an Alembic migration head")
+    return head
+
 
 _LAN_NETWORKS = (
     ipaddress.ip_network("10.0.0.0/8"),
@@ -47,7 +58,7 @@ class Settings(BaseSettings):
     log_level: str = "INFO"
     cors_origins: str = "http://localhost:3000,http://127.0.0.1:3000,http://localhost:5173"
     readiness_timeout_seconds: float = Field(default=2.0, gt=0, le=10)
-    expected_schema_revision: str = "0002_scope"
+    expected_schema_revision: str = Field(default_factory=_packaged_schema_revision)
 
     @field_validator("cors_origins")
     @classmethod

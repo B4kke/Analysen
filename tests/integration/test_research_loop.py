@@ -115,9 +115,7 @@ async def _run_pass(factory, investigation_id: str, fetch, **kwargs) -> dict:
     from apps.api.app.services.research_loop import run_research_pass
 
     async with factory() as session:
-        return await run_research_pass(
-            session, uuid.UUID(investigation_id), fetch, **kwargs
-        )
+        return await run_research_pass(session, uuid.UUID(investigation_id), fetch, **kwargs)
 
 
 async def test_pass_executes_chained_pending_leads(loop_client) -> None:
@@ -145,23 +143,31 @@ async def test_pass_executes_chained_pending_leads(loop_client) -> None:
 
     async with factory() as session:
         statuses = (
-            await session.execute(
-                text(
-                    "SELECT DISTINCT status FROM leads "
-                    "WHERE investigation_id = CAST(:id AS uuid)"
-                ),
-                {"id": investigation_id},
+            (
+                await session.execute(
+                    text(
+                        "SELECT DISTINCT status FROM leads "
+                        "WHERE investigation_id = CAST(:id AS uuid)"
+                    ),
+                    {"id": investigation_id},
+                )
             )
-        ).scalars().all()
+            .scalars()
+            .all()
+        )
         audits = (
-            await session.execute(
-                text(
-                    "SELECT event_type FROM audit_log "
-                    "WHERE investigation_id = CAST(:id AS uuid) ORDER BY id"
-                ),
-                {"id": investigation_id},
+            (
+                await session.execute(
+                    text(
+                        "SELECT event_type FROM audit_log "
+                        "WHERE investigation_id = CAST(:id AS uuid) ORDER BY id"
+                    ),
+                    {"id": investigation_id},
+                )
             )
-        ).scalars().all()
+            .scalars()
+            .all()
+        )
     assert statuses == ["COMPLETED"]
     assert audits[-1] == "RESEARCH_PASS_COMPLETED"
 
@@ -217,22 +223,28 @@ async def test_pass_on_empty_frontier_stops_cleanly(loop_client) -> None:
     }
 
 
-async def test_run_route_enqueues_pass_without_side_effects(
-    loop_client, monkeypatch
-) -> None:
+async def test_run_route_enqueues_pass_without_side_effects(loop_client, monkeypatch) -> None:
     http, created, _factory = loop_client
     investigation_id = await _create_company(http, created)
 
     from apps.worker.app import tasks as worker_tasks
 
-    sent: list[str] = []
+    sent: list[tuple[str, str]] = []
     monkeypatch.setattr(
-        worker_tasks.run_research_pass_actor, "send", lambda iid: sent.append(iid)
+        worker_tasks.run_research_pass_actor,
+        "send",
+        lambda iid, *, job_id: sent.append((iid, job_id)),
     )
     response = await http.post(f"/api/v1/investigations/{investigation_id}/research/run")
     assert response.status_code == 202, response.text
-    assert response.json() == {"investigation_id": investigation_id, "status": "ENQUEUED"}
-    assert sent == [investigation_id]
+    body = response.json()
+    assert body["investigation_id"] == investigation_id
+    assert body["status"] == "ENQUEUED"
+    uuid.UUID(body["job_id"])
+    assert sent == [(investigation_id, body["job_id"])]
+    detail = (await http.get(f"/api/v1/investigations/{investigation_id}")).json()
+    assert detail["research"]["status"] == "ENQUEUED"
+    assert detail["research"]["job_id"] == body["job_id"]
 
 
 async def test_run_route_404_for_unknown_investigation(loop_client) -> None:

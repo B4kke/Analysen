@@ -51,3 +51,13 @@
 
 ## ADR-013 — Scope håndheves før investigation-innhenting
 **Status:** accepted. Tomt scope betyr ingen research. Scope-endringer og eksisterende BRREG execution gate deler radlås og transaksjon. Ingest av relaterte entities avvises frem til dokumentert relation/materiality-workflow er implementert. UI viser reell lagret modulstatus. Coverage og triggerkontrakter er grunnlag for AQ-005/AQ-006, ikke automatisk research.
+
+
+## ADR-018 — Canonical claim-status og immutable dokumentprovenance
+**Status:** accepted (2026-09-18). `ClaimStatus` er felles vokabular for SQL/Pydantic/repository. Eldre `UNVERIFIED` blir `UNVERIFIED_LEAD`; eldre `VERIFIED` blir `INSUFFICIENT_EVIDENCE` med bevart verdi og evidenskoblinger. Den tidligere implementasjonen hadde ingen entailment-verifier, så en statusetikett eller evidenskobling alene kan ikke oppgradere en eldre påstand til støttet. Gjentatt innhenting av samme snapshot bevarer første kilde, URL og hentetid. Canonical forhold lagres i `relationships`; en eventuell ikke-tom duplikattabell må avklares uten stille sletting.
+
+## ADR-019 — Én kontrollert transport for research-runtime
+**Status:** accepted (2026-09-18). API/worker-imaget inkluderer research-lås og Chromium; lett lokal utvikling kan fortsatt bruke dev-låsen alene (presisering av ADR-012). Originale HTTP-bytes lagres før offline-ekstraksjon. Browser-requests oppfylles gjennom samme DNS/IP-pinnede transport med robots, rate, concurrency, størrelses- og requestgrenser. Chromium får ingen selvstendig egress. Renderet HTML er avledet evidence med separat hash.
+
+## ADR-020 — Observér korrelert research-pass og konsistent detalj-snapshot
+**Status:** accepted (2026-09-18). Jobb-ID binder REQUESTED/ENQUEUED/STARTED/COMPLETED/FAILED i append-only audit. Faseprioritet innen samme jobb tåler rask worker og sen broker-bekreftelse; en ekte worker-completion veier høyere enn sen dispatch-feil. Valgt terminalevent eier summary, terminaltid og error_code. Nyeste jobb velges etter første audit-event. Legacy/directingest viser registrert aktivitet uten å inventere kø/liveness. Detalj-GET bruker repeatable-read/read-only og no-store for å unngå terminalstatus sammen med claims fra en eldre lesing. Originalkilden tilbys som case-gatet, hash-verifisert attachment. Durable outbox, heartbeat/hard-crash recovery og replay-checkpoints er eksplisitt AQ-023, ikke en implisitt exactly-once-garanti.

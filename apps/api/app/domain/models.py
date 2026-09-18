@@ -106,12 +106,84 @@ class InvestigationClaimRecord(BaseModel):
     value: Any | None = None
     status: ClaimStatus
     created_at: datetime
+    evidence: list["ClaimEvidenceDetail"] = Field(default_factory=list)
+
+
+class ResearchPassStatus(StrEnum):
+    NOT_STARTED = "NOT_STARTED"
+    ACTIVITY_RECORDED = "ACTIVITY_RECORDED"
+    REQUESTED = "REQUESTED"
+    ENQUEUED = "ENQUEUED"
+    RUNNING = "RUNNING"
+    COMPLETED = "COMPLETED"
+    FAILED = "FAILED"
+
+
+class ResearchPassSummary(BaseModel):
+    executed: int = Field(ge=0)
+    blocked: int = Field(ge=0)
+    failed: int = Field(ge=0)
+    stopped_reason: str
+
+
+class ResearchPassState(BaseModel):
+    status: ResearchPassStatus = ResearchPassStatus.NOT_STARTED
+    job_id: UUID | None = None
+    requested_at: datetime | None = None
+    enqueued_at: datetime | None = None
+    started_at: datetime | None = None
+    completed_at: datetime | None = None
+    summary: ResearchPassSummary | None = None
+    error_code: str | None = None
+    error_message: str | None = None
+    legacy_activity: bool = False
+
+
+class InvestigationLeadRecord(BaseModel):
+    id: UUID
+    lead_type: str
+    value: Any
+    reason: str
+    originating_claim_id: UUID | None = None
+    priority: float
+    depth: int
+    status: str
+    scope_area: ScopeModule | None = None
+    trigger_type: TriggerType | None = None
+    information_need: str | None = None
+    relation_depth: int = 0
+    blocked_reason: str | None = None
+    created_at: datetime
+
+
+class ClaimEvidenceDetail(BaseModel):
+    evidence_id: UUID
+    relation: Literal["supports", "contradicts", "context"]
+    document_id: UUID
+    original_url: str | None = None
+    canonical_url: str | None = None
+    source_id: str | None = None
+    source_name: str | None = None
+    fetched_at: datetime
+    sha256: str
+    raw_storage_key: str | None = None
+    locator_type: str
+    locator: dict[str, Any]
+    excerpt: str | None = None
+    structured_value: Any | None = None
+
+
+InvestigationClaimRecord.model_rebuild()
 
 
 class InvestigationDetail(InvestigationRecord):
     entities: list[InvestigationEntityRecord] = Field(default_factory=list)
     claims: list[InvestigationClaimRecord] = Field(default_factory=list)
     modules: list[InvestigationModuleRecord] = Field(default_factory=list)
+    research: ResearchPassState = Field(default_factory=ResearchPassState)
+    leads: list[InvestigationLeadRecord] = Field(default_factory=list)
+    document_count: int = Field(default=0, ge=0)
+    evidence_count: int = Field(default=0, ge=0)
 
 
 class SearchResult(BaseModel):
@@ -312,11 +384,11 @@ class ClaimRecord(BaseModel):
 
 
 class ClaimEvidenceRecord(BaseModel):
-    """Link between a claim and supporting evidence."""
+    """Link between a claim and evidence (mirrors claim_evidence.relation)."""
 
     claim_id: UUID
     evidence_id: UUID
-    role: str = "SUPPORTS"  # SUPPORTS | CONTRADICTS | PARTIAL
+    relation: Literal["supports", "contradicts", "context"] = "supports"
 
 
 class EntityRecord(BaseModel):
@@ -339,12 +411,12 @@ class EntityAliasRecord(BaseModel):
 
 
 class EntityRelationRecord(BaseModel):
-    """Relationship between two entities."""
+    """Relationship between two entities (mirrors relationships table)."""
 
     id: UUID
-    source_entity_id: UUID
-    target_entity_id: UUID
-    relation_type: str
+    subject_entity_id: UUID
+    object_entity_id: UUID
+    predicate: str
     confidence: float
     evidence_ids: list[UUID]
     valid_from: date | None = None
@@ -390,11 +462,11 @@ class DocumentRecordFull(BaseModel):
 
 
 class ClaimEvidenceLink(BaseModel):
-    """Link between claim and evidence with role."""
+    """Link between claim and evidence with relation."""
 
     claim_id: UUID
     evidence_id: UUID
-    role: str = "SUPPORTS"  # SUPPORTS | CONTRADICTS | PARTIAL
+    relation: Literal["supports", "contradicts", "context"] = "supports"
 
 
 class ResolutionReview(BaseModel):

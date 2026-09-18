@@ -1,8 +1,11 @@
+import asyncio
 from typing import Annotated
-from uuid import UUID
+from uuid import UUID, uuid4
 
 import httpx
+import structlog
 from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi.responses import Response
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -26,6 +29,7 @@ from apps.api.app.domain.scope import (
     ScopeSettings,
     ScopeUpdate,
 )
+from apps.api.app.repositories import investigations as repository
 from apps.api.app.repositories.brreg_ingest import persist_brreg_organization
 from apps.api.app.repositories.investigations import (
     InvestigationNotFound,
@@ -40,6 +44,7 @@ from apps.api.app.repositories.investigations import (
 )
 from apps.api.app.services.brreg_normalization import normalize_brreg_organization
 from apps.api.app.services.lead_executor import execute_lead
+from apps.api.app.services.raw_store import RawSnapshotUnavailable, load_raw_bytes
 from apps.api.app.services.report_sections import report_sections
 from apps.api.app.services.scope_gate import check_research_scope
 from apps.api.app.sources.brreg import BrregAdapter
@@ -51,6 +56,7 @@ def _scope_of(modules: list[InvestigationModuleRecord]) -> ScopeSettings:
         expansion_policy=ExpansionPolicy.DIRECT_RELATIONS,
         max_relation_depth=1,
     )
+
 
 router = APIRouter(prefix="/api/v1/investigations", tags=["investigations"])
 DatabaseSession = Annotated[AsyncSession, Depends(get_db_session)]
@@ -69,6 +75,7 @@ async def create_investigation_endpoint(
 @router.get("/{investigation_id}", response_model=InvestigationDetail)
 async def get_investigation_endpoint(
     investigation_id: str,
+    response: Response,
     session: DatabaseSession,
 ) -> InvestigationDetail:
     try:
@@ -76,10 +83,59 @@ async def get_investigation_endpoint(
     except ValueError as exc:
         raise HTTPException(status_code=422, detail="Invalid investigation id") from exc
 
+    response.headers["Cache-Control"] = "no-store"
+    # A pass may commit between queries. Read its activity, claims and coverage
+    # from one snapshot so terminal status cannot hide newly committed findings.
+    await session.execute(text("SET TRANSACTION ISOLATION LEVEL REPEATABLE READ READ ONLY"))
     try:
         return await get_investigation(session, parsed_id)
     except InvestigationNotFound as exc:
         raise HTTPException(status_code=404, detail="Investigation not found") from exc
+
+
+@router.get("/{investigation_id}/evidence/{evidence_id}/raw")
+async def raw_evidence_endpoint(
+    investigation_id: UUID,
+    evidence_id: UUID,
+    session: DatabaseSession,
+) -> Response:
+    """Download the original attached snapshot, never executable HTML inline."""
+    try:
+        await get_investigation_record(session, investigation_id)
+    except InvestigationNotFound as exc:
+        raise HTTPException(status_code=404, detail="Investigation not found") from exc
+    row = (
+        (
+            await session.execute(
+                text("""
+        SELECT d.sha256, d.raw_storage_key
+        FROM evidence e JOIN documents d ON d.id = e.document_id
+        JOIN investigation_documents link ON link.document_id = d.id
+        WHERE e.id = :evidence_id AND link.investigation_id = :investigation_id
+    """),
+                {"evidence_id": evidence_id, "investigation_id": investigation_id},
+            )
+        )
+        .mappings()
+        .one_or_none()
+    )
+    if row is None:
+        raise HTTPException(status_code=404, detail="Evidence not found in investigation")
+    if not row["raw_storage_key"]:
+        raise HTTPException(status_code=410, detail="Original snapshot is unavailable")
+    try:
+        content = await asyncio.to_thread(load_raw_bytes, row["raw_storage_key"], row["sha256"])
+    except RawSnapshotUnavailable as exc:
+        structlog.get_logger().warning("raw_snapshot_unavailable", evidence_id=str(evidence_id))
+        raise HTTPException(status_code=410, detail="Original snapshot is unavailable") from exc
+    return Response(
+        content=content,
+        media_type="application/octet-stream",
+        headers={
+            "Content-Disposition": f'attachment; filename="original-{row["sha256"]}.snapshot"',
+            "X-Content-Type-Options": "nosniff",
+        },
+    )
 
 
 @router.patch("/{investigation_id}/scope", response_model=InvestigationDetail)
@@ -105,9 +161,7 @@ async def modules_endpoint(
 
 
 @router.get("/{investigation_id}/report/sections")
-async def report_sections_endpoint(
-    investigation_id: UUID, session: DatabaseSession
-) -> dict:
+async def report_sections_endpoint(investigation_id: UUID, session: DatabaseSession) -> dict:
     """Dynamic report sections that separate investigated, incomplete,
     not investigated, unavailable and not selected modules.
 
@@ -139,9 +193,7 @@ async def propose_lead_endpoint(
 
 
 @router.get("/{investigation_id}/export")
-async def export_investigation_endpoint(
-    investigation_id: UUID, session: DatabaseSession
-) -> dict:
+async def export_investigation_endpoint(investigation_id: UUID, session: DatabaseSession) -> dict:
     """Full per-investigation export for data portability and retention review."""
     try:
         return await export_investigation(session, investigation_id)
@@ -150,9 +202,7 @@ async def export_investigation_endpoint(
 
 
 @router.delete("/{investigation_id}", status_code=status.HTTP_204_NO_CONTENT)
-async def delete_investigation_endpoint(
-    investigation_id: UUID, session: DatabaseSession
-) -> None:
+async def delete_investigation_endpoint(investigation_id: UUID, session: DatabaseSession) -> None:
     """Erase one investigation with all cascade-owned data; audited on the way out."""
     try:
         await delete_investigation(session, investigation_id)
@@ -182,9 +232,7 @@ async def execute_lead_endpoint(
 
 
 @router.post("/{investigation_id}/research/run", status_code=status.HTTP_202_ACCEPTED)
-async def run_research_endpoint(
-    investigation_id: UUID, session: DatabaseSession
-) -> dict:
+async def run_research_endpoint(investigation_id: UUID, session: DatabaseSession) -> dict:
     """Enqueue one bounded worker research pass over the admitted frontier.
 
     Returns immediately; the worker commits each lead separately and audits a
@@ -193,12 +241,36 @@ async def run_research_endpoint(
     from apps.worker.app.tasks import run_research_pass_actor
 
     try:
-        await get_investigation_record(session, investigation_id)
+        await get_investigation_record(session, investigation_id, for_update=True)
     except InvestigationNotFound as exc:
         raise HTTPException(status_code=404, detail="Investigation not found") from exc
-    run_research_pass_actor.send(str(investigation_id))
+    current = await repository.get_research_state(session, investigation_id)
+    if current.status in {"REQUESTED", "ENQUEUED", "RUNNING"}:
+        raise HTTPException(status_code=409, detail="A research pass is already pending or running")
+    job_id = uuid4()
+    await repository._audit(
+        session, investigation_id, "RESEARCH_PASS_REQUESTED", {"job_id": str(job_id)}
+    )
     await session.commit()
-    return {"investigation_id": str(investigation_id), "status": "ENQUEUED"}
+    try:
+        run_research_pass_actor.send(str(investigation_id), job_id=str(job_id))
+    except Exception as exc:
+        await repository._audit(
+            session,
+            investigation_id,
+            "RESEARCH_PASS_FAILED",
+            {"job_id": str(job_id), "error_code": "enqueue_failed"},
+        )
+        await session.commit()
+        structlog.get_logger().error(
+            "research_enqueue_failed", job_id=str(job_id), error_type=type(exc).__name__
+        )
+        raise HTTPException(status_code=503, detail="Could not enqueue research pass") from exc
+    await repository._audit(
+        session, investigation_id, "RESEARCH_PASS_ENQUEUED", {"job_id": str(job_id)}
+    )
+    await session.commit()
+    return {"investigation_id": str(investigation_id), "status": "ENQUEUED", "job_id": str(job_id)}
 
 
 @router.get("/{investigation_id}/resolution/candidates")

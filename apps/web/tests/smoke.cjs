@@ -1,61 +1,22 @@
-// Run only against a local test instance: creates one synthetic investigation.
+// Run only against local web/API and an isolated worker.
 const { chromium } = require("playwright");
 const assert = require("node:assert/strict");
-
 const web = process.env.TEST_WEB_URL || "http://localhost:3000";
 const api = process.env.TEST_API_URL || "http://localhost:8000";
-for (const address of [web, api]) {
-  const url = new URL(address);
-  assert.ok(["localhost", "127.0.0.1"].includes(url.hostname), "Use a local test instance");
-}
+for (const address of [web, api]) { const url = new URL(address); assert.ok(["localhost", "127.0.0.1"].includes(url.hostname), "Use a local test instance"); }
+async function detail(id) { const response = await fetch(`${api}/api/v1/investigations/${id}`, { cache: "no-store" }); assert.equal(response.status, 200); return response.json(); }
+async function remove(id) { await fetch(`${api}/api/v1/investigations/${id}`, { method: "DELETE" }).catch(() => {}); }
+async function waitForTerminal(id, timeout = 120000) { const deadline = Date.now() + timeout; while (Date.now() < deadline) { const body = await detail(id); if (["COMPLETED", "FAILED"].includes(body.research.status)) return body; await new Promise((resolve) => setTimeout(resolve, 2500)); } throw new Error("research pass did not reach terminal state"); }
+async function createThroughForm(page, type, name, purpose, extra = {}) { await page.goto(web); await page.locator("select").first().selectOption(type); await page.getByLabel(/Navn eller identifikator/).fill(name); if (type === "person") { if (extra.birthYear) await page.getByLabel(/Fødselsår/).fill(String(extra.birthYear)); if (extra.known) await page.getByLabel(/Kjente virksomheter/).fill(extra.known); } else if (type !== "domain" && extra.orgnr) await page.getByLabel(/Organisasjonsnummer/).fill(extra.orgnr); await page.getByLabel(/Hva skal undersøkelsen avklare/).fill(purpose); if (extra.module) await page.getByRole("checkbox", { name: new RegExp(extra.module.replace("_", " ")) }).check(); await page.getByRole("button", { name: /Opprett undersøkelse/ }).click(); await page.waitForURL("**/investigations/*"); return page.url().split("/").pop(); }
 
-(async () => {
-  const browser = await chromium.launch({ headless: true });
-  try {
-    const page = await browser.newPage();
-    const errors = [];
-    page.on("pageerror", error => errors.push(error.message));
-    await page.goto(web);
-    await page.locator("select").first().selectOption("company");
-    await page.getByLabel(/Navn eller identifikator/).fill("Syntetisk nettlesertest AS");
-    await page.getByLabel(/Hva skal undersøkelsen avklare/).fill("Kontroll av lagring og scope i lokal test.");
-    await page.getByRole("checkbox", { name: /BUSINESS ROLES/ }).check();
-    await page.getByRole("button", { name: /Opprett undersøkelse/ }).click();
-    await page.waitForURL("**/investigations/*");
-    const heading = page.getByRole("heading", { name: "Syntetisk nettlesertest AS", exact: true });
-    await heading.waitFor();
-    await page.reload();
-    await heading.waitFor();
-
-    const id = page.url().split("/").pop();
-    const response = await fetch(`${api}/api/v1/investigations/${id}`);
-    assert.equal(response.status, 200);
-    const body = await response.json();
-    assert.deepEqual(body.scope_modules, ["BUSINESS_ROLES"]);
-    assert.equal(body.modules.filter(module => module.enabled).length, 1);
-    const rows = page.locator(".coverage-row");
-    assert.match(await rows.filter({ hasText: "FINANCIALS" }).innerText(), /Ikke valgt/);
-    assert.match(await rows.filter({ hasText: "BUSINESS ROLES" }).innerText(), /Ikke undersøkt ennå/);
-
-    await page.getByRole("link", { name: /Dekningsrapport/ }).click();
-    await page.waitForURL("**/report");
-    await page.getByRole("heading", { name: "Dekningsrapport", exact: true }).waitFor();
-    await page.getByRole("heading", { name: /Ikke valgt \(8\)/ }).waitFor();
-    await page.getByRole("heading", { name: /Ikke undersøkt \(1\)/ }).waitFor();
-    const reportText = await page.locator("main").innerText();
-    assert.match(reportText, /BUSINESS ROLES/);
-    assert.match(reportText, /FINANCIALS/);
-    assert.match(reportText, /Områder du ikke valgte/);
-    await page.getByRole("link", { name: /Tilbake til undersøkelsen/ }).click();
-    await page.waitForURL("**/investigations/*");
-    await page.getByRole("button", { name: /Start research-pass/ }).click();
-    await page.getByText(/lagt på kø|Kunne ikke starte/).waitFor();
-    assert.deepEqual(errors, []);
-    console.log(`PASS: create, detail, reload, scope, report and research enqueue. Synthetic investigation: ${id}`);
-  } finally {
-    await browser.close();
-  }
-})().catch(error => {
-  console.error(error);
-  process.exitCode = 1;
-});
+(async () => { const created = []; const browser = await chromium.launch({ headless: true }); try {
+  const page = await browser.newPage({ viewport: { width: 390, height: 844 } }); const errors = []; page.on("pageerror", (error) => errors.push(error.message));
+  const companyId = await createThroughForm(page, "company", "Syntetisk nettlesertest AS", "Kontroll av company arrays og scope i lokal test.", { orgnr: "974 760 673", module: "BUSINESS_ROLES" }); created.push(companyId); const companyBody = await detail(companyId); assert.deepEqual(companyBody.target.known_orgnrs, ["974760673"]); assert.equal(companyBody.expansion_policy, "DIRECT_RELATIONS"); assert.equal(companyBody.max_relation_depth, 1);
+  const personId = await createThroughForm(page, "person", "Syntetisk person", "Kontroll av personfelter og kjente virksomheter.", { birthYear: 1984, known: "Alpha AS\nBeta AS" }); created.push(personId); const personBody = await detail(personId); assert.deepEqual(personBody.target.known_organizations, ["Alpha AS", "Beta AS"]); assert.equal(personBody.target.birth_year, 1984); assert.equal(personBody.target.birth_date == null, true); assert.equal(personBody.expansion_policy, "CONTEXT_ONLY"); assert.equal(personBody.max_relation_depth, 0);
+  const domainId = await createThroughForm(page, "domain", "example.test", "Kontroll av tomme valg."); created.push(domainId); const domainBody = await detail(domainId); assert.deepEqual(domainBody.target.known_orgnrs, []); assert.equal(domainBody.expansion_policy, "CONTEXT_ONLY"); assert.equal(domainBody.max_relation_depth, 0);
+  await page.goto(`${web}/investigations/${companyId}`); await page.getByRole("heading", { name: "Syntetisk nettlesertest AS", exact: true }).waitFor(); assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth + 1)); assert.match(await page.locator("main").innerText(), /Sist registrerte research-status/);
+  await page.route(`${api}/api/v1/investigations/${companyId}`, (route) => route.fulfill({ status: 503, contentType: "application/json", body: JSON.stringify({ detail: "temporary smoke failure" }) })); await page.getByRole("button", { name: /Oppdater status/ }).click(); await page.getByText(/Data kan være utdatert/).waitFor(); await page.getByRole("heading", { name: "Syntetisk nettlesertest AS", exact: true }).waitFor(); await page.unroute(`${api}/api/v1/investigations/${companyId}`); await page.getByRole("button", { name: /Oppdater status/ }).click(); await page.getByText(/Data kan være utdatert/).waitFor({ state: "hidden" }); await page.reload();
+  await page.getByRole("link", { name: /Dekningsrapport/ }).click(); await page.waitForURL("**/report"); await page.getByRole("heading", { name: "Dekningsrapport", exact: true }).waitFor(); await page.goBack(); await page.waitForURL("**/investigations/*"); await page.getByRole("button", { name: /Start research-pass/ }).click(); await page.getByText(/lagt på kø|feilet|Kunne ikke starte/).waitFor(); const terminal = await waitForTerminal(companyId); assert.equal(terminal.research.status, "COMPLETED"); await page.reload(); await page.getByText(/Pass fullført/).waitFor(); assert.deepEqual(errors, []);
+  if (process.env.TEST_POPULATED_ID) { const populatedId = process.env.TEST_POPULATED_ID; await page.goto(`${web}/investigations/${populatedId}`); await page.getByRole("heading").first().waitFor(); assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth + 1)); const populated = await detail(populatedId); assert.ok(populated.claims.length > 0 && populated.entities.length > 0 && populated.leads.length > 0); const evidence = populated.claims.flatMap((claim) => claim.evidence || [])[0]; assert.ok(evidence && evidence.source_name && evidence.sha256 && evidence.fetched_at && evidence.locator); const raw = await fetch(`${api}/api/v1/investigations/${populatedId}/evidence/${encodeURIComponent(evidence.evidence_id)}/raw`); assert.equal(raw.status, 200); assert.match(raw.headers.get("content-disposition"), /^attachment;/); assert.equal(raw.headers.get("x-content-type-options"), "nosniff"); const rawBytes = Buffer.from(await raw.arrayBuffer()); assert.equal(require("node:crypto").createHash("sha256").update(rawBytes).digest("hex"), evidence.sha256); const text = await page.locator("main").innerText(); assert.match(text, /SHA-256/); assert.ok(text.includes(evidence.sha256)); assert.ok(text.includes(evidence.source_name)); await page.getByRole("link", { name: /Last ned lagret råkilde/ }).first().waitFor(); assert.match(text, /søk.*dokumenter|dokumenter.*søk/); }
+  console.log(`PASS: form arrays, domain defaults, reload/report, stale retention, mobile layout and completed worker state (${companyId})`);
+} finally { for (const id of created) if (id) await remove(id); await browser.close(); } })().catch((error) => { console.error(error); process.exitCode = 1; });

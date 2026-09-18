@@ -34,7 +34,7 @@ UI forklarer:
 Vis max relation depth eksplisitt.
 
 ## Live investigation
-Live event stream viser hvilken modul/kilde som arbeider, hvilken type spørsmål som undersøkes og hva som er funnet uten å vise skjult chain-of-thought.
+Planlagt live event stream viser hvilken modul/kilde som arbeider, hvilken type spørsmål som undersøkes og hva som er funnet uten å vise skjult chain-of-thought.
 
 Eksempel events:
 - Identitet: kandidat avklart mot BRREG rolledata
@@ -87,3 +87,7 @@ Rapporten viser tydelig `UNDERSØKT`, `IKKE UNDERSØKT` og `UNDERSØKT MED GAPS`
 
 ## Mobil
 Alle primære views skal være responsive. Graf får liste-/timeline-fallback på liten skjerm; evidence drawer blir full-screen sheet. Scope-valg og module cards skal fungere uten horisontal scrolling.
+
+## Implementert live-state (AQ-025)
+
+Detaljsiden leser faktisk passaktivitet, moduler/coverage/stop-årsak, entities/expansion, leads og claim/evidence fra API. Aktivt pass oppdateres med polling etter at forrige lesing er fullført; manuell statusoppdatering finnes, gamle svar kan ikke overskrive nyere data, og oppdateringsfeil beholder tidligere data med varsel. Siste lagrede status og tidspunkt vises uten liveness-garanti. Completed gjelder ett pass, og uvalgte/ikke undersøkte moduler beholder sin status. Påstander skiller støttet/delvis/motstrid/utilstrekkelig/uverifisert, med original kilde, relevant evidens og hentetid. Dokument-/evidence-tellinger inkluderer materiale som ennå ikke har claims. Originalsnapshot lastes ned via hash-verifisert attachment. Full rapportgenerering, graf/editor og SSE gjenstår. Opprettelsesskjema bruker arrays for kjente virksomheter/orgnr, heltall for fødselsår og sender fødselsdata kun ved personmål.

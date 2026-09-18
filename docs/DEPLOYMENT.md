@@ -131,11 +131,11 @@ make web
 
 På WSL uten `ensurepip`: installer distribusjonens `python3-venv`, eller bruk `uv venv .venv` og `uv pip sync requirements-dev.lock`. Kjør kommandoene fra repo-roten. `.env` er valgfri; lokale defaultverdier matcher Compose.
 
-`requirements.lock` er runtime, `requirements-dev.lock` legger til utviklingsverktøy. Dokument-/crawlerpakken er flyttet til `requirements-research.lock` og installeres ved arbeid med disse modulene. Ingen eksisterende research-kode er fjernet. `make lock` regenererer låsene med uv; gjennomgå versjonsendringene før de tas i bruk.
+`requirements.lock` er runtime, `requirements-dev.lock` legger til utviklingsverktøy. Dokument-/crawlerpakken ligger i `requirements-research.lock` og er valgfri for lett lokal utvikling. API/worker-imaget installerer hele research-låsen, Chromium med OS-avhengigheter, Java og Tesseract med norsk språkdata. Research-låsen kompileres med `requirements.lock` som constraints; grunnpinnene skal være identiske. Ingen eksisterende research-kode er fjernet. `make lock` regenererer låsene med uv; gjennomgå versjonsendringene før de tas i bruk.
 
 ## Databasemigreringer
 
-Alembic er eneste migreringsmekanisme. `db/migrations/sql/0001_baseline.sql` er et frosset snapshot av det opprinnelige skjemaet. `0002_scope` legger til scope, modulstatus, entity expansion-state, leads og søkemetadata. `db/schema.sql` er et lesbart referanseskjema og brukes ikke som init-hook i Compose.
+Alembic er eneste migreringsmekanisme. `db/migrations/sql/0001_baseline.sql` er et frosset snapshot av det opprinnelige skjemaet. `0002_scope` legger til scope, modulstatus, entity expansion-state, leads og søkemetadata. `0003_claims` etterfølges av `0004_claims_reconcile`, som retter baseline/repository-kontrakten og konverterer legacy claim-status forsiktig (ADR-018). En ikke-tom legacy `entity_relations` stopper migreringen for manuell gjennomgang; ingen forhold slettes stille. `db/schema.sql` er et baseline-referanseskjema, ikke dagens head, og brukes ikke som init-hook i Compose.
 
 ```bash
 alembic current
@@ -145,6 +145,8 @@ alembic upgrade head
 En eksisterende database fra repoets opprinnelige `schema.sql` kan oppgraderes direkte: baseline bruker `IF NOT EXISTS`. Ta backup først. Eksisterende investigations beholder data, får tomt research-scope, `CONTEXT_ONLY`, dybde 0 og en `SCOPE_MIGRATED` audit-hendelse. Velg scope eksplisitt før videre innhenting. Ikke bruk `stamp head` for å hoppe over schema-endringer.
 
 Migreringene er fremoverrettede. Automatisk downgrade som fjerner scope-/auditdata er deaktivert; rollback skjer ved gjenoppretting av backup med tilhørende kodeversjon. Gjentatt `upgrade head` er trygt.
+
+Readiness avleder som standard forventet revisjon fra Alembic-head i den pakkede applikasjonen. Dermed blir ikke en ny migrering avvist fordi en eldre versjon er hardkodet i konfigurasjonen. `EXPECTED_SCHEMA_REVISION` kan overstyre dette eksplisitt; feil/eldre revisjon gir fortsatt 503. API/worker må bygges med samme migreringsfiler som migration-jobben.
 
 ## Produksjon senere
 

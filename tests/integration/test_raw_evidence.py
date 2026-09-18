@@ -107,26 +107,28 @@ async def test_brreg_ingest_stores_immutable_raw_snapshot(raw_client) -> None:
         routes.BrregAdapter.fetch = original_fetch
     assert response.status_code == 200, response.text
 
-    canonical = json.dumps(
-        raw_payload, ensure_ascii=False, sort_keys=True, separators=(",", ":")
-    )
+    canonical = json.dumps(raw_payload, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
     expected_digest = hashlib.sha256(canonical.encode("utf-8")).hexdigest()
 
     async with factory() as session:
         document = (
-            await session.execute(
-                text(
-                    """
+            (
+                await session.execute(
+                    text(
+                        """
                     SELECT doc.sha256, doc.raw_storage_key, doc.fetched_at
                     FROM investigation_documents d
                     JOIN documents doc ON doc.id = d.document_id
                     WHERE d.investigation_id = CAST(:id AS uuid)
                     LIMIT 1
                     """
-                ),
-                {"id": investigation_id},
+                    ),
+                    {"id": investigation_id},
+                )
             )
-        ).mappings().one()
+            .mappings()
+            .one()
+        )
 
     assert document["sha256"] == expected_digest
     assert document["raw_storage_key"], "raw_storage_key must be populated"
@@ -141,64 +143,66 @@ async def test_brreg_ingest_stores_immutable_raw_snapshot(raw_client) -> None:
 
 async def test_brreg_ingest_is_idempotent_for_same_payload(raw_client) -> None:
     http, created, factory = raw_client
-
+    name = f"Raw Idempotent Probe {uuid.uuid4()} AS"
     payload = {
-        "target": {
-            "type": "company",
-            "name": "Raw Idempotent Probe AS",
-            "known_orgnrs": ["974760673"],
-        },
+        "target": {"type": "company", "name": name, "known_orgnrs": ["974760673"]},
         "purpose": "Verify idempotent raw storage",
         "scope_modules": ["BUSINESS_ROLES"],
         "expansion_policy": "DIRECT_RELATIONS",
         "max_relation_depth": 1,
     }
     created_response = await http.post("/api/v1/investigations", json=payload)
+    assert created_response.status_code == 201, created_response.text
     investigation_id = created_response.json()["id"]
     created.append(uuid.UUID(investigation_id))
-
     from apps.api.app.api.routes import investigations as routes
     from apps.api.app.sources.base import SourceRecord
 
-    raw_payload = {
-        "organisasjonsnummer": "974760673",
-        "navn": "Raw Idempotent Probe AS",
-    }
+    raw_payload = {"organisasjonsnummer": "974760673", "navn": name}
+    fetch_count = 0
 
     async def fake_fetch(_adapter, orgnr):
+        nonlocal fetch_count
+        fetch_count += 1
         return SourceRecord(
             source_id="brreg_entities",
             external_id=orgnr,
-            source_url=f"https://data.brreg.no/enhetsregisteret/api/enheter/{orgnr}",
             payload=raw_payload,
+            source_url=f"https://data.brreg.no/enhetsregisteret/api/enheter/{orgnr}"
+            f"?attempt={fetch_count}",
         )
 
+    async def snapshot():
+        async with factory() as session:
+            return dict(
+                (
+                    await session.execute(
+                        text("""
+                SELECT doc.id, sha256, raw_storage_key, original_url,
+                       canonical_url, fetched_at, source_id
+                FROM investigation_documents d JOIN documents doc ON doc.id = d.document_id
+                WHERE d.investigation_id = CAST(:id AS uuid)
+            """),
+                        {"id": investigation_id},
+                    )
+                )
+                .mappings()
+                .one()
+            )
+
+    original_fetch = routes.BrregAdapter.fetch
     routes.BrregAdapter.fetch = fake_fetch
     try:
-        first = await http.post(
-            f"/api/v1/investigations/{investigation_id}/sources/brreg/organizations/974760673"
-        )
-        second = await http.post(
-            f"/api/v1/investigations/{investigation_id}/sources/brreg/organizations/974760673"
-        )
+        url = f"/api/v1/investigations/{investigation_id}/sources/brreg/organizations/974760673"
+        first = await http.post(url)
+        assert first.status_code == 200, first.text
+        before = await snapshot()
+        second = await http.post(url)
+        assert second.status_code == 200, second.text
+        after = await snapshot()
     finally:
-        pass
-    assert first.status_code == 200, first.text
-    assert second.status_code == 200, second.text
-
-    async with factory() as session:
-        rows = (
-            await session.execute(
-                text(
-                    """
-                    SELECT sha256, raw_storage_key FROM investigation_documents d
-                    JOIN documents doc ON doc.id = d.document_id
-                    WHERE d.investigation_id = CAST(:id AS uuid)
-                    """
-                ),
-                {"id": investigation_id},
-            )
-        ).mappings().all()
-
-    assert len(rows) == 1
-    assert rows[0]["raw_storage_key"]
+        routes.BrregAdapter.fetch = original_fetch
+    assert fetch_count == 2
+    assert before["original_url"].endswith("?attempt=1")
+    assert before["raw_storage_key"]
+    assert after == before

@@ -5,7 +5,8 @@ Base: `/api/v1`
 ## Investigations
 Implementert:
 - `POST /investigations`
-- `GET /investigations/{id}`
+- `GET /investigations/{id}` (consistent snapshot, cache disabled)
+- `GET /investigations/{id}/evidence/{evidence_id}/raw` (hash-verified original attachment)
 - `PATCH /investigations/{id}/scope`
 - `GET /investigations/{id}/modules`
 - `GET /investigations/{id}/report/sections`
@@ -30,9 +31,18 @@ Planlagt:
 - `expansion_policy`
 - `max_relation_depth`
 
-Budget-overstyringer er planlagt. Ukjente request-felter avvises. Tomt scope aktiverer ingen research-modul. Person/domain får standard `CONTEXT_ONLY`, dybde 0; company/organization får `DIRECT_RELATIONS`, dybde 1.
+`target.known_orgnrs` og `target.known_organizations` er arrays; `birth_year` er heltall og fødselsfelter er kun tillatt for person. Valgfrie felt utelates eller får tomme arrays. Budget-overstyringer er planlagt. Ukjente request-felter avvises. Tomt scope aktiverer ingen research-modul. Person/domain får standard `CONTEXT_ONLY`, dybde 0; company/organization får `DIRECT_RELATIONS`, dybde 1.
 
 Identitetsavklaring er implisitt systemhygiene og ikke en deaktivérbar scope-modul.
+
+### Detail/read contract (AQ-025)
+`GET /investigations/{id}` returnerer faktiske `modules`, `entities` med expansion/resolution state, `leads` med status/trigger/information need/blocked reason og `claims` med canonical status og `evidence[]`. En citation inneholder evidence-/document-ID, supports/contradicts/context, locator, excerpt/strukturert verdi, kilde-ID/navn, original/canonical URL, SHA, raw-nøkkel og første hentetid. `document_count`/`evidence_count` teller alt tilknyttet kildemateriale, også uten claims. Fravær av claims betyr ikke fravær av dokumenter eller negative funn.
+
+`research` er siste **lagrede passaktivitet**, ikke heartbeat eller bevis for at prosessen lever: `NOT_STARTED`, `ACTIVITY_RECORDED`, `REQUESTED`, `ENQUEUED`, `RUNNING`, `COMPLETED`, `FAILED`, med jobb-ID, fasetidspunkter, typed summary og eventuell `error_code`. Direct ingest/utførte leads kan gi `ACTIVITY_RECORDED` uten worker-pass. Eldre completed-events gir `COMPLETED` med `legacy_activity=true` og null jobb-ID. Ett fullført pass innebærer ikke at alle valgte moduler er undersøkt.
+
+Detaljruten bruker en read-only repeatable-read-transaksjon og `Cache-Control: no-store`, slik at claims, coverage og terminalstatus gjelder samme snapshot. En rask worker kan lagre STARTED/COMPLETED før API lagrer ENQUEUED; faseprioritet innen jobb-ID bevarer terminalstatus. Nyeste jobb velges etter første audit-event, slik at sen fullføring av en eldre jobb ikke skjuler nyere arbeid.
+
+Raw-ruten krever at evidence-dokumentet er tilknyttet den angitte investigation. Foreign/manglende evidence gir 404; manglende/corrupt/ugyldig raw-nøkkel gir 410. SHA og kanonisk raw-path kontrolleres før bytes sendes som `application/octet-stream`, attachment og `nosniff`; lagret HTML kjøres ikke inline.
 
 ### Scope changes
 `PATCH /investigations/{id}/scope` krever hele `scope_modules`, `expansion_policy`, `max_relation_depth` og en ikke-tom `reason` (minst 3 tegn), og auditerer utvidelse/innsnevring. Nye actions må umiddelbart følge ny scope-state. Innsnevring sletter ikke eksisterende evidence automatisk.
@@ -70,7 +80,7 @@ Graph/read models skal eksponere `relation_depth` og `expansion_state` slik at U
 Implementert (alle deterministiske og modellfrie; modellen foreslår, gaten bestemmer):
 - `POST /investigations/{id}/leads`: valider og lagr forslag; returnerer `PENDING` eller `BLOCKED` med årsak + `LEAD_PROPOSED`-audit. Passive discovery-triggere kan aldri bli `PENDING`.
 - `POST /investigations/{id}/leads/{lead_id}/execute`: kjør ett PENDING-lead (kun allowlisted typer, i dag `brreg_organization_lookup` mot eksplisitt mål). Gaten sjekkes på nytt ved kjøring. Returnerer terminal `COMPLETED`/`BLOCKED`/`FAILED` med coverage-oppdatering og audit.
-- `POST /investigations/{id}/research/run`: 202, legger én avgrenset worker-pass (default maks 10 leads) på Dramatiq-køen. Passet velger frontier → evaluerer trigger → kjører, committer per lead og auditerer `RESEARCH_PASS_COMPLETED`.
+- `POST /investigations/{id}/research/run`: 202 med `{investigation_id, status: ENQUEUED, job_id}`. REQUESTED committes før publisering, ENQUEUED etter bekreftet send. Aktiv REQUESTED/ENQUEUED/RUNNING gir 409; broker-feil lagres som FAILED/enqueue_failed og gir 503. Passet har default maks 10 leads, velger frontier → evaluerer trigger → kjører og committer per lead. STARTED/COMPLETED/FAILED har samme jobb-ID. Ukjent/unexpected worker-feil rulles tilbake og får eksplisitt FAILED/research_pass_failed uten raw exception-tekst. Kilde-/lead-feil er terminale leads og vises i summary.failed for et ellers fullført pass.
 
 ## Claims/evidence
 Planlagt:
@@ -80,7 +90,7 @@ Planlagt:
 - `GET /investigations/{id}/leads`
 - `GET /investigations/{id}/search-queries`
 
-Lead/query read models skal eksponere `scope_area`, `trigger_type/query_class`, `information_need`, `reason`, status og eventuell `blocked_reason`. Inntil leserutene finnes dekkes eksportbehovet av `GET /investigations/{id}/export`, som inkluderer leads, dokumenter med raw-nøkler og audit.
+Lead/query read models skal eksponere `scope_area`, `trigger_type/query_class`, `information_need`, `reason`, status og eventuell `blocked_reason`. Detaljresponsen dekker lead/claim-evidence-lesing; dedikerte/paginerte ruter gjenstår. Eksportbehovet dekkes av `GET /investigations/{id}/export`, som inkluderer leads, dokumenter med raw-nøkler og audit.
 
 ## Reports
 Implementert:
@@ -106,3 +116,5 @@ Uten `/api/v1`-prefiks:
 `GET /sources` viser global source availability. Dette er ikke det samme som at en source er autorisert i en konkret investigation; scope gate avgjør det.
 
 Alle write requests bruker typed Pydantic schemas. API returnerer aldri secrets eller intern modellresonnering.
+
+REQUESTED etter prosesskrasj mellom DB-commit og broker-send, hard worker-krasj etter STARTED og replay av job_id krever durable outbox/checkpoint/recovery i AQ-023. Statusene slettes eller terminaliseres ikke ved tidsbasert gjetting. API/worker må deployes fra samme kodeversjon.

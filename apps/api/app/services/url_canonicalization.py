@@ -2,6 +2,7 @@
 
 import re
 from dataclasses import dataclass
+from datetime import datetime
 from urllib.parse import parse_qsl, quote, urlencode, urlparse, urlunparse
 
 # Query parameters to strip for deduplication
@@ -117,6 +118,8 @@ class FetchResult:
     status_code: int
     metadata: dict
     error: str | None = None
+    raw_bytes: bytes | None = None
+    fetched_at: datetime | None = None
 
 
 class FetchError(Exception):

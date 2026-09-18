@@ -104,7 +104,7 @@ Investigations opprettes med eksplisitte moduler (standard ingen). Scope-oppdate
 
 BRREG-ingest tillates foreløpig bare for et entydig company/organization-mål med ett `known_orgnrs` og aktiv `BUSINESS_ROLES`. Generiske BRREG GET-ruter er manuelle registeroppslag, ikke del av en automatisk investigation. Utvidelse til relaterte entities krever senere scheduler/materiality-workflow; discovery eller et oppgitt personnavn gir ingen autorisasjon.
 
-`Lead`, `SearchMetadata`, module coverage og expansion states har typed kontrakter og databasestruktur. Scheduler, trigger evaluator, automatiske coverage-oppdateringer og rapportmotor er fortsatt planlagt. En databasekolonne eller DTO er ikke en ferdig agentflyt.
+`Lead`, `SearchMetadata`, module coverage og expansion states har typed kontrakter og databasestruktur. Deterministisk frontier/trigger-evaluator, BRREG target-executor, avgrenset worker-pass og dekningsrapport er implementert. Integrert planner, flere source executors, entailment-verifier og full rapportmotor gjenstår i arbeidskøen.
 
 ## Lead admission (AQ-005)
 
@@ -117,3 +117,11 @@ Planner/LLM kan bare foreslå leads via `POST /api/v1/investigations/{id}/leads`
 ## Research-loop (AQ-015)
 
 `services/research_loop.py` kjører én avgrenset pass per kall: velg høyeste prioritet fra frontier, evaluer trigger, kjør eller parker leadet, commit separat per lead, stopp ved tom frontier/oppbrukt budsjett/nådd lead-cap. Passet auditerer `RESEARCH_PASS_COMPLETED` med sammendrag. `POST /investigations/{id}/research/run` legger passet på Dramatiq-køen (202); workeren kjører med live BRREG-adapter. Evaluator-nektede leads parkeres som `BLOCKED` med årsak slik at passet terminerer; de kan foreslås på nytt ved scope-endring.
+
+## Research-runtime og provenance (AQ-020/AQ-021/AQ-029)
+
+API/worker bygges med en research-lås som bevarer runtime-pinnene, med native dokumentbiblioteker og Chromium. Originale bytes går i hash-adressert raw store før ekstraksjon; første Document-provenance bevares ved gjenbruk. Trafilatura/Crawl4AI ekstraherer offline. Browseren har ingen selvstendig nettverkstilgang: ressursene hentes gjennom samme offentlige IP-pinnede, robots-/budsjettkontrollerte HTTP-grense (ADR-019). Web-ingest validerer raw bytes/hash/nøkkel/tid/URL og konfigurert non-discovery source før canonical Document/Evidence skrives. Ingen claim opprettes automatisk av dokument-ingest. Readiness kontrollerer pakket Alembic-head, ikke en hardkodet tidligere migrering.
+
+## Observérbar undersøkelse (AQ-025)
+
+Korrelert passlivssyklus ligger i canonical audit, adskilt fra moduldekning og claimstatus (ADR-020). Detalj-GET leser metadata, moduler, entities, leads, claims/citations, dokument/evidens-tellinger og lagret research-state i ett konsistent snapshot. Web poller aktive pass; source-originaler serveres som hash-verifiserte case-attachments. Et pass uten innvilgede leads gir en ærlig tom-frontier summary. Automatisk planner/router/verifier er fortsatt avgrensede køoppgaver, ikke simulert UI-fremdrift.

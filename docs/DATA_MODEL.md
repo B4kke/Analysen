@@ -76,3 +76,13 @@ Coverage state er eksplisitt data, ikke fri rapportprosa. Report-generatoren bru
 Bruk FollowTheMoney-skjemaer/terminologi som referanse for interoperabilitet, men behold en intern relasjonell canonical modell som støtter provenance på felt- og claimnivå. Ikke bind databaseformatet direkte til én ekstern pakke.
 
 Repo: https://github.com/alephdata/followthemoney
+
+## Implementert provenance-kontrakt (0004)
+
+`0004_claims_reconcile` forener baseline og repository med ALTER/backfill; ingen alternativ claim/evidence-tabell introduseres. `ClaimStatus` bruker samme fem verdier i SQL og Pydantic. Legacy `VERIFIED` blir `INSUFFICIENT_EVIDENCE` og `UNVERIFIED` blir `UNVERIFIED_LEAD`; gamle verdier og koblinger bevares uten å påstå verifikasjon (ADR-018).
+
+`SUPPORTED` og `PARTIALLY_SUPPORTED` krever minst én supports-kobling; `CONTRADICTED` krever contradicts. Evidence må tilhøre investigation gjennom `investigation_documents` før claim kan skrives. Relationship-edges bruker canonical `relationships` og krever eksisterende evidence. Legacy duplikataliaser bevares; entity-radlås og normalisert alias gir idempotent innsetting uten destruktiv deduplisering.
+
+Document dedupliseres på SHA-256 og bevarer første source, URL, hentetid og raw-nøkkel. Raw store skriver atomisk uten overskriving og avviser en eksisterende blob som ikke matcher hash. Avledet browser-rendering har egen hash og erstatter ikke originalresponsen.
+
+BRREG bruker hele upstream JSON-payloaden som kanonisk serialisert strukturert snapshot. Web-fetch bevarer originale HTTP-responsbytes og faktisk hentetid. Begge ingest-paths bruker samme immutable Document-upsert; wire-headers inngår ikke i BRREG-snapshot.

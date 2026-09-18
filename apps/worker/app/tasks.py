@@ -36,7 +36,9 @@ def refresh_brreg_role_inventory(
 
 
 @dramatiq.actor(max_retries=0, time_limit=30 * 60 * 1000)
-def run_research_pass_actor(investigation_id: str, max_leads: int = 10) -> dict[str, Any]:
+def run_research_pass_actor(
+    investigation_id: str, max_leads: int = 10, job_id: str | None = None
+) -> dict[str, Any]:
     """Execute one bounded research pass for an investigation.
 
     Thin wrapper over services.research_loop: opens a session, runs the pass
@@ -52,7 +54,11 @@ def run_research_pass_actor(investigation_id: str, max_leads: int = 10) -> dict[
         factory = get_session_factory()
         async with BrregAdapter() as adapter, factory() as session:
             return await run_research_pass(
-                session, UUID(investigation_id), adapter.fetch, max_leads=max_leads
+                session,
+                UUID(investigation_id),
+                adapter.fetch,
+                max_leads=max_leads,
+                job_id=UUID(job_id) if job_id else None,
             )
 
     return asyncio.run(run())

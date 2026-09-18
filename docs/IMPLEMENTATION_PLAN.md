@@ -128,12 +128,7 @@ Kun etter stabil MVP:
 Monitoring arver samme scope/expansion-regler; en monitor skal ikke gradvis utvide saken på egen hånd.
 
 ## Prioritert neste arbeid
-Aktiv kø er autoritativ i `docs/TASK_QUEUE.md`. P0 etter dokumentoppdateringen:
-1. Implementer scope i API/domain/schema.
-2. Implementer scope/expansion gate i planner/scheduler.
-3. Implementer trigger evaluator og typed search metadata.
-4. Implementer coverage ledger og dynamisk UI/report.
-5. Legg til scope/trigger eval-suite.
+Aktiv kø er autoritativ i `docs/TASK_QUEUE.md`. Scope/gates, avgrenset BRREG-pass, coverage og dekningsrapport er implementert. Grunnmurreparasjonen omfatter canonical provenance/migrering, guarded web-fetch med komplett research-runtime og readiness mot pakket migreringshead. AQ-025 kobler detaljsiden til lagrede job-, modul-, lead-, entity- og evidensdata. Autonom planner-loop/checkpoint (AQ-023), flere kildetyper (AQ-024), verifier (AQ-026) og full rapport (AQ-027) gjenstår før MVP-bevis (AQ-028).
 
 ## Definition of done for MVP
 - Norsk person kan identifiseres med eksplisitt usikkerhet.

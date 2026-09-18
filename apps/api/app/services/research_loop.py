@@ -8,8 +8,9 @@ marked BLOCKED with the reason so the pass terminates; they can be
 re-proposed later if scope changes. No model calls.
 """
 
-from uuid import UUID
+from uuid import UUID, uuid4
 
+import structlog
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from apps.api.app.domain.models import Lead
@@ -37,13 +38,14 @@ def _to_frontier_lead(row: dict) -> FrontierLead:
     )
 
 
-async def run_research_pass(
+async def _run_research_pass(
     session: AsyncSession,
     investigation_id: UUID,
     fetch: FetchFn,
     *,
     max_leads: int = 10,
     budget_available: bool = True,
+    job_id: UUID,
 ) -> dict:
     """Run one bounded pass; return an audited summary dict."""
     investigation = await repository.get_investigation_record(session, investigation_id)
@@ -56,9 +58,7 @@ async def run_research_pass(
     for _ in range(max(1, max_leads)):
         rows = await repository.list_pending_leads(session, investigation_id)
         pairs = [
-            (row["id"], _to_frontier_lead(row))
-            for row in rows
-            if str(row["id"]) not in attempted
+            (row["id"], _to_frontier_lead(row)) for row in rows if str(row["id"]) not in attempted
         ]
         selected, reason = select_next(
             [lead for _, lead in pairs],
@@ -74,9 +74,7 @@ async def run_research_pass(
             investigation,
             Lead(**selected.model_dump(exclude={"status"})),
             expansion_state=(
-                ExpansionState.TARGET
-                if selected.relation_depth == 0
-                else ExpansionState.RESEARCHED
+                ExpansionState.TARGET if selected.relation_depth == 0 else ExpansionState.RESEARCHED
             ),
             verified_relation=False,
             budget_available=budget_available,
@@ -117,7 +115,56 @@ async def run_research_pass(
         session,
         investigation_id,
         "RESEARCH_PASS_COMPLETED",
-        {"summary": summary},
+        {"job_id": str(job_id), "summary": summary},
     )
     await session.commit()
     return summary
+
+
+async def run_research_pass(
+    session: AsyncSession,
+    investigation_id: UUID,
+    fetch: FetchFn,
+    *,
+    max_leads: int = 10,
+    budget_available: bool = True,
+    job_id: UUID | None = None,
+) -> dict:
+    """Persist real pass lifecycle separately from module coverage/completion."""
+    job_id = job_id or uuid4()
+    await repository.get_investigation_record(session, investigation_id)
+    await repository.mark_investigation_active(session, investigation_id)
+    await repository._audit(
+        session, investigation_id, "RESEARCH_PASS_STARTED", {"job_id": str(job_id)}
+    )
+    await session.commit()
+    logger = structlog.get_logger()
+    logger.info("research_pass_started", job_id=str(job_id))
+    try:
+        return await _run_research_pass(
+            session,
+            investigation_id,
+            fetch,
+            max_leads=max_leads,
+            budget_available=budget_available,
+            job_id=job_id,
+        )
+    except Exception as exc:
+        await session.rollback()
+        try:
+            await repository._audit(
+                session,
+                investigation_id,
+                "RESEARCH_PASS_FAILED",
+                {"job_id": str(job_id), "error_code": "research_pass_failed"},
+            )
+            await session.commit()
+        except Exception as audit_error:
+            await session.rollback()
+            logger.error(
+                "research_pass_failure_audit_unavailable",
+                job_id=str(job_id),
+                error_type=type(audit_error).__name__,
+            )
+        logger.error("research_pass_failed", job_id=str(job_id), error_type=type(exc).__name__)
+        raise

@@ -6,15 +6,19 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from apps.api.app.core.config import get_settings
 from apps.api.app.domain.models import (
+    ClaimEvidenceDetail,
     InvestigationClaimRecord,
     InvestigationCreate,
     InvestigationDetail,
     InvestigationEntityRecord,
+    InvestigationLeadRecord,
     InvestigationRecord,
     Lead,
+    ResearchPassState,
 )
 from apps.api.app.domain.scope import InvestigationModuleRecord, ScopeModule, ScopeUpdate
 from apps.api.app.services.lead_gate import gate_lead
+from apps.api.app.services.research_state import reduce_research_events
 
 
 class InvestigationNotFound(LookupError):
@@ -67,8 +71,9 @@ async def create_investigation(
     session: AsyncSession, request: InvestigationCreate
 ) -> InvestigationRecord:
     row = (
-        await session.execute(
-            text(f"""
+        (
+            await session.execute(
+                text(f"""
                 INSERT INTO investigations (
                     target_type, target_input, purpose, legal_basis_note,
                     scope_modules, expansion_policy, max_relation_depth
@@ -77,17 +82,20 @@ async def create_investigation(
                     :scope_modules, :expansion_policy, :max_relation_depth
                 ) RETURNING {_RECORD_COLUMNS}
             """),
-            {
-                "target_type": request.target.type.value,
-                "target_input": request.target.model_dump_json(),
-                "purpose": request.purpose,
-                "legal_basis_note": request.legal_basis_note,
-                "scope_modules": [module.value for module in request.scope_modules],
-                "expansion_policy": request.expansion_policy.value,
-                "max_relation_depth": request.max_relation_depth,
-            },
+                {
+                    "target_type": request.target.type.value,
+                    "target_input": request.target.model_dump_json(),
+                    "purpose": request.purpose,
+                    "legal_basis_note": request.legal_basis_note,
+                    "scope_modules": [module.value for module in request.scope_modules],
+                    "expansion_policy": request.expansion_policy.value,
+                    "max_relation_depth": request.max_relation_depth,
+                },
+            )
         )
-    ).mappings().one()
+        .mappings()
+        .one()
+    )
     record = _record(row)
     await _sync_modules(session, record.id, request.scope_modules)
     await _audit(session, record.id, "CREATED", {"scope": _scope_payload(record)})
@@ -100,11 +108,15 @@ async def get_investigation_record(
     # The execution boundary holds this same lock until commit, serializing scope updates.
     lock = " FOR UPDATE" if for_update else ""
     row = (
-        await session.execute(
-            text(f"SELECT {_RECORD_COLUMNS} FROM investigations WHERE id = :id{lock}"),
-            {"id": investigation_id},
+        (
+            await session.execute(
+                text(f"SELECT {_RECORD_COLUMNS} FROM investigations WHERE id = :id{lock}"),
+                {"id": investigation_id},
+            )
         )
-    ).mappings().one_or_none()
+        .mappings()
+        .one_or_none()
+    )
     if row is None:
         raise InvestigationNotFound(str(investigation_id))
     return _record(row)
@@ -115,47 +127,191 @@ async def get_modules(
 ) -> list[InvestigationModuleRecord]:
     await get_investigation_record(session, investigation_id)
     rows = (
-        await session.execute(
-            text("""
+        (
+            await session.execute(
+                text("""
                 SELECT module, enabled, status, coverage, stop_reason
                 FROM investigation_modules WHERE investigation_id = :id ORDER BY module
             """),
-            {"id": investigation_id},
+                {"id": investigation_id},
+            )
         )
-    ).mappings().all()
+        .mappings()
+        .all()
+    )
     return [InvestigationModuleRecord.model_validate(row) for row in rows]
 
 
-async def get_investigation(
-    session: AsyncSession, investigation_id: UUID
-) -> InvestigationDetail:
+async def get_research_state(
+    session: AsyncSession,
+    investigation_id: UUID,
+    *,
+    has_activity: bool | None = None,
+) -> ResearchPassState:
+    """Return the reducer state without recursively loading investigation detail."""
+    await get_investigation_record(session, investigation_id)
+    audit_rows = (
+        (
+            await session.execute(
+                text("""
+                SELECT id, event_type, payload, created_at
+                FROM audit_log
+                WHERE investigation_id = :id
+                  AND event_type IN (
+                    'RESEARCH_PASS_REQUESTED', 'RESEARCH_PASS_ENQUEUED',
+                    'RESEARCH_PASS_STARTED', 'RESEARCH_PASS_COMPLETED',
+                    'RESEARCH_PASS_FAILED'
+                  )
+                ORDER BY id
+            """),
+                {"id": investigation_id},
+            )
+        )
+        .mappings()
+        .all()
+    )
+    if has_activity is None:
+        has_activity = bool(
+            await session.scalar(
+                text("""
+                    SELECT EXISTS (
+                        SELECT 1 FROM claims WHERE investigation_id = :id
+                    ) OR EXISTS (
+                        SELECT 1 FROM investigation_entities WHERE investigation_id = :id
+                    ) OR EXISTS (
+                        SELECT 1 FROM investigation_modules
+                        WHERE investigation_id = :id
+                          AND (status <> 'NOT_STARTED' OR stop_reason IS NOT NULL
+                            OR coverage @? '$.query_count ? (@ > 0)'
+                            OR coverage @? '$.document_count ? (@ > 0)'
+                            OR coverage->'providers' NOT IN ('[]'::jsonb, 'null'::jsonb)
+                            OR coverage->'gaps' NOT IN ('[]'::jsonb, 'null'::jsonb)
+                            OR coverage->'unavailable_sources' NOT IN ('[]'::jsonb, 'null'::jsonb))
+                    ) OR EXISTS (
+                        SELECT 1 FROM investigation_documents WHERE investigation_id = :id
+                    ) OR EXISTS (
+                        SELECT 1 FROM leads WHERE investigation_id = :id
+                          AND status IN ('RUNNING', 'COMPLETED', 'FAILED')
+                    ) OR EXISTS (
+                        SELECT 1 FROM audit_log WHERE investigation_id = :id
+                          AND event_type = 'LEAD_EXECUTED'
+                    )
+                """),
+                {"id": investigation_id},
+            )
+        )
+    return reduce_research_events([dict(row) for row in audit_rows], has_activity=has_activity)
+
+
+async def get_investigation(session: AsyncSession, investigation_id: UUID) -> InvestigationDetail:
     record = await get_investigation_record(session, investigation_id)
     entity_rows = (
-        await session.execute(
-            text("""
+        (
+            await session.execute(
+                text("""
                 SELECT e.id, e.schema, e.canonical_name, e.attributes, e.resolution_state,
                     ie.relation_depth, ie.expansion_state, ie.material_reason
                 FROM investigation_entities ie JOIN entities e ON e.id = ie.entity_id
                 WHERE ie.investigation_id = :id
                 ORDER BY ie.discovered_at, e.canonical_name NULLS LAST
             """),
-            {"id": investigation_id},
+                {"id": investigation_id},
+            )
         )
-    ).mappings().all()
+        .mappings()
+        .all()
+    )
     claim_rows = (
-        await session.execute(
-            text("""
+        (
+            await session.execute(
+                text("""
                 SELECT id, subject_entity_id, predicate, value, status, created_at
                 FROM claims WHERE investigation_id = :id ORDER BY created_at, predicate
             """),
-            {"id": investigation_id},
+                {"id": investigation_id},
+            )
         )
-    ).mappings().all()
+        .mappings()
+        .all()
+    )
+    evidence_rows = (
+        (
+            await session.execute(
+                text("""
+                SELECT ce.claim_id, ce.evidence_id, ce.relation,
+                    e.document_id, e.locator_type, e.locator, e.excerpt,
+                    e.structured_value, d.original_url, d.canonical_url,
+                    d.fetched_at, d.sha256, d.raw_storage_key,
+                    s.id AS source_id, s.name AS source_name
+                FROM claims c
+                JOIN claim_evidence ce ON ce.claim_id = c.id
+                JOIN evidence e ON e.id = ce.evidence_id
+                JOIN documents d ON d.id = e.document_id
+                JOIN investigation_documents ind
+                    ON ind.document_id = d.id AND ind.investigation_id = c.investigation_id
+                LEFT JOIN sources s ON s.id = d.source_id
+                WHERE c.investigation_id = :id
+                ORDER BY ce.claim_id, e.created_at, ce.evidence_id
+            """),
+                {"id": investigation_id},
+            )
+        )
+        .mappings()
+        .all()
+    )
+    evidence_by_claim: dict[UUID, list[ClaimEvidenceDetail]] = {}
+    for row in evidence_rows:
+        evidence_by_claim.setdefault(row["claim_id"], []).append(
+            ClaimEvidenceDetail.model_validate(
+                {key: row[key] for key in ClaimEvidenceDetail.model_fields}
+            )
+        )
+    lead_rows = (
+        (
+            await session.execute(
+                text("""
+                SELECT id, lead_type, value, reason, originating_claim_id,
+                    priority, depth, status, scope_area, trigger_type,
+                    information_need, relation_depth, blocked_reason, created_at
+                FROM leads
+                WHERE investigation_id = :id
+                ORDER BY created_at, id
+            """),
+                {"id": investigation_id},
+            )
+        )
+        .mappings()
+        .all()
+    )
+    counts = (
+        (
+            await session.execute(
+                text("""
+        SELECT count(DISTINCT d.document_id) AS document_count,
+               count(DISTINCT e.id) AS evidence_count
+        FROM investigation_documents d LEFT JOIN evidence e ON e.document_id = d.document_id
+        WHERE d.investigation_id = :id
+    """),
+                {"id": investigation_id},
+            )
+        )
+        .mappings()
+        .one()
+    )
     return InvestigationDetail(
         **record.model_dump(),
+        document_count=counts["document_count"],
+        evidence_count=counts["evidence_count"],
         entities=[InvestigationEntityRecord.model_validate(item) for item in entity_rows],
-        claims=[InvestigationClaimRecord.model_validate(item) for item in claim_rows],
+        claims=[
+            InvestigationClaimRecord.model_validate(
+                {**item, "evidence": evidence_by_claim.get(item["id"], [])}
+            )
+            for item in claim_rows
+        ],
         modules=await get_modules(session, investigation_id),
+        research=await get_research_state(session, investigation_id),
+        leads=[InvestigationLeadRecord.model_validate(item) for item in lead_rows],
     )
 
 
@@ -186,9 +342,16 @@ async def update_scope(
         {"id": investigation_id, "modules": [module.value for module in request.scope_modules]},
     )
     after = await get_investigation(session, investigation_id)
-    await _audit(session, investigation_id, "SCOPE_CHANGED", {
-        "before": _scope_payload(before), "after": _scope_payload(after), "reason": request.reason,
-    })
+    await _audit(
+        session,
+        investigation_id,
+        "SCOPE_CHANGED",
+        {
+            "before": _scope_payload(before),
+            "after": _scope_payload(after),
+            "reason": request.reason,
+        },
+    )
     return after
 
 
@@ -273,9 +436,7 @@ async def propose_lead(
     return lead_id, status
 
 
-async def export_investigation(
-    session: AsyncSession, investigation_id: UUID
-) -> dict:
+async def export_investigation(session: AsyncSession, investigation_id: UUID) -> dict:
     """Full data export for one investigation (GDPR data portability).
 
     Includes record, modules, entities, claims, leads, documents (with raw
@@ -286,37 +447,49 @@ async def export_investigation(
 
     detail = await get_investigation(session, investigation_id)
     lead_rows = (
-        await session.execute(
-            text("""
+        (
+            await session.execute(
+                text("""
                 SELECT id, lead_type, value, reason, originating_claim_id, priority,
                     depth, status, scope_area, trigger_type, information_need,
                     relation_depth, blocked_reason, created_at
                 FROM leads WHERE investigation_id = :id ORDER BY created_at
             """),
-            {"id": investigation_id},
+                {"id": investigation_id},
+            )
         )
-    ).mappings().all()
+        .mappings()
+        .all()
+    )
     document_rows = (
-        await session.execute(
-            text("""
+        (
+            await session.execute(
+                text("""
                 SELECT doc.id, doc.sha256, doc.raw_storage_key, doc.original_url,
                     doc.canonical_url, doc.mime_type, doc.fetched_at
                 FROM investigation_documents d
                 JOIN documents doc ON doc.id = d.document_id
                 WHERE d.investigation_id = :id ORDER BY doc.fetched_at
             """),
-            {"id": investigation_id},
+                {"id": investigation_id},
+            )
         )
-    ).mappings().all()
+        .mappings()
+        .all()
+    )
     audit_rows = (
-        await session.execute(
-            text("""
+        (
+            await session.execute(
+                text("""
                 SELECT event_type, actor, payload, created_at
                 FROM audit_log WHERE investigation_id = :id ORDER BY id
             """),
-            {"id": investigation_id},
+                {"id": investigation_id},
+            )
         )
-    ).mappings().all()
+        .mappings()
+        .all()
+    )
     return {
         "investigation": detail.model_dump(mode="json"),
         "modules": [module.model_dump(mode="json") for module in detail.modules],
@@ -352,16 +525,20 @@ async def delete_investigation(session: AsyncSession, investigation_id: UUID) ->
 async def get_lead(session: AsyncSession, investigation_id: UUID, lead_id: UUID) -> dict:
     """Load one lead row; raises InvestigationNotFound when missing or foreign."""
     row = (
-        await session.execute(
-            text("""
+        (
+            await session.execute(
+                text("""
                 SELECT id, lead_type, value, reason, originating_claim_id, priority,
                     depth, status, scope_area, trigger_type, information_need,
                     relation_depth, blocked_reason
                 FROM leads WHERE id = :lead_id AND investigation_id = :id
             """),
-            {"lead_id": lead_id, "id": investigation_id},
+                {"lead_id": lead_id, "id": investigation_id},
+            )
         )
-    ).mappings().one_or_none()
+        .mappings()
+        .one_or_none()
+    )
     if row is None:
         raise InvestigationNotFound(str(lead_id))
     return dict(row)
@@ -426,8 +603,9 @@ async def bump_module_coverage(
 async def list_pending_leads(session: AsyncSession, investigation_id: UUID) -> list[dict]:
     """All PENDING leads for frontier selection, highest priority first."""
     rows = (
-        await session.execute(
-            text("""
+        (
+            await session.execute(
+                text("""
                 SELECT id, lead_type, value, reason, originating_claim_id, priority,
                     depth, status, scope_area, trigger_type, information_need,
                     relation_depth, blocked_reason
@@ -435,7 +613,10 @@ async def list_pending_leads(session: AsyncSession, investigation_id: UUID) -> l
                 WHERE investigation_id = :id AND status = 'PENDING'
                 ORDER BY priority DESC, depth ASC
             """),
-            {"id": investigation_id},
+                {"id": investigation_id},
+            )
         )
-    ).mappings().all()
+        .mappings()
+        .all()
+    )
     return [dict(row) for row in rows]

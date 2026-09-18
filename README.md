@@ -7,7 +7,9 @@ Analysen er en kildebevisst OSINT- og bakgrunnsanalysemotor med Norge som primæ
 ## Status
 Lokal grunnmur: FastAPI, Next.js, PostgreSQL/pgvector, Redis/Dramatiq, SearXNG og Alembic. Web oppretter og åpner reelle investigations. Scope lagres eksplisitt med modulstatus og audit ved endringer. Datakilde-/modell-/policykonfigurasjon valideres ved oppstart.
 
-Leveransen omfatter nå hele den deterministiske kjeden: NIM-planner foreslår typed leads (live-verifisert), lead-gate slipper/nekter deterministisk, trigger-evaluator ruter funn, frontier velger høyeste prioritet, eksekutor kjører BRREG-måloppslag med evidence og coverage, og worker kjører avgrensede research-passer via `POST /research/run`. BRREG-ingest lagrer immutable raw snapshots; per-sak eksport og auditert sletting finnes. Dekningsrapport vises i web med fem seksjoner. Verifikator, dokumentregnskap-pipeline og full rapportgenerering er videre arbeid; se `docs/TASK_QUEUE.md`. UI viser faktisk lagret tilstand og fremstiller ikke uutførte moduler som undersøkt.
+NIM-planneren kan foreslå typed leads bak den deterministiske lead-gaten, men automatisk planlegging i research-loopen gjenstår i AQ-023. Implementert execution er avgrensede BRREG-måloppslag gjennom frontier/trigger-evaluator og worker, med evidence og coverage. BRREG-ingest lagrer immutable canonical JSON; web-fetch lagrer originale HTTP-bytes gjennom én kontrollert transport. API/worker-image inkluderer extractorer, Chromium, Java og norsk OCR. Canonical claims/evidence og legacy-migrering er reparert, og readiness følger pakket Alembic-head.
+
+Detaljsiden viser siste lagrede jobbstatus, moduler/coverage, leads, entities og claims med kildebelegg og hash-verifisert råkildenedlasting. Opprettelsesskjemaet sender korrekte arrays og person-/virksomhetsfelter. Dekningsrapport, per-sak eksport og auditert sletting finnes. Finansintegrasjon, flere executors, verifier og full rapportgenerering gjenstår; se `docs/TASK_QUEUE.md`. Et fullført research-pass betyr ikke at alle valgte områder er ferdig undersøkt.
 
 ## Stack
 - Next.js 16.3 / React 19.3 frontend
@@ -68,6 +70,9 @@ Embedding:
 ```bash
 python scripts/nim_smoke.py --suite embedding
 ```
+
+## OpenCode2
+Prosjektet er konfigurert med `opencode.jsonc`, prosjektlokale agents i `.opencode/agents/` og skills i `.opencode/skills/`. Default-agent er `analysen-orchestrator`, som skal delegere uavhengige arbeidsstrømmer til flere sub-agents parallelt og samle/verifisere resultatet før task-status endres. Se `docs/RECOVERY_ACTION_PLAN.md`.
 
 ## Les før utvikling
 1. `AGENTS.md`
