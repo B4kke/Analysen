@@ -80,3 +80,32 @@ Modellvalg er konfigurasjon. Hardkod aldri modellnavn i business logic. Se `conf
 - Ubegrenset crawling.
 - Automatisk full research av enhver nyoppdaget person/virksomhet.
 - Loggføring av secrets eller unødvendige personopplysninger.
+
+
+## OpenCode2: subagent-first arbeidsmodell
+
+Prosjektet er konfigurert for OpenCode2 via `opencode.jsonc`, `.opencode/agents/` og `.opencode/skills/`.
+
+### Delegasjon er standard på komplekst arbeid
+For oppgaver som berører flere lag, flere filer, migreringer, research-runtime, backend+frontend eller P0-integrasjon skal primæragenten normalt delegere til flere subagents i stedet for å gjøre alt sekvensielt selv.
+
+- Start 2–5 subagents samtidig når arbeidsstrømmene er reelt uavhengige.
+- Gi hver subagent eksplisitt subsystem-/fileierskap og acceptance criteria.
+- Ikke la to subagents skrive til samme migrasjon, schema-kontrakt eller felles integrasjonsfil samtidig.
+- `docs/TASK_QUEUE.md`, `docs/WORKLOG.md` og `docs/DECISIONS.md` eies normalt av orchestrator/integrator.
+- Kjør `integration-reviewer` før P0 settes `DONE`.
+- En subagents egen "ferdig"-melding er aldri tilstrekkelig; orchestrator må kontrollere diff og kjøre integrert verifikasjon.
+
+Primær OpenCode2-agent er `analysen-orchestrator`. Se `docs/RECOVERY_ACTION_PLAN.md` for delegert rekkefølge og wave-plan.
+
+### Tilgjengelige prosjektagenter
+- `db-provenance`
+- `research-runtime`
+- `research-orchestration`
+- `entity-resolution`
+- `verification`
+- `ui-reporting`
+- `integration-reviewer`
+
+### Skill-bruk
+Agenter skal laste relevante prosjekt-skills fra `.opencode/skills/` før de endrer et subsystem. Skill-instruksjoner supplerer dette dokumentet, men kan aldri overstyre scope-, provenance-, privacy- eller safety-reglene over.
