@@ -224,9 +224,8 @@ Fullførte oppgaver beholdes her for sporbarhet inntil en senere opprydding flyt
 **Acceptance:** Material claim uten evidence kan ikke bli supported/reviewed; invalid modelloutput failer lukket; contradiction genererer målrettet verification need; SQL/Pydantic/report-status er konsistente.
 
 ### AQ-027 — Full report pipeline
-**Status:** BLOCKED
-**Prioritet:** P1
-**Agent:** `ui-reporting`
+**Status:** DONE
+**Verifisert 2026-09-19:** `domain/report.py` som felles kontrakt; `services/report_build.py` bygger deterministisk report-JSON fra claims+coverage (UNVERIFIED_LEAD aldri funn, context-only kun navn); `services/report_render.py` rendrer samme dokument til HTML (lang=nb, escapet, ingen JS) og PDF (fpdf2, deterministisk). Ruter `GET report.json/.html/.pdf` med 404-oppførsel. 22 builder-tester + 10 renderer-tester + endpoint-tester; fpdf2 låst i requirements.lock. Levert av 2 subagents parallelt, integrert verifisert samlet.
 **Avhenger av:** AQ-019, AQ-025, AQ-026
 **Leveranse:** `verified claims + coverage -> report JSON -> HTML -> PDF` med norsk standardrapport og klikkbar provenance.
 **Acceptance:** Rapport skiller supported/partial/contradicted/insufficient og investigated/not-investigated; hver material finding har evidence; context-only entities fremstilles ikke som full research; HTML/PDF kommer fra samme report JSON.

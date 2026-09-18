@@ -19,7 +19,7 @@ if TYPE_CHECKING:
     import pymupdf  # type: ignore[import-not-found]
     import pytesseract  # type: ignore[import-not-found]
     import tabula  # type: ignore[import-not-found]
-    from PIL import Image  # type: ignore[import-not-found]
+    from PIL import Image
 
 try:
     import pdfplumber
@@ -42,7 +42,7 @@ try:
 
     _PIL_AVAILABLE = True
 except ImportError:  # pragma: no cover - environment dependent
-    Image = None
+    Image = None  # type: ignore[assignment]
     _PIL_AVAILABLE = False
 
 try:
@@ -350,7 +350,7 @@ class PDFExtractionPipeline:
         with pymupdf.open(stream=pdf_bytes, filetype="pdf") as doc:
             for page in doc:
                 pix = page.get_pixmap(matrix=pymupdf.Matrix(2, 2))
-                image = Image.frombytes("RGB", [pix.width, pix.height], pix.samples)
+                image = Image.frombytes("RGB", (pix.width, pix.height), pix.samples)
                 texts.append(pytesseract.image_to_string(image, lang=self.ocr_language))
         return texts
 

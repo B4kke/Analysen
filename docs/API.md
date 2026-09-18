@@ -98,12 +98,13 @@ Lead/query read models skal eksponere `scope_area`, `trigger_type/query_class`, 
 ## Reports
 Implementert:
 - `GET /investigations/{id}/report/sections`: dynamiske dekningsseksjoner (undersøkt, med mangler, ikke undersøkt, utilgjengelig, ikke valgt) med coverage per modul. Deaktiverte moduler presenteres aldri som negative funn.
+- `GET /investigations/{id}/report.json`: fullt typed rapportdokument (funn med citations per status, uavklarte spor, kontekst-entiteter kun ved navn, dekning). Samme JSON som HTML og PDF rendres fra.
+- `GET /investigations/{id}/report.html`: norsk standardrapport (lang=nb, escapet output, ingen JS) med klikkbare citations.
+- `GET /investigations/{id}/report.pdf`: PDF-bytes fra samme rapport-JSON (deterministisk rendering).
 
 Planlagt:
-- `POST /investigations/{id}/reports`
+- `POST /investigations/{id}/reports` (persistert draft/reviewed/final-states; `reports`-tabellen finnes)
 - `GET /reports/{id}`
-- `GET /reports/{id}.html`
-- PDF kommer etter HTML renderer.
 
 Report JSON skal inneholde module coverage og eksplisitt skille `UNDERSØKT`, `UNDERSØKT_MED_GAPS`, `IKKE_UNDERSØKT`, `BLOKKERT_UTILGJENGELIG`.
 

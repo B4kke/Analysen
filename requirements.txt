@@ -18,3 +18,4 @@ python-dateutil>=2.9
 dramatiq[redis]>=1.18
 redis>=6.4
 ijson>=3.4
+fpdf2>=2.8

@@ -23,6 +23,7 @@ from apps.api.app.domain.models import (
     VerificationLeadRequest,
     VerificationResult,
 )
+from apps.api.app.domain.report import ReportDocument
 from apps.api.app.domain.scope import (
     ExpansionPolicy,
     ExpansionState,
@@ -176,6 +177,53 @@ async def report_sections_endpoint(investigation_id: UUID, session: DatabaseSess
     except InvestigationNotFound as exc:
         raise HTTPException(status_code=404, detail="Investigation not found") from exc
     return report_sections(_scope_of(modules), modules)
+
+
+async def _report_document_or_404(
+    session: DatabaseSession, investigation_id: UUID,
+):
+    from apps.api.app.services.report_build import build_report_document
+
+    try:
+        return await build_report_document(session, investigation_id)
+    except InvestigationNotFound as exc:
+        raise HTTPException(status_code=404, detail="Investigation not found") from exc
+
+
+@router.get("/{investigation_id}/report.json", response_model=ReportDocument)
+async def report_json_endpoint(
+    investigation_id: UUID, session: DatabaseSession
+) -> ReportDocument:
+    """Full report content as JSON: findings with citations, coverage, context."""
+    return await _report_document_or_404(session, investigation_id)
+
+
+@router.get("/{investigation_id}/report.html")
+async def report_html_endpoint(
+    investigation_id: UUID, session: DatabaseSession
+) -> Response:
+    """Norwegian standard report rendered from the same report JSON as the PDF."""
+    from apps.api.app.services.report_render import render_report_html
+
+    document = await _report_document_or_404(session, investigation_id)
+    return Response(
+        render_report_html(document), media_type="text/html; charset=utf-8"
+    )
+
+
+@router.get("/{investigation_id}/report.pdf")
+async def report_pdf_endpoint(
+    investigation_id: UUID, session: DatabaseSession
+) -> Response:
+    """PDF bytes rendered from the same report JSON as the HTML page."""
+    from apps.api.app.services.report_render import render_report_pdf
+
+    document = await _report_document_or_404(session, investigation_id)
+    return Response(
+        render_report_pdf(document),
+        media_type="application/pdf",
+        headers={"Content-Disposition": f'attachment; filename="analysen-{investigation_id}.pdf"'},
+    )
 
 
 @router.post("/{investigation_id}/leads", status_code=status.HTTP_201_CREATED)
