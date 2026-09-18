@@ -244,8 +244,11 @@ async def upsert_claim(
     relation = _role_to_relation(evidence_role)
     if canonical_status == ClaimStatus.SUPPORTED.value and relation != "supports":
         raise ValueError("SUPPORTED claims require SUPPORTS evidence")
-    if canonical_status == ClaimStatus.PARTIALLY_SUPPORTED.value and relation != "supports":
-        raise ValueError("PARTIALLY_SUPPORTED claims require SUPPORTS evidence")
+    if canonical_status == ClaimStatus.PARTIALLY_SUPPORTED.value and relation not in (
+        "supports",
+        "context",
+    ):
+        raise ValueError("PARTIALLY_SUPPORTED claims require SUPPORTS or context evidence")
     if canonical_status == ClaimStatus.CONTRADICTED.value and relation != "contradicts":
         raise ValueError("CONTRADICTED claims require CONTRADICTS evidence")
     for evidence_id in set(evidence_ids):

@@ -43,3 +43,4 @@ Kort, append-only oversikt over fullførte milepæler. Dette er ikke en ny TODO-
 - AQ-019 lukket: finansielle nøkkeltall som claims via deterministisk mapping (subagent-leveranse, verifisert av orchestrator). 6 tester.
 - AQ-030 lukket: subject-scoped claim-fingerprint + migrering 0005 med lenkebevaring. 0004-tester pint til 0004; readiness krever migrert sjekk-DB. 297 grønne totalt.
 - AQ-024 lukket: typed source-router + 3 nye executors (SearXNG-discovery, web-fetch, PDF-prosessering) levert av 3 subagents parallelt, dispatch + tools-bundle + integrasjon av orchestrator. 27 nye tester; 324 grønne totalt.
+- AQ-026 lukket: deterministisk verifier med citation-gate, contradiction-par og verifier-triggered leads gjennom gaten (subagent-leveranse + orchestrator-ruter). Sannferdig PARTIAL/context-kontrakt i stedet for workaround. 45 verifier-tester; 369 grønne totalt.

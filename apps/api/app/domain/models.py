@@ -477,3 +477,13 @@ class ResolutionReview(BaseModel):
 
     status: Literal["MATCH", "NOT_MATCH"]
     reason: str = Field(min_length=3, max_length=1000)
+
+
+class VerificationLeadRequest(BaseModel):
+    """Request a verifier-triggered lead for a claim lacking evidence."""
+
+    model_config = ConfigDict(extra="forbid", str_strip_whitespace=True)
+
+    scope_area: ScopeModule
+    information_need: str | None = Field(default=None, min_length=3, max_length=2000)
+    reason: str | None = Field(default=None, min_length=3, max_length=1000)

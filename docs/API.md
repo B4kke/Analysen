@@ -65,6 +65,9 @@ Implementert:
 Implementert:
 - `GET /investigations/{id}/resolution/candidates`: list scorer-produserte kandidater med score, status og negative signaler.
 - `POST /investigations/{id}/resolution/{entity_id}/{candidate_id}`: manuell review med `{status: MATCH|NOT_MATCH, reason}`. Kun PROBABLE_MATCH → MATCH/NOT_MATCH og UNRESOLVED → NOT_MATCH er tillatt; alt annet er 409. Hver beslutning auditeres (`RESOLUTION_REVIEWED`).
+- `POST /investigations/{id}/claims/{claim_id}/verify`: deterministisk entailment-verdict (SUPPORTED/PARTIALLY_SUPPORTED/CONTRADICTED/INSUFFICIENT_EVIDENCE, aldri uten evidens). Ukjent/fremmed claim er 404.
+- `GET /investigations/{id}/contradictions`: par med uforenlige verdier på samme subject/predicate.
+- `POST /investigations/{id}/claims/{claim_id}/verification-lead`: verifier-triggered lead (`CONTRADICTION` ved motstrid, ellers `WEAK_SOURCE_ONLY`) gjennom den deterministiske gaten; 201 med PENDING eller BLOCKED.
 
 Planlagt:
 - `GET /investigations/{id}/entities`

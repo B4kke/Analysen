@@ -20,6 +20,8 @@ from apps.api.app.domain.models import (
     Lead,
     ResolutionReview,
     TargetType,
+    VerificationLeadRequest,
+    VerificationResult,
 )
 from apps.api.app.domain.scope import (
     ExpansionPolicy,
@@ -28,6 +30,7 @@ from apps.api.app.domain.scope import (
     ScopeModule,
     ScopeSettings,
     ScopeUpdate,
+    TriggerType,
 )
 from apps.api.app.repositories import investigations as repository
 from apps.api.app.repositories.brreg_ingest import persist_brreg_organization
@@ -246,6 +249,105 @@ async def execute_lead_endpoint(
         raise HTTPException(status_code=404, detail="Investigation or lead not found") from exc
     await session.commit()
     return {"lead_id": str(lead_id), "status": status}
+
+
+@router.post(
+    "/{investigation_id}/claims/{claim_id}/verify", response_model=VerificationResult
+)
+async def verify_claim_endpoint(
+    investigation_id: UUID, claim_id: UUID, session: DatabaseSession
+) -> VerificationResult:
+    """Run the deterministic entailment verifier over one claim.
+
+    Unknown claims (or claims from another investigation) are 404. The
+    verdict is persisted and audited; schema-invalid states fail closed.
+    """
+    from apps.api.app.services import verifier as verifier_service
+
+    try:
+        result = await verifier_service.verify_claim(session, investigation_id, claim_id)
+    except LookupError as exc:
+        raise HTTPException(status_code=404, detail="Claim not found") from exc
+    await session.commit()
+    return result
+
+
+@router.get("/{investigation_id}/contradictions")
+async def list_contradictions_endpoint(
+    investigation_id: UUID, session: DatabaseSession
+) -> list[dict]:
+    """List claim pairs with incompatible values on the same subject."""
+    from apps.api.app.services import verifier as verifier_service
+
+    try:
+        await get_investigation_record(session, investigation_id)
+    except InvestigationNotFound as exc:
+        raise HTTPException(status_code=404, detail="Investigation not found") from exc
+    return await verifier_service.detect_contradictions(session, investigation_id)
+
+
+@router.post(
+    "/{investigation_id}/claims/{claim_id}/verification-lead",
+    status_code=status.HTTP_201_CREATED,
+)
+async def create_verification_lead_endpoint(
+    investigation_id: UUID,
+    claim_id: UUID,
+    request: VerificationLeadRequest,
+    session: DatabaseSession,
+) -> dict:
+    """Create a verifier-triggered lead through the deterministic scope gate.
+
+    A contradiction involving the claim yields a CONTRADICTION trigger,
+    otherwise a WEAK_SOURCE_ONLY trigger for the missing evidence. Like all
+    proposals, the lead may be admitted PENDING or refused BLOCKED.
+    """
+    from apps.api.app.repositories import claims_evidence as claims_repo
+    from apps.api.app.services import verifier as verifier_service
+
+    claim = await claims_repo.get_claim(session, claim_id)
+    if claim is None or claim["investigation_id"] != investigation_id:
+        raise HTTPException(status_code=404, detail="Claim not found") from None
+    pairs = await verifier_service.detect_contradictions(session, investigation_id)
+    contradicted = any(
+        pair["claim_a_id"] == claim_id or pair["claim_b_id"] == claim_id for pair in pairs
+    )
+    link_count = await session.execute(
+        text("SELECT count(*) FROM claim_evidence WHERE claim_id = :cid"),
+        {"cid": claim_id},
+    )
+    link_count = link_count.scalar_one()
+    if contradicted:
+        trigger_type = TriggerType.CONTRADICTION
+        information_need = request.information_need or (
+            f"Disconfirm one side of the contradiction on {claim.get('predicate')}"
+        )
+        reason = request.reason or "verifier found contradictory claims"
+    else:
+        trigger_type = TriggerType.WEAK_SOURCE_ONLY
+        need = verifier_service.missing_information_need(claim, link_count) or {}
+        information_need = request.information_need or need.get(
+            "information_need", "Independent evidence for the claim"
+        )
+        reason = request.reason or need.get("reason", "verifier requested follow-up")
+    lead = Lead(
+        lead_type="verification_lookup",
+        value={"claim_id": str(claim_id)},
+        reason=reason,
+        priority=0.6,
+        depth=0,
+        originating_claim_id=claim_id,
+        scope_area=request.scope_area,
+        trigger_type=trigger_type,
+        information_need=information_need,
+        relation_depth=0,
+    )
+    try:
+        lead_id, lead_status = await propose_lead(session, investigation_id, lead)
+    except InvestigationNotFound as exc:
+        raise HTTPException(status_code=404, detail="Investigation not found") from exc
+    await session.commit()
+    return {"lead_id": str(lead_id), "status": lead_status}
 
 
 @router.post("/{investigation_id}/research/run", status_code=status.HTTP_202_ACCEPTED)

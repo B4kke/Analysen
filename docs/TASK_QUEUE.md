@@ -217,9 +217,8 @@ Fullførte oppgaver beholdes her for sporbarhet inntil en senere opprydding flyt
 **Acceptance:** `known_orgnrs`/`known_organizations` sendes som arrays; web kan opprette company/person targets med valgfrie felter; detaljsiden viser faktisk state og sier aldri "ikke startet"/"ingen funn" i strid med database; mobil smoke passerer.
 
 ### AQ-026 — Verifier, contradiction og citation gate
-**Status:** BLOCKED
-**Prioritet:** P0
-**Agent:** `verification`
+**Status:** DONE
+**Verifisert 2026-09-19:** Deterministisk verifier (`services/verifier.py`, subagent-leveranse): citation-gate (aldri SUPPORTED uten reell evidensrad), contradiction-par på samme subject, missing-information needs. Ruter: `POST claims/{id}/verify`, `GET contradictions`, `POST claims/{id}/verification-lead` (CONTRADICTION/WEAK_SOURCE_ONLY gjennom gaten). Sannferdig relasjonskontrakt: PARTIALLY_SUPPORTED aksepterer `context`-relasjon (repo-regel oppdatert, workaround fjernet). 29 enhetstester + 16 integrasjonstester; 369 grønne totalt i Compose.
 **Avhenger av:** AQ-020, AQ-023
 **Leveranse:** Evidence-entailment verifier med typed status, contradiction handling og missing-information feedback som går tilbake gjennom trigger/scope gate.
 **Acceptance:** Material claim uten evidence kan ikke bli supported/reviewed; invalid modelloutput failer lukket; contradiction genererer målrettet verification need; SQL/Pydantic/report-status er konsistente.
