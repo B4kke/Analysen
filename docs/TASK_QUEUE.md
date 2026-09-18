@@ -163,9 +163,8 @@ Fullførte oppgaver beholdes her for sporbarhet inntil en senere opprydding flyt
 **Verifisert 2026-09-18:** PDF text/layout extraction, table extraction, OCR fallback, deterministic financial ratios, year-over-year analysis, auditor notes/going-concern detection. 18 enhetstester + 6 integrasjonstester (`test_pdf_extraction.py`); 131 tester grønne i Compose-nettverket. Raw snapshots i object store bevares via hash-adressert `raw_store`.
 
 ### AQ-019 — Finansanalyse-modul
-**Status:** IN_PROGRESS
-**Prioritet:** P0
-**Agent:** `verification` (subagent, startet 2026-09-19)
+**Status:** DONE
+**Verifisert 2026-09-19:** `services/financial_claims.py` mapper deterministisk ratios/YoY/revisjonsnotater/going-concern til claims (aldri negative funn ved manglende omtale) og persisterer via `claims_evidence.upsert_claim`. 6 tester; dekkes av full suite (291 grønne).
 **Avhenger av:** AQ-018, AQ-020, AQ-021
 **Leveranse:** Finansielle nøkkeltall (profitability, liquidity, solvency, efficiency), år-over-år analyse, regnskapsuttrekk, revisjonsmerknader, going-concern deteksjon — alt som claims med evidence.
 **Acceptance:** Nøkkeltall beregnes deterministisk i kode (ingen LLM); år-over-år forandringer med null-base håndtering; revisjonsmerknader og going-concern detekteres og lagres som claims.
