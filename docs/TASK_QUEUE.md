@@ -170,7 +170,7 @@ Fullførte oppgaver beholdes her for sporbarhet inntil en senere opprydding flyt
 **Verifisert 2026-09-18:** `repositories/claims_evidence.py` + `domain/models.py` med modeller for `Source`, `Document`, `Evidence`, `Claim`, `Entity`, `EntityRelation`, `EntityResolutionCandidate` og provenance-linking. `repositories/claims_evidence.py` implementerer deterministisk persistens med content-addressed evidence, claim-evidence linking, entity resolution candidates med negative signals. 149 tester grønne i Compose-nettverket.
 
 ### AQ-021 — SearXNG discovery og dokumentfetch
-**Status:** READY
+**Status:** IN_PROGRESS
 **Prioritet:** P0
 **Avhenger av:** AQ-020
 **Leveranse:** SearXNG discovery adapter, URL canonicalisering/dedup, Trafilatura fast path, Crawl4AI main path, Playwright fallback, SSRF/egress guard, robots/rate/domain budgets, Common Crawl/RDAP adapters, søkehistorikk og query dedup, typed query classes og search metadata, coverage ledger per modul.
