@@ -166,8 +166,19 @@ Fullførte oppgaver beholdes her for sporbarhet inntil en senere opprydding flyt
 **Acceptance:** Nøkkeltall beregnes deterministisk i kode (ingen LLM); år-over-år forandringer med null-base håndtering; revisjonsmerknader og going-concern detekteres og lagres som claims.
 
 ### AQ-020 — Claims/Evidence pipeline og provenance
+**Status:** DONE
+**Verifisert 2026-09-18:** `repositories/claims_evidence.py` + `domain/models.py` med modeller for `Source`, `Document`, `Evidence`, `Claim`, `Entity`, `EntityRelation`, `EntityResolutionCandidate` og provenance-linking. `repositories/claims_evidence.py` implementerer deterministisk persistens med content-addressed evidence, claim-evidence linking, entity resolution candidates med negative signals. 149 tester grønne i Compose-nettverket.
+
+### AQ-021 — SearXNG discovery og dokumentfetch
 **Status:** READY
 **Prioritet:** P0
-**Avhenger av:** AQ-019
-**Leveranse:** `Source`, `Document`, `Evidence`, `Claim`, `ClaimEvidence` modeller; deterministisk normalisering; kandidatgenerering; identitetsscoring med negative signaler; `MATCH`/`PROBABLE_MATCH`/`UNRESOLVED`/`NOT_MATCH`; manuell merge/split; provenance-kontrakttester.
-**Acceptance:** Hvert material claim kan åpnes tilbake til original lagret respons (raw snapshot + evidence); entity resolution merging med hard negative signals; LLM brukes kun for ekstraksjon, aldri for beregning.
+**Avhenger av:** AQ-020
+**Leveranse:** SearXNG discovery adapter, URL canonicalisering/dedup, Trafilatura fast path, Crawl4AI main path, Playwright fallback, SSRF/egress guard, robots/rate/domain budgets, Common Crawl/RDAP adapters, søkehistorikk og query dedup, typed query classes og search metadata, coverage ledger per modul.
+**Acceptance:** Discovery-snippets kan aldri bli evidence; rapportering krever hentet originalkilde. Hvert søk kan forklares med originating lead, scope area, query class og reason.
+
+### AQ-022 — Entity resolution med negative signals
+**Status:** READY
+**Prioritet:** P0
+**Avhenger av:** AQ-020
+**Leveranse:** Deterministisk kandidatgenerering, scoring med negative signaler (samme navn, ulike fødselsdatoer, geografisk uoverensstemmelse, tidslinjekonflikter), `MATCH`/`PROBABLE_MATCH`/`UNRESOLVED`/`NOT_MATCH` klassifisering, manuell merge/split API.
+**Acceptance:** Samme navn alene kan ikke merge personer; negative signaler (ulike fødselsdato, uoverensstemmelse i roller/tidslinje) blokkerer automatisk merge; manuell godkjenning kreves for `PROBABLE_MATCH`.

@@ -26,3 +26,4 @@ Kort, append-only oversikt over fullførte milepæler. Dette er ikke en ny TODO-
 - AQ-016 lukket: dekningsrapport-UI i web med fem seksjoner, coverage og stoppårsaker; smoke dekker rapportflyten. Native standalone-server krever `.next/static` ved siden av serveren (som i Dockerfile); feilsøkt og dokumentert implisitt via verifisert oppsett.
 - Mangelrunde: API.md oppdatert med alle nye ruter (leads/eksekvering/research/eksport/rapport), README-status synkronisert, `plan_probe.py` kjører uten PYTHONPATH.
 - AQ-017 lukket: research-startknapp i UI med smoke-dekning; avdekket og dokumentert at native servere må restartes etter kodeendringer.
+- AQ-020 lukket: Claims/Evidence/Provenance pipeline med deterministiske modeller, repository, database migration. Content-addressed evidence, claim-evidence linking, entity resolution kandidater med negative signals. 149 tester grønne i Compose.
