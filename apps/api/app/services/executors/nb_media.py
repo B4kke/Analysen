@@ -17,7 +17,7 @@ Thin orchestration wiring (AQ-031), not the adapter/policy/extraction work:
   article text; DH-lab concordance is lawful context marked
   ``PARTIAL_CONTEXT`` (never ``FULL``),
 - permitted pages (explicit ``allow_derived_crop``) go
-  page bytes -> raw store -> IIIF-anchored article crop -> Norwegian OCR ->
+  page bytes -> in-memory IIIF-anchored article crop -> Norwegian OCR ->
   validated crop Document/Evidence with parent page URN, exact crop
   geometry and both hashes,
 - mentions persist through the canonical ``media_mentions`` repository
@@ -1178,7 +1178,11 @@ async def _persist_crop_document(
         name="Nasjonalbiblioteket Catalog",
         evidence_tier=2,
         access_class=f"NB_{verdict.access_class}",
-        base_url="https://api.nb.no/catalog/v1",
+        base_url=(
+            source_url.split("/items/", 1)[0]
+            if source_url and "/items/" in source_url
+            else None
+        ),
         license=verdict.license_code or upstream_license,
         metadata={"provider": PROVIDER},
     )

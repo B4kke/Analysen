@@ -233,6 +233,12 @@ Policy must fail closed. Ukjent/ufullstendig rights metadata skal aldri oppgrade
 
 `viewability=ALL` betyr ikke automatisk at full side eller crop fritt kan republiseres.
 
+`PUBLIC_VIEW_ONLY` behandles eksplisitt som visnings-/analyseadgang, ikke
+gjenbruksrett: siden kan hentes når item-policy tillater det og brukes i minnet
+for en avledet, target-validert crop, men full side skal ikke persisteres.
+Avledet crop/tekst kan bare lagres når `allow_derived_crop` eksplisitt er
+satt; `allow_report_embed=false` betyr at bildet aldri embeddes i eksporten.
+
 Ingen bypass av innlogging, bibliotektilgang, token, betalingsmur, CAPTCHA eller andre tilgangskontroller.
 
 ## Text availability
