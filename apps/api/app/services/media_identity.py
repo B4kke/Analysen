@@ -43,6 +43,14 @@ def _digits(value: str) -> str:
     return "".join(ch for ch in value if ch.isdigit())
 
 
+def _contains_numeric_identifier(haystack: str, identifier: str) -> bool:
+    digits = _digits(identifier)
+    if not digits:
+        return False
+    pattern = r"(?<!\\d)" + r"[\\s.\\-]*".join(re.escape(ch) for ch in digits) + r"(?!\\d)"
+    return re.search(pattern, haystack) is not None
+
+
 def _date_variants(value: date) -> tuple[str, ...]:
     return (
         value.isoformat(),
@@ -125,12 +133,10 @@ def resolve_media_identity(
     reasons: list[str] = ["verified_name_signal"]
     score = 0.30
     combined_raw = f"{query}\n{excerpt}".casefold()
-    combined_digits = _digits(combined_raw)
-
     org_hits = [
         orgnr
         for orgnr in target.known_orgnrs
-        if orgnr and _digits(orgnr) in combined_digits
+        if orgnr and _contains_numeric_identifier(combined_raw, orgnr)
     ]
     org_name_hit = any(
         _contains_normalized(excerpt, name)

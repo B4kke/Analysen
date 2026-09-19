@@ -90,7 +90,13 @@ async def upsert_media_mention(
                     summary = EXCLUDED.summary,
                     text_excerpt = EXCLUDED.text_excerpt,
                     text_availability = EXCLUDED.text_availability,
-                    identity_state = EXCLUDED.identity_state,
+                    identity_state = CASE
+                        WHEN media_mentions.identity_state IN (
+                            'MATCH', 'PROBABLE_MATCH', 'NOT_MATCH'
+                        ) AND EXCLUDED.identity_state = 'UNRESOLVED'
+                        THEN media_mentions.identity_state
+                        ELSE EXCLUDED.identity_state
+                    END,
                     source_url = EXCLUDED.source_url,
                     access_class = EXCLUDED.access_class,
                     license_code = EXCLUDED.license_code,

@@ -78,3 +78,17 @@ def test_untrusted_query_without_target_name_stays_unresolved(query: str) -> Non
         text_excerpt="Ingen identifiserende opplysninger her.",
     )
     assert result.state == ResolutionState.UNRESOLVED
+
+
+def test_company_orgnr_does_not_match_concatenated_unrelated_numbers() -> None:
+    target = TargetInput(
+        type=TargetType.COMPANY,
+        name="Eksempel AS",
+        known_orgnrs=["974760673"],
+    )
+    result = resolve_media_identity(
+        target,
+        target_query="Eksempel AS",
+        text_excerpt="Eksempel AS hadde 974 ansatte, 760 saker og 673 kunder.",
+    )
+    assert result.state == ResolutionState.UNRESOLVED
