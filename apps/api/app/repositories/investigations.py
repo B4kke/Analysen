@@ -595,6 +595,13 @@ COVERAGE_COUNTER_KEYS = frozenset(
         "fulltext_count",
         "restricted_count",
         "fetched_count",
+        "content_fragment_error_count",
+        "iiif_error_count",
+        "concordance_error_count",
+        "crop_unavailable_count",
+        "identity_match_count",
+        "identity_probable_count",
+        "identity_unresolved_count",
     }
 )
 

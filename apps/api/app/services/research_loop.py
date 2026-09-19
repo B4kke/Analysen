@@ -123,7 +123,8 @@ def build_nb_seed_leads(names: list[str]) -> list[Lead]:
                 scope_area=ScopeModule.WEB_MEDIA,
                 trigger_type=TriggerType.DIRECT_SOURCE_LOOKUP,
                 information_need=(
-                    "Finn avisomtale av personen i Nasjonalbibliotekets avissamling"
+                    "Finn historisk avis-/publikasjonsomtale av target i "
+                    "Nasjonalbibliotekets samling"
                 ),
                 relation_depth=0,
             )
@@ -177,10 +178,10 @@ async def seed_nb_media_lead(
     investigation_id: UUID,
     investigation: Any,
 ) -> int:
-    """Seed the deterministic NB lookup for a person target with WEB_MEDIA.
+    """Seed deterministic NB lookup for person/company/organization targets.
 
-    The seed never waits for the planner: an explicit person target under an
-    active WEB_MEDIA module always gets deduplicated exact-name
+    The seed never waits for the planner: an explicit non-domain target under
+    an active WEB_MEDIA module always gets deduplicated exact-name
     ``nb_newspaper_search`` leads with a DIRECT_SOURCE_LOOKUP trigger — one
     for the target name plus one per verified (MATCH) alias spelling. Every
     lead passes the same deterministic admission (propose_lead) as any other
@@ -189,7 +190,7 @@ async def seed_nb_media_lead(
     query never produce a second lead. Returns the number of lead rows
     proposed (0 when nothing new was needed).
     """
-    if investigation.target.type != TargetType.PERSON:
+    if investigation.target.type == TargetType.DOMAIN:
         return 0
     if ScopeModule.WEB_MEDIA not in investigation.scope_modules:
         return 0

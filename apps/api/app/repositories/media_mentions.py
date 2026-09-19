@@ -143,3 +143,24 @@ async def list_media_mentions(
         )
     ).mappings().all()
     return [dict(row) for row in rows]
+
+async def update_media_mention_identity(
+    session: AsyncSession,
+    mention_id: UUID,
+    *,
+    identity_state: str,
+) -> None:
+    """Persist the deterministic identity decision for one media mention."""
+    if identity_state not in ("MATCH", "PROBABLE_MATCH", "UNRESOLVED", "NOT_MATCH"):
+        raise ValueError(f"invalid identity_state: {identity_state}")
+    result = await session.execute(
+        text("""
+            UPDATE media_mentions
+            SET identity_state = :identity_state
+            WHERE id = :mention_id
+            RETURNING id
+        """),
+        {"mention_id": mention_id, "identity_state": identity_state},
+    )
+    if result.mappings().one_or_none() is None:
+        raise LookupError(f"unknown media mention: {mention_id}")
