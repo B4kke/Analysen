@@ -1,0 +1,38 @@
+{
+  "total": 5247,
+  "items": [
+    {
+      "itemId": "URN:NBN:no-nb_digavis_aftenposten_19900101_0001",
+      "publication": "Aftenposten",
+      "issued": "1990-01-01",
+      "issueUrn": "URN:NBN:no-nb_digavis_aftenposten_19900101",
+      "title": "Aftenposten 1. januar 1990",
+      "access": {
+        "accessAllowedFrom": "EVERYWHERE",
+        "viewability": "ALL"
+      }
+    },
+    {
+      "itemId": "URN:NBN:no-nb_digavis_aftenposten_19900102_0002",
+      "publication": "Aftenposten",
+      "issued": "1990-01-02",
+      "issueUrn": "URN:NBN:no-nb_digavis_aftenposten_19900102",
+      "title": "Aftenposten 2. januar 1990",
+      "access": {
+        "accessAllowedFrom": "EVERYWHERE",
+        "viewability": "ALL"
+      }
+    },
+    {
+      "itemId": "URN:NBN:no-nb_digavis_aftenposten_19900103_0003",
+      "publication": "Aftenposten",
+      "issued": "1990-01-03",
+      "issueUrn": "URN:NBN:no-nb_digavis_aftenposten_19900103",
+      "title": "Aftenposten 3. januar 1990",
+      "access": {
+        "accessAllowedFrom": "EVERYWHERE",
+        "viewability": "ALL"
+      }
+    }
+  ]
+}

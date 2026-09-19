@@ -1,5 +1,6 @@
 .git
-.env
+.env*
+!.env.example
 .venv
 __pycache__
 .pytest_cache
@@ -10,3 +11,7 @@ data/raw
 data/ingest
 data/reports
 *.log
+**/node_modules
+**/__pycache__
+.mypy_cache
+artifacts

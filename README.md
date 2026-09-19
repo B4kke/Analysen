@@ -5,14 +5,11 @@ Analysen er en kildebevisst OSINT- og bakgrunnsanalysemotor med Norge som primæ
 > **Kjerneprinsipp:** Brukeren velger scope. LLM foreslår. Policy/scope gate godkjenner. Verktøy henter. Kode beregner. Evidens dokumenterer. Verifikator kontrollerer. Mennesket vurderer.
 
 ## Status
-Grunnmur/arkitektur er etablert. BRREG entities/roles, åpen role-totalbestand, lokal reverse-index, investigation persistence, entity resolution og NIM-provider er påbegynt/implementert.
+Lokal grunnmur: FastAPI, Next.js, PostgreSQL/pgvector, Redis/Dramatiq, SearXNG og Alembic. Web oppretter og åpner reelle investigations. Scope lagres eksplisitt med modulstatus og audit ved endringer. Datakilde-/modell-/policykonfigurasjon valideres ved oppstart.
 
-Research-arkitekturen er nå eksplisitt **scope-first og trigger-driven**:
-- `docs/INVESTIGATION_SCOPE.md` definerer hvilke områder en investigation får undersøke og hvordan relaterte entities kan ekspanderes.
-- `docs/SEARCH_TRIGGERS.md` definerer når/hvorfor nye søk får startes, source routing, query classes og stop conditions.
-- `docs/TASK_QUEUE.md` er kanonisk arbeidskø for AI-agenter; `docs/WORKLOG.md` er kort historikk over fullførte milepæler.
+NIM-planneren foreslår typed leads bak den deterministiske lead-gaten og er koblet inn i den avgrensede research-loopen. Source-routeren har allowlistede executors for BRREG, SearXNG-discovery, web-fetch, PDF-prosessering og Nasjonalbiblioteket-media; verifier/citation-gate, entity resolution, finansclaims og full JSON/HTML/PDF-rapport er implementert. BRREG- og web-ingest lagrer immutable originaler, og API/worker-image inkluderer extractorer, Chromium, Java og norsk OCR.
 
-Neste store implementasjonsgap er å føre disse kontraktene inn i API/schema/planner/runtime og bygge bred person-/webresearch med eksplisitt coverage.
+Detaljsiden viser lagret jobbstatus, moduler/coverage, leads, entities og claims med kildebelegg og hash-verifisert råkildenedlasting. Rapporten viser funn, uavklarte spor, kontekst og medienevnter fra samme canonical report-kontrakt. Lovlig embeddable NB-artikkelcrops kan vises i web/HTML og bygges inn i PDF; tilgangsbegrenset materiale forblir metadata/lenke. Per-sak eksport og auditert sletting finnes. Et fullført research-pass betyr ikke at alle valgte områder er ferdig undersøkt.
 
 ## Stack
 - Next.js 16.3 / React 19.3 frontend
@@ -37,19 +34,23 @@ Kimi K3 er fjernet fra default routing på grunn av observert latency. Se `docs/
 ## Første oppstart
 ```bash
 cp .env.example .env
-# sett NIM_API_KEY i .env
-docker compose up --build
+# NIM_API_KEY trengs bare ved modellkall; .env er valgfri.
+docker compose up --build -d
 ```
 
 Uten Docker:
 ```bash
 python -m venv .venv
 source .venv/bin/activate
-pip install -r requirements-dev.txt
+pip install -r requirements-dev.lock
+docker compose up -d postgres redis
+alembic upgrade head
 make dev-api
 ```
 
 Web kjører på `http://localhost:3000`, API på `http://localhost:8000`, SearXNG på `http://localhost:8080`.
+
+Se [lokal oppstart og migreringer](docs/DEPLOYMENT.md), [prosjektstruktur](docs/PROJECT_STRUCTURE.md) og [testkommandoer](docs/TESTING.md).
 
 ## NIM smoke-test
 Etter at `NIM_API_KEY` er satt i `.env`:
@@ -69,6 +70,9 @@ Embedding:
 ```bash
 python scripts/nim_smoke.py --suite embedding
 ```
+
+## OpenCode2
+Prosjektet er konfigurert med `opencode.jsonc`, prosjektlokale agents i `.opencode/agents/` og skills i `.opencode/skills/`. Default-agent er `analysen-orchestrator`, som skal delegere uavhengige arbeidsstrømmer til flere sub-agents parallelt og samle/verifisere resultatet før task-status endres. Se `docs/RECOVERY_ACTION_PLAN.md`.
 
 ## Les før utvikling
 1. `AGENTS.md`

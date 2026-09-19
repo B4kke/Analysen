@@ -10,22 +10,18 @@ class UnsafeUrl(ValueError):
 
 def _public_ip(address: str) -> bool:
     ip = ipaddress.ip_address(address)
-    return not (
-        ip.is_private
-        or ip.is_loopback
-        or ip.is_link_local
-        or ip.is_multicast
-        or ip.is_reserved
-        or ip.is_unspecified
-    )
+    return ip.is_global and not ip.is_multicast
 
 
-async def validate_public_http_url(url: str) -> None:
+async def resolve_public_http_url(url: str) -> list[str]:
+    """Resolve once and return only public destinations that can be pinned at dial time."""
     parts = urlsplit(url)
     if parts.scheme not in {"http", "https"}:
         raise UnsafeUrl("only http/https are allowed")
     if not parts.hostname:
         raise UnsafeUrl("hostname required")
+    if parts.username or parts.password:
+        raise UnsafeUrl("credentialed URLs are blocked")
     host = parts.hostname.casefold()
     if host == "localhost" or host.endswith(".local"):
         raise UnsafeUrl("local hostnames are blocked")
@@ -38,3 +34,8 @@ async def validate_public_http_url(url: str) -> None:
     addresses = {record[4][0] for record in records}
     if not addresses or any(not _public_ip(address) for address in addresses):
         raise UnsafeUrl("hostname resolves to a non-public address")
+    return sorted(addresses)
+
+
+async def validate_public_http_url(url: str) -> None:
+    await resolve_public_http_url(url)

@@ -1,0 +1,145 @@
+{
+  "total": 10,
+  "items": [
+    {
+      "itemId": "URN:NBN:no-nb_digavis_aftenposten_19941216_0072",
+      "publication": "Aftenposten",
+      "issued": "1994-12-16",
+      "issueUrn": "URN:NBN:no-nb_digavis_aftenposten_19941216",
+      "title": "Aftenposten 16. desember 1994",
+      "access": {
+        "accessAllowedFrom": "EVERYWHERE",
+        "viewability": "ALL",
+        "isPublicDomain": false,
+        "license": "NLOD-2.0",
+        "rightsUri": "https://creativecommons.org/licenses/by/4.0/"
+      }
+    },
+    {
+      "itemId": "URN:NBN:no-nb_digavis_akersavis_20010829_0012",
+      "publication": "Akers Avis Groruddalen",
+      "issued": "2001-08-29",
+      "issueUrn": "URN:NBN:no-nb_digavis_akersavis_20010829",
+      "title": "Akers Avis Groruddalen 29. august 2001",
+      "access": {
+        "accessAllowedFrom": "EVERYWHERE",
+        "viewability": "ALL",
+        "isPublicDomain": false,
+        "license": "NLOD-2.0",
+        "rightsUri": "https://creativecommons.org/licenses/by/4.0/"
+      }
+    },
+    {
+      "itemId": "URN:NBN:no-nb_digavis_hadeland_20051213_0017",
+      "publication": "Hadeland",
+      "issued": "2005-12-13",
+      "issueUrn": "URN:NBN:no-nb_digavis_hadeland_20051213",
+      "title": "Hadeland 13. desember 2005",
+      "access": {
+        "accessAllowedFrom": "EVERYWHERE",
+        "viewability": "ALL",
+        "isPublicDomain": false,
+        "license": "NLOD-2.0",
+        "rightsUri": "https://creativecommons.org/licenses/by/4.0/"
+      }
+    },
+    {
+      "itemId": "URN:NBN:no-nb_digavis_hadeland_20070806_0023",
+      "publication": "Hadeland",
+      "issued": "2007-08-06",
+      "issueUrn": "URN:NBN:no-nb_digavis_hadeland_20070806",
+      "title": "Hadeland 6. august 2007",
+      "access": {
+        "accessAllowedFrom": "EVERYWHERE",
+        "viewability": "ALL",
+        "isPublicDomain": false,
+        "license": "NLOD-2.0",
+        "rightsUri": "https://creativecommons.org/licenses/by/4.0/"
+      }
+    },
+    {
+      "itemId": "URN:NBN:no-nb_digavis_hadeland_20070827_0027",
+      "publication": "Hadeland",
+      "issued": "2007-08-27",
+      "issueUrn": "URN:NBN:no-nb_digavis_hadeland_20070827",
+      "title": "Hadeland 27. august 2007",
+      "access": {
+        "accessAllowedFrom": "EVERYWHERE",
+        "viewability": "ALL",
+        "isPublicDomain": false,
+        "license": "NLOD-2.0",
+        "rightsUri": "https://creativecommons.org/licenses/by/4.0/"
+      }
+    },
+    {
+      "itemId": "URN:NBN:no-nb_digavis_hadeland_20071005_0035",
+      "publication": "Hadeland",
+      "issued": "2007-10-05",
+      "issueUrn": "URN:NBN:no-nb_digavis_hadeland_20071005",
+      "title": "Hadeland 5. oktober 2007",
+      "access": {
+        "accessAllowedFrom": "EVERYWHERE",
+        "viewability": "ALL",
+        "isPublicDomain": false,
+        "license": "NLOD-2.0",
+        "rightsUri": "https://creativecommons.org/licenses/by/4.0/"
+      }
+    },
+    {
+      "itemId": "URN:NBN:no-nb_digavis_hadeland_20080229_0017",
+      "publication": "Hadeland",
+      "issued": "2008-02-29",
+      "issueUrn": "URN:NBN:no-nb_digavis_hadeland_20080229",
+      "title": "Hadeland 29. februar 2008",
+      "access": {
+        "accessAllowedFrom": "EVERYWHERE",
+        "viewability": "ALL",
+        "isPublicDomain": false,
+        "license": "NLOD-2.0",
+        "rightsUri": "https://creativecommons.org/licenses/by/4.0/"
+      }
+    },
+    {
+      "itemId": "URN:NBN:no-nb_digavis_hadeland_20201223_0025",
+      "publication": "Hadeland",
+      "issued": "2020-12-23",
+      "issueUrn": "URN:NBN:no-nb_digavis_hadeland_20201223",
+      "title": "Hadeland 23. desember 2020",
+      "access": {
+        "accessAllowedFrom": "EVERYWHERE",
+        "viewability": "ALL",
+        "isPublicDomain": false,
+        "license": "NLOD-2.0",
+        "rightsUri": "https://creativecommons.org/licenses/by/4.0/"
+      }
+    },
+    {
+      "itemId": "URN:NBN:no-nb_digavis_hadeland_20251219_0029",
+      "publication": "Hadeland",
+      "issued": "2025-12-19",
+      "issueUrn": "URN:NBN:no-nb_digavis_hadeland_20251219",
+      "title": "Hadeland 19. desember 2025",
+      "access": {
+        "accessAllowedFrom": "EVERYWHERE",
+        "viewability": "ALL",
+        "isPublicDomain": false,
+        "license": "NLOD-2.0",
+        "rightsUri": "https://creativecommons.org/licenses/by/4.0/"
+      }
+    },
+    {
+      "itemId": "URN:NBN:no-nb_digavis_romerikesblad_20260519_0030",
+      "publication": "Romerikes Blad",
+      "issued": "2026-05-19",
+      "issueUrn": "URN:NBN:no-nb_digavis_romerikesblad_20260519",
+      "title": "Romerikes Blad 19. mai 2026",
+      "access": {
+        "accessAllowedFrom": "LIBRARY",
+        "viewability": "ALL",
+        "isPublicDomain": false,
+        "license": "NLOD-2.0",
+        "rightsUri": "https://creativecommons.org/licenses/by/4.0/"
+      }
+    }
+  ]
+}

@@ -1,11 +1,19 @@
 from datetime import UTC, date, datetime
 from enum import StrEnum
-from typing import Any
+from typing import Any, Literal
 from uuid import UUID
 
-from pydantic import BaseModel, Field, HttpUrl, field_validator, model_validator
+from pydantic import BaseModel, ConfigDict, Field, HttpUrl, field_validator, model_validator
 
 from apps.api.app.domain.identifiers import normalize_orgnr
+from apps.api.app.domain.scope import (
+    ExpansionPolicy,
+    ExpansionState,
+    InvestigationModuleRecord,
+    ScopeModule,
+    ScopeSettings,
+    TriggerType,
+)
 
 
 class TargetType(StrEnum):
@@ -31,6 +39,8 @@ class ClaimStatus(StrEnum):
 
 
 class TargetInput(BaseModel):
+    model_config = ConfigDict(extra="forbid", str_strip_whitespace=True)
+
     type: TargetType
     name: str = Field(min_length=1, max_length=500)
     birth_date: date | None = None
@@ -53,13 +63,22 @@ class TargetInput(BaseModel):
         return self
 
 
-class InvestigationCreate(BaseModel):
+class InvestigationCreate(ScopeSettings):
     target: TargetInput
-    purpose: str = Field(min_length=3, max_length=1000)
+    purpose: str = Field(default="", max_length=1000)
     legal_basis_note: str | None = Field(default=None, max_length=2000)
 
+    @model_validator(mode="after")
+    def target_scope_defaults(self) -> "InvestigationCreate":
+        if self.target.type in (TargetType.COMPANY, TargetType.ORGANIZATION):
+            if "expansion_policy" not in self.model_fields_set:
+                self.expansion_policy = ExpansionPolicy.DIRECT_RELATIONS
+            if "max_relation_depth" not in self.model_fields_set:
+                self.max_relation_depth = 1
+        return self
 
-class InvestigationRecord(BaseModel):
+
+class InvestigationRecord(ScopeSettings):
     id: UUID
     target: TargetInput
     purpose: str
@@ -71,10 +90,13 @@ class InvestigationRecord(BaseModel):
 
 class InvestigationEntityRecord(BaseModel):
     id: UUID
-    schema: str
+    entity_schema: str = Field(alias="schema")
     canonical_name: str | None = None
     attributes: dict[str, Any]
     resolution_state: ResolutionState
+    relation_depth: int = 0
+    expansion_state: ExpansionState = ExpansionState.CONTEXT_ONLY
+    material_reason: str | None = None
 
 
 class InvestigationClaimRecord(BaseModel):
@@ -84,11 +106,85 @@ class InvestigationClaimRecord(BaseModel):
     value: Any | None = None
     status: ClaimStatus
     created_at: datetime
+    evidence: list["ClaimEvidenceDetail"] = Field(default_factory=list)
+
+
+class ResearchPassStatus(StrEnum):
+    NOT_STARTED = "NOT_STARTED"
+    ACTIVITY_RECORDED = "ACTIVITY_RECORDED"
+    REQUESTED = "REQUESTED"
+    ENQUEUED = "ENQUEUED"
+    RUNNING = "RUNNING"
+    COMPLETED = "COMPLETED"
+    FAILED = "FAILED"
+
+
+class ResearchPassSummary(BaseModel):
+    executed: int = Field(ge=0)
+    blocked: int = Field(ge=0)
+    failed: int = Field(ge=0)
+    planned: int = Field(default=0, ge=0)
+    stopped_reason: str
+
+
+class ResearchPassState(BaseModel):
+    status: ResearchPassStatus = ResearchPassStatus.NOT_STARTED
+    job_id: UUID | None = None
+    requested_at: datetime | None = None
+    enqueued_at: datetime | None = None
+    started_at: datetime | None = None
+    completed_at: datetime | None = None
+    summary: ResearchPassSummary | None = None
+    error_code: str | None = None
+    error_message: str | None = None
+    legacy_activity: bool = False
+
+
+class InvestigationLeadRecord(BaseModel):
+    id: UUID
+    lead_type: str
+    value: Any
+    reason: str
+    originating_claim_id: UUID | None = None
+    priority: float
+    depth: int
+    status: str
+    scope_area: ScopeModule | None = None
+    trigger_type: TriggerType | None = None
+    information_need: str | None = None
+    relation_depth: int = 0
+    blocked_reason: str | None = None
+    created_at: datetime
+
+
+class ClaimEvidenceDetail(BaseModel):
+    evidence_id: UUID
+    relation: Literal["supports", "contradicts", "context"]
+    document_id: UUID
+    original_url: str | None = None
+    canonical_url: str | None = None
+    source_id: str | None = None
+    source_name: str | None = None
+    fetched_at: datetime
+    sha256: str
+    raw_storage_key: str | None = None
+    locator_type: str
+    locator: dict[str, Any]
+    excerpt: str | None = None
+    structured_value: Any | None = None
+
+
+InvestigationClaimRecord.model_rebuild()
 
 
 class InvestigationDetail(InvestigationRecord):
     entities: list[InvestigationEntityRecord] = Field(default_factory=list)
     claims: list[InvestigationClaimRecord] = Field(default_factory=list)
+    modules: list[InvestigationModuleRecord] = Field(default_factory=list)
+    research: ResearchPassState = Field(default_factory=ResearchPassState)
+    leads: list[InvestigationLeadRecord] = Field(default_factory=list)
+    document_count: int = Field(default=0, ge=0)
+    evidence_count: int = Field(default=0, ge=0)
 
 
 class SearchResult(BaseModel):
@@ -125,6 +221,11 @@ class Lead(BaseModel):
     priority: float = Field(ge=0, le=1)
     depth: int = Field(ge=0)
     originating_claim_id: UUID | None = None
+    scope_area: ScopeModule
+    trigger_type: TriggerType
+    information_need: str = Field(min_length=3, max_length=2000)
+    relation_depth: int = Field(default=0, ge=0, le=3)
+    blocked_reason: str | None = None
 
 
 class VerificationResult(BaseModel):
@@ -227,3 +328,162 @@ class BrregIngestResult(BaseModel):
     evidence_id: UUID
     claim_ids: list[UUID]
     organization: BrregOrganization
+
+
+# =============================================================================
+# Claims, Evidence & Provenance (AQ-020)
+# =============================================================================
+
+
+class SourceRecord(BaseModel):
+    """Raw source record as returned by a SourceAdapter."""
+
+    source_id: str
+    external_id: str
+    source_url: str
+    payload: dict[str, Any]
+
+
+class DocumentRecord(BaseModel):
+    """Canonical document record."""
+
+    id: UUID
+    source_id: str
+    original_url: str
+    canonical_url: str
+    mime_type: str
+    sha256: str
+    raw_storage_key: str | None = None
+    extracted_text: str | None = None
+    parser_metadata: dict[str, Any]
+    fetched_at: datetime
+
+
+class EvidenceRecord(BaseModel):
+    """Immutable evidence snippet anchored to a document."""
+
+    id: UUID
+    document_id: UUID
+    locator_type: str
+    locator: dict[str, Any]
+    excerpt: str | None = None
+    structured_value: dict[str, Any] | None = None
+    content_hash: str
+
+
+class ClaimRecord(BaseModel):
+    """A verifiable claim with evidence support."""
+
+    id: UUID
+    investigation_id: UUID
+    subject_entity_id: UUID | None = None
+    predicate: str
+    value: Any | None = None
+    status: ClaimStatus
+    created_at: datetime
+    verified_at: datetime | None = None
+
+
+class ClaimEvidenceRecord(BaseModel):
+    """Link between a claim and evidence (mirrors claim_evidence.relation)."""
+
+    claim_id: UUID
+    evidence_id: UUID
+    relation: Literal["supports", "contradicts", "context"] = "supports"
+
+
+class EntityRecord(BaseModel):
+    """Resolved entity with canonical attributes."""
+
+    id: UUID
+    entity_schema: str  # Person, Organization, Company, etc.
+    canonical_name: str | None = None
+    attributes: dict[str, Any]
+    resolution_state: ResolutionState
+
+
+class EntityAliasRecord(BaseModel):
+    """Alternative name/identifier for an entity."""
+
+    entity_id: UUID
+    alias: str
+    source_id: str | None = None
+    confidence: float = 1.0
+
+
+class EntityRelationRecord(BaseModel):
+    """Relationship between two entities (mirrors relationships table)."""
+
+    id: UUID
+    subject_entity_id: UUID
+    object_entity_id: UUID
+    predicate: str
+    confidence: float
+    evidence_ids: list[UUID]
+    valid_from: date | None = None
+    valid_to: date | None = None
+
+
+class EntityResolutionCandidate(BaseModel):
+    """Candidate for entity resolution."""
+
+    investigation_id: UUID
+    entity_id: UUID
+    candidate_entity_id: UUID
+    match_score: float = Field(ge=0, le=1)
+    resolution_status: str = "UNRESOLVED"  # MATCH | PROBABLE_MATCH | UNRESOLVED | NOT_MATCH
+    negative_signals: list[str] = Field(default_factory=list)
+
+
+class SourceRegistryRecord(BaseModel):
+    """Source registry record."""
+
+    id: str
+    name: str
+    evidence_tier: int | None = None
+    access_class: str
+    base_url: str | None = None
+    license: str | None = None
+    metadata: dict[str, Any] = Field(default_factory=dict)
+
+
+class DocumentRecordFull(BaseModel):
+    """Full document record with content."""
+
+    id: UUID
+    source_id: str
+    original_url: str
+    canonical_url: str
+    mime_type: str
+    sha256: str
+    raw_storage_key: str | None = None
+    extracted_text: str | None = None
+    parser_metadata: dict[str, Any]
+    fetched_at: datetime
+
+
+class ClaimEvidenceLink(BaseModel):
+    """Link between claim and evidence with relation."""
+
+    claim_id: UUID
+    evidence_id: UUID
+    relation: Literal["supports", "contradicts", "context"] = "supports"
+
+
+class ResolutionReview(BaseModel):
+    """Manual review decision for an entity resolution candidate."""
+
+    model_config = ConfigDict(extra="forbid", str_strip_whitespace=True)
+
+    status: Literal["MATCH", "NOT_MATCH"]
+    reason: str = Field(min_length=3, max_length=1000)
+
+
+class VerificationLeadRequest(BaseModel):
+    """Request a verifier-triggered lead for a claim lacking evidence."""
+
+    model_config = ConfigDict(extra="forbid", str_strip_whitespace=True)
+
+    scope_area: ScopeModule
+    information_need: str | None = Field(default=None, min_length=3, max_length=2000)
+    reason: str | None = Field(default=None, min_length=3, max_length=1000)

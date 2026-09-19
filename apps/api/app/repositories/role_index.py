@@ -145,11 +145,12 @@ async def activate_role_snapshot(
                 completed_at = now(),
                 error_message = NULL
             WHERE id = :snapshot_id AND status = 'IMPORTING'
+            RETURNING id
             """
         ),
         {"snapshot_id": snapshot_id, "record_count": record_count},
     )
-    if result.rowcount != 1:
+    if result.scalar_one_or_none() is None:
         raise RuntimeError("Role snapshot could not be activated")
 
 

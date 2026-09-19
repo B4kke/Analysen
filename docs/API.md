@@ -3,30 +3,51 @@
 Base: `/api/v1`
 
 ## Investigations
+Implementert:
 - `POST /investigations`
-- `GET /investigations/{id}`
+- `GET /investigations/{id}` (consistent snapshot, cache disabled)
+- `GET /investigations/{id}/evidence/{evidence_id}/raw` (hash-verified original attachment)
 - `PATCH /investigations/{id}/scope`
-- `POST /investigations/{id}/run`
-- `POST /investigations/{id}/pause`
-- `POST /investigations/{id}/resume`
-- `GET /investigations/{id}/events` (SSE)
 - `GET /investigations/{id}/modules`
+- `GET /investigations/{id}/report/sections`
+- `POST /investigations/{id}/sources/brreg/organizations/{orgnr}`
+- `POST /investigations/{id}/leads` (201; refuserte forslag lagres som BLOCKED, ikke feil)
+- `POST /investigations/{id}/leads/{lead_id}/execute`
+- `POST /investigations/{id}/research/run` (202, legger én avgrenset worker-pass på kø)
+- `GET /investigations/{id}/export`
+- `DELETE /investigations/{id}` (204)
+
+Planlagt:
+- `POST /investigations/{id}/pause`
+- `GET /investigations/{id}/events` (SSE)
 - `GET /investigations/{id}/coverage`
 
 ### Create contract
-`POST /investigations` skal støtte:
+`POST /investigations` støtter:
 - `target`
 - `purpose`
 - `legal_basis_note`
 - `scope_modules[]`
 - `expansion_policy`
 - `max_relation_depth`
-- eventuelle eksplisitte budgets.
+
+`target.known_orgnrs` og `target.known_organizations` er arrays; `birth_year` er heltall og fødselsfelter er kun tillatt for person. Valgfrie felt utelates eller får tomme arrays. Budget-overstyringer er planlagt. Ukjente request-felter avvises. Tomt scope aktiverer ingen research-modul. Person/domain får standard `CONTEXT_ONLY`, dybde 0; company/organization får `DIRECT_RELATIONS`, dybde 1.
 
 Identitetsavklaring er implisitt systemhygiene og ikke en deaktivérbar scope-modul.
 
+### Detail/read contract (AQ-025)
+`GET /investigations/{id}` returnerer faktiske `modules`, `entities` med expansion/resolution state, `leads` med status/trigger/information need/blocked reason og `claims` med canonical status og `evidence[]`. En citation inneholder evidence-/document-ID, supports/contradicts/context, locator, excerpt/strukturert verdi, kilde-ID/navn, original/canonical URL, SHA, raw-nøkkel og første hentetid. `document_count`/`evidence_count` teller alt tilknyttet kildemateriale, også uten claims. Fravær av claims betyr ikke fravær av dokumenter eller negative funn.
+
+`research` er siste **lagrede passaktivitet**, ikke heartbeat eller bevis for at prosessen lever: `NOT_STARTED`, `ACTIVITY_RECORDED`, `REQUESTED`, `ENQUEUED`, `RUNNING`, `COMPLETED`, `FAILED`, med jobb-ID, fasetidspunkter, typed summary og eventuell `error_code`. Direct ingest/utførte leads kan gi `ACTIVITY_RECORDED` uten worker-pass. Eldre completed-events gir `COMPLETED` med `legacy_activity=true` og null jobb-ID. Ett fullført pass innebærer ikke at alle valgte moduler er undersøkt.
+
+Detaljruten bruker en read-only repeatable-read-transaksjon og `Cache-Control: no-store`, slik at claims, coverage og terminalstatus gjelder samme snapshot. En rask worker kan lagre STARTED/COMPLETED før API lagrer ENQUEUED; faseprioritet innen jobb-ID bevarer terminalstatus. Nyeste jobb velges etter første audit-event, slik at sen fullføring av en eldre jobb ikke skjuler nyere arbeid.
+
+Raw-ruten krever at evidence-dokumentet er tilknyttet den angitte investigation. Foreign/manglende evidence gir 404; manglende/corrupt/ugyldig raw-nøkkel gir 410. SHA og kanonisk raw-path kontrolleres før bytes sendes som `application/octet-stream`, attachment og `nosniff`; lagret HTML kjøres ikke inline.
+
 ### Scope changes
-`PATCH /investigations/{id}/scope` auditerer utvidelse/innsnevring. Nye actions må umiddelbart følge ny scope-state. Innsnevring sletter ikke eksisterende evidence automatisk.
+`PATCH /investigations/{id}/scope` krever hele `scope_modules`, `expansion_policy`, `max_relation_depth` og en ikke-tom `reason` (minst 3 tegn), og auditerer utvidelse/innsnevring. Nye actions må umiddelbart følge ny scope-state. Innsnevring sletter ikke eksisterende evidence automatisk.
+
+Ingest-ruten krever aktiv `BUSINESS_ROLES`, enabled kilde og et company/organization-mål med nøyaktig ett `known_orgnrs` som matcher URL-en. Relaterte entities avvises med 403 før nettverkskall. Dette hindrer omgåelse mens scheduler/materiality-workflow gjenstår. GET-moduler viser alle ni moduler med `enabled`, `status`, `coverage` og `stop_reason`; `NOT_STARTED` betyr ikke undersøkt.
 
 ## BRREG
 Implementert:
@@ -41,6 +62,13 @@ Implementert:
 `legal-roles` returnerer også `next_search_after` når siden kan ha flere treff. Klienten sender denne tilbake som `search_after` i neste kall.
 
 ## Entities/graph
+Implementert:
+- `GET /investigations/{id}/resolution/candidates`: list scorer-produserte kandidater med score, status og negative signaler.
+- `POST /investigations/{id}/resolution/{entity_id}/{candidate_id}`: manuell review med `{status: MATCH|NOT_MATCH, reason}`. Kun PROBABLE_MATCH → MATCH/NOT_MATCH og UNRESOLVED → NOT_MATCH er tillatt; alt annet er 409. Hver beslutning auditeres (`RESOLUTION_REVIEWED`).
+- `POST /investigations/{id}/claims/{claim_id}/verify`: deterministisk entailment-verdict (SUPPORTED/PARTIALLY_SUPPORTED/CONTRADICTED/INSUFFICIENT_EVIDENCE, aldri uten evidens). Ukjent/fremmed claim er 404.
+- `GET /investigations/{id}/contradictions`: par med uforenlige verdier på samme subject/predicate.
+- `POST /investigations/{id}/claims/{claim_id}/verification-lead`: verifier-triggered lead (`CONTRADICTION` ved motstrid, ellers `WEAK_SOURCE_ONLY`) gjennom den deterministiske gaten; 201 med PENDING eller BLOCKED.
+
 Planlagt:
 - `GET /investigations/{id}/entities`
 - `GET /investigations/{id}/graph`
@@ -51,6 +79,12 @@ Planlagt:
 
 Graph/read models skal eksponere `relation_depth` og `expansion_state` slik at UI kan skille target/material/researched/context-only.
 
+## Leads, eksekvering og research-loop
+Implementert (alle deterministiske og modellfrie; modellen foreslår, gaten bestemmer):
+- `POST /investigations/{id}/leads`: valider og lagr forslag; returnerer `PENDING` eller `BLOCKED` med årsak + `LEAD_PROPOSED`-audit. Passive discovery-triggere kan aldri bli `PENDING`.
+- `POST /investigations/{id}/leads/{lead_id}/execute`: kjør ett PENDING-lead (allowlisted typer: `brreg_organization_lookup`, `searxng_discovery`, `web_document_fetch`, `pdf_document_process`, hver til sin executor via source-router). Gaten sjekkes på nytt ved kjøring. Returnerer terminal `COMPLETED`/`BLOCKED`/`FAILED` med coverage-oppdatering og audit.
+- `POST /investigations/{id}/research/run`: 202 med `{investigation_id, status: ENQUEUED, job_id}`. REQUESTED committes før publisering, ENQUEUED etter bekreftet send. Aktiv REQUESTED/ENQUEUED/RUNNING gir 409; broker-feil lagres som FAILED/enqueue_failed og gir 503. Passet har default maks 10 leads, velger frontier → evaluerer trigger → kjører og committer per lead. STARTED/COMPLETED/FAILED har samme jobb-ID. Ukjent/unexpected worker-feil rulles tilbake og får eksplisitt FAILED/research_pass_failed uten raw exception-tekst. Kilde-/lead-feil er terminale leads og vises i summary.failed for et ellers fullført pass.
+
 ## Claims/evidence
 Planlagt:
 - `GET /investigations/{id}/claims`
@@ -59,14 +93,19 @@ Planlagt:
 - `GET /investigations/{id}/leads`
 - `GET /investigations/{id}/search-queries`
 
-Lead/query read models skal eksponere `scope_area`, `trigger_type/query_class`, `information_need`, `reason`, status og eventuell `blocked_reason`.
+Lead/query read models skal eksponere `scope_area`, `trigger_type/query_class`, `information_need`, `reason`, status og eventuell `blocked_reason`. Detaljresponsen dekker lead/claim-evidence-lesing; dedikerte/paginerte ruter gjenstår. Eksportbehovet dekkes av `GET /investigations/{id}/export`, som inkluderer leads, dokumenter med raw-nøkler og audit.
 
 ## Reports
+Implementert:
+- `GET /investigations/{id}/report/sections`: dynamiske dekningsseksjoner (undersøkt, med mangler, ikke undersøkt, utilgjengelig, ikke valgt) med coverage per modul. Deaktiverte moduler presenteres aldri som negative funn.
+- `GET /investigations/{id}/report.json`: fullt typed rapportdokument (funn med citations per status, uavklarte spor, kontekst-entiteter kun ved navn, dekning). Samme JSON som HTML og PDF rendres fra.
+- `GET /investigations/{id}/report.html`: norsk standardrapport (lang=nb, escapet output, ingen JS) med klikkbare citations.
+- `GET /investigations/{id}/report.pdf`: PDF-bytes fra samme rapport-JSON; lovlig embeddable NB-crops lastes fra hash-verifisert raw-store og bygges inn i PDF.
+- `GET /investigations/{id}/media/image/{document_id}`: case-gatet inline-bilde for et lagret media-crop. Ruten krever samme investigation, `image_embeddable=true` og at mentionens `evidence_id` peker på Evidence for nøyaktig samme Document; ellers 404. Bytes verifiseres mot lagret SHA før respons.
+
 Planlagt:
-- `POST /investigations/{id}/reports`
+- `POST /investigations/{id}/reports` (persistert draft/reviewed/final-states; `reports`-tabellen finnes)
 - `GET /reports/{id}`
-- `GET /reports/{id}.html`
-- PDF kommer etter HTML renderer.
 
 Report JSON skal inneholde module coverage og eksplisitt skille `UNDERSØKT`, `UNDERSØKT_MED_GAPS`, `IKKE_UNDERSØKT`, `BLOKKERT_UTILGJENGELIG`.
 
@@ -74,9 +113,13 @@ Report JSON skal inneholde module coverage og eksplisitt skille `UNDERSØKT`, `U
 - `GET /sources`
 - `GET /models`
 - `GET /policies`
-- `GET /health`
-- `GET /ready`
+
+Uten `/api/v1`-prefiks:
+- `GET /health`: 200 for en kjørende prosess.
+- `GET /ready`: 200 når PostgreSQL er på gjeldende migreringsversjon og Redis svarer; ellers 503.
 
 `GET /sources` viser global source availability. Dette er ikke det samme som at en source er autorisert i en konkret investigation; scope gate avgjør det.
 
 Alle write requests bruker typed Pydantic schemas. API returnerer aldri secrets eller intern modellresonnering.
+
+REQUESTED etter prosesskrasj mellom DB-commit og broker-send, hard worker-krasj etter STARTED og replay av job_id krever durable outbox/checkpoint/recovery i AQ-023. Statusene slettes eller terminaliseres ikke ved tidsbasert gjetting. API/worker må deployes fra samme kodeversjon.

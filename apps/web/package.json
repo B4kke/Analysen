@@ -4,18 +4,21 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build",
-    "start": "next start"
+    "start": "next start",
+    "typecheck": "tsc --noEmit",
+    "test:smoke": "node tests/smoke.cjs"
   },
   "dependencies": {
+    "cytoscape": "^3.31.2",
     "next": "16.3.5",
     "react": "19.3.0",
-    "react-dom": "19.3.0",
-    "cytoscape": "^3.31.2"
+    "react-dom": "19.3.0"
   },
   "devDependencies": {
     "@types/node": "^22.0.0",
     "@types/react": "^19.0.0",
     "@types/react-dom": "^19.0.0",
+    "playwright": "1.63.0",
     "typescript": "^5.9.0"
   }
 }

@@ -7,7 +7,13 @@ from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from apps.api.app.domain.models import BrregIngestResult, BrregOrganization, ClaimStatus
+from apps.api.app.repositories.claims_evidence import (
+    claim_fingerprint,
+    evidence_content_hash,
+    upsert_document,
+)
 from apps.api.app.services.entity_resolution import normalize_name
+from apps.api.app.services.raw_store import store_raw_snapshot
 from apps.api.app.sources.base import SourceRecord
 
 
@@ -17,10 +23,6 @@ def _canonical_json(value: Any) -> str:
 
 def _sha256_text(value: str) -> str:
     return hashlib.sha256(value.encode("utf-8")).hexdigest()
-
-
-def _claim_fingerprint(entity_id: UUID, predicate: str, value: Any) -> str:
-    return _sha256_text(f"{entity_id}:{predicate}:{_canonical_json(value)}")
 
 
 async def _ensure_source(session: AsyncSession) -> None:
@@ -53,44 +55,20 @@ async def _upsert_document(
 ) -> UUID:
     payload_json = _canonical_json(record.payload)
     digest = _sha256_text(payload_json)
-    row = (
-        await session.execute(
-            text(
-                """
-                INSERT INTO documents (
-                    source_id,
-                    original_url,
-                    canonical_url,
-                    mime_type,
-                    sha256,
-                    parser_metadata
-                )
-                VALUES (
-                    :source_id,
-                    :source_url,
-                    :source_url,
-                    'application/json',
-                    :sha256,
-                    CAST(:parser_metadata AS jsonb)
-                )
-                ON CONFLICT (sha256) DO UPDATE SET
-                    fetched_at = now(),
-                    original_url = EXCLUDED.original_url,
-                    canonical_url = EXCLUDED.canonical_url
-                RETURNING id
-                """
-            ),
-            {
-                "source_id": record.source_id,
-                "source_url": record.source_url,
-                "sha256": digest,
-                "parser_metadata": _canonical_json(
-                    {"external_id": record.external_id, "format": "brreg-json"}
-                ),
-            },
-        )
-    ).mappings().one()
-    return row["id"]
+    # Immutable raw snapshot is written before normalization or any model sees
+    # the payload; the digest ties the database row to the stored bytes.
+    _, storage_key = store_raw_snapshot(payload_json)
+    return await upsert_document(
+        session,
+        source_id=record.source_id,
+        original_url=record.source_url,
+        canonical_url=record.source_url,
+        mime_type="application/json",
+        sha256=digest,
+        raw_storage_key=storage_key,
+        extracted_text=None,
+        parser_metadata={"external_id": record.external_id, "format": "brreg-json"},
+    )
 
 
 async def _attach_document(
@@ -116,24 +94,9 @@ async def _root_evidence(
     organization: BrregOrganization,
 ) -> UUID:
     locator = {"pointer": "/"}
-    existing = (
-        await session.execute(
-            text(
-                """
-                SELECT id
-                FROM evidence
-                WHERE document_id = :document_id
-                  AND locator_type = 'json_pointer'
-                  AND locator = CAST(:locator AS jsonb)
-                LIMIT 1
-                """
-            ),
-            {"document_id": document_id, "locator": _canonical_json(locator)},
-        )
-    ).mappings().one_or_none()
-    if existing is not None:
-        return existing["id"]
-
+    # Canonical content-addressed dedup key (same formula as
+    # claims_evidence.store_evidence); NOT NULL since 0004.
+    content_hash = evidence_content_hash(document_id, "json_pointer", locator, None)
     row = (
         await session.execute(
             text(
@@ -142,14 +105,17 @@ async def _root_evidence(
                     document_id,
                     locator_type,
                     locator,
-                    structured_value
+                    structured_value,
+                    content_hash
                 )
                 VALUES (
                     :document_id,
                     'json_pointer',
                     CAST(:locator AS jsonb),
-                    CAST(:structured_value AS jsonb)
+                    CAST(:structured_value AS jsonb),
+                    :content_hash
                 )
+                ON CONFLICT (content_hash) DO NOTHING
                 RETURNING id
                 """
             ),
@@ -159,10 +125,19 @@ async def _root_evidence(
                 "structured_value": _canonical_json(
                     organization.model_dump(mode="json", exclude_none=True)
                 ),
+                "content_hash": content_hash,
             },
         )
+    ).mappings().one_or_none()
+    if row is not None:
+        return row["id"]
+    existing = (
+        await session.execute(
+            text("SELECT id FROM evidence WHERE content_hash = :content_hash"),
+            {"content_hash": content_hash},
+        )
     ).mappings().one()
-    return row["id"]
+    return existing["id"]
 
 
 async def _upsert_entity(
@@ -297,7 +272,9 @@ async def _upsert_claim(
     evidence_id: UUID,
 ) -> UUID:
     json_value = value.isoformat() if hasattr(value, "isoformat") else value
-    fingerprint = _claim_fingerprint(entity_id, predicate, json_value)
+    # Canonical investigation-scoped idempotency key (same formula as
+    # claims_evidence.upsert_claim); matches ON CONFLICT (investigation_id, fingerprint).
+    fingerprint = claim_fingerprint(investigation_id, entity_id, predicate, json_value)
     row = (
         await session.execute(
             text(
@@ -309,7 +286,8 @@ async def _upsert_claim(
                     value,
                     status,
                     fingerprint,
-                    generated_by
+                    generated_by,
+                    verified_at
                 )
                 VALUES (
                     :investigation_id,
@@ -318,11 +296,20 @@ async def _upsert_claim(
                     CAST(:value AS jsonb),
                     :status,
                     :fingerprint,
-                    'source:brreg_entities'
+                    'source:brreg_entities',
+                    CASE WHEN :status IN (
+                        'SUPPORTED', 'PARTIALLY_SUPPORTED', 'CONTRADICTED'
+                    ) THEN now() ELSE NULL END
                 )
                 ON CONFLICT (investigation_id, fingerprint) DO UPDATE SET
                     status = EXCLUDED.status,
-                    value = EXCLUDED.value
+                    value = EXCLUDED.value,
+                    verified_at = CASE
+                        WHEN EXCLUDED.status IN (
+                            'SUPPORTED', 'PARTIALLY_SUPPORTED', 'CONTRADICTED'
+                        ) THEN now()
+                        ELSE claims.verified_at
+                    END
                 RETURNING id
                 """
             ),

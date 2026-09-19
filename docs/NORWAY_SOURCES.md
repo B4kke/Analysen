@@ -54,41 +54,28 @@ Pipeline: hent år -> snapshot PDF -> native parse -> tabeller -> OCR/VLM fallba
 Konkursregisteret publiserer blant annet åpning/endring/avslutning av bobehandling, tvangsavvikling og tvangsoppløsning. Web-adapter må følge nettstedets vilkår/rate limits; ikke anta et API som ikke er dokumentert.
 
 ## Implementert: Nasjonalbiblioteket
-Base: `https://api.nb.no/catalog/v1`
 
-Adapter: `apps/api/app/sources/national_library.py`.
+Autoritativ detaljspesifikasjon: `docs/NATIONAL_LIBRARY.md`.
 
-### Hva API-et gir
-- `GET /items`: katalog- og fulltekstsøk i blant annet bøker, aviser, tidsskrifter, bilder og annet digitalisert materiale.
-- `GET /items/{id}`: item + metadata + `accessInfo`.
-- `GET /items/{id}/contentfragments`: OCR-/tekstfragmenter rundt treff.
-- `GET /metadata/{id}/...`: strukturert metadata i flere formater.
-- IIIF/image-tjenester finnes i NB-økosystemet og kan legges til senere når capture-policy er utvidet/testet.
+Analysen bruker NB som en **mixed-rights** historisk mediekilde, ikke som et
+enkelt metadata-API. Den implementerte kjeden er:
 
-### Bruk i Analysen
-NB skal brukes særlig ved:
-- historiske person-/virksomhetsnavn og alias,
-- tidsavgrenset mediehistorikk,
-- eldre lokalavisomtale som ikke finnes i vanlig web-indeks,
-- verifisering av at en konkret publikasjon/utgave eksisterer,
-- oppfølging av `TEMPORAL_GAP`, `NEW_VERIFIED_ALIAS` og historisk `MEDIA_CORROBORATION`.
+`target/verified alias -> nb_newspaper_search -> Catalog FULL_TEXT_SEARCH -> raw snapshot -> issue candidate -> item-level rights gate -> contentfragments page locator -> IIIF xywh -> DH-lab context -> permitted page/crop OCR -> MediaMention -> identity resolution -> Evidence/Claim -> verifier -> report`.
 
-Typisk query for avis:
-- `searchType=FULL_TEXT_SEARCH`
-- `filter=mediatype:aviser`
-- `filter=digital:Ja`
+Live Catalog-parseren håndterer den observerte grupperte responsformen under
+`_embedded.mediaTypeResults[].result._embedded.items` i tillegg til eldre
+flatare responsformer.
 
-### Rettighets- og evidence-regel
-Katalogtreff og metadata kan brukes som discovery og til å dokumentere selve publikasjonen. OCR-/bildemateriale skal **ikke** automatisk kopieres fordi itemet er søkbart.
+Rettighetsreglene er konservative:
+- `LIBRARY_ONLY`, `NB_ONLY` og ukjent/ufullstendig rights-metadata blokkerer sidehenting.
+- `PUBLIC_VIEW_ONLY` kan tillate rettighetsgodkjent in-memory behandling og avledet crop, men full side lagres ikke og bildet embeddes ikke i rapport.
+- `PUBLIC_REUSE` krever eksplisitt gjenbruksgrunnlag før rapport-embedding.
+- Ingen innloggings-, pliktavleverings-, geografi-, token- eller annen tilgangsbypass.
 
-Adapteren leser `accessInfo` og har konservativ default:
-- materialet må være digitalisert,
-- `isPublicDomain=true`,
-- ingen legal-deposit-login-markør,
-- ingen kjent geografi-/bibliotekbegrensning,
-- ingen eksplisitt ikke-viewable/restricted-status.
-
-Hvis dette ikke er oppfylt, får systemet beholde metadata/lenke som discovery, men `content_fragments()` blokkerer lokal OCR-capture. Ingen innloggings-, pliktavleverings- eller geografisk bypass.
+Et avisnavnetreff er aldri identitetsbevis. Mediefunn starter `UNRESOLVED`.
+Deterministisk identitetsvurdering kan bare promotere med corroborerende
+target-signaler; `MATCH` blir verifier-støttet claim, mens
+`PROBABLE_MATCH` bare kan gi delvis/context-støtte.
 
 ## Verifiserte kandidater — høy prioritet
 

@@ -42,20 +42,18 @@ sources:
 
   national_library_no:
     enabled: true
-    access: OPEN_NO_KEY
+    access: MIXED_RIGHTS
     evidence_tier: 2
     base_url: https://api.nb.no/catalog/v1
-    search_endpoint: /items
-    item_endpoint: /items/{id}
-    content_fragments_endpoint: /items/{id}/contentfragments
-    metadata_endpoint: /metadata/{id}/{format}
-    license: PER_ITEM_ACCESSINFO
-    content_capture_policy: PUBLIC_DOMAIN_ONLY
+    dhlab_base_url: https://api.nb.no/dhlab
+    license: PER_ITEM_RIGHTS
+    rights_policy: ITEM_LEVEL_FAIL_CLOSED
     notes:
-      - Catalog metadata and full-text search may return restricted items.
-      - OCR content capture requires adapter access-policy approval.
-      - Never bypass legal-deposit login, geography, viewability, or other access controls.
-
+      - Catalog discovery may return restricted material.
+      - Rights are normalized per item before page/image fetch.
+      - PUBLIC_VIEW_ONLY may be processed in memory for a permitted derived crop; the full page is not retained.
+      - Report embedding requires explicit reuse permission.
+      - Never bypass legal-deposit login, geography, library-only access or other controls.
   beneficial_owners_no:
     enabled: false
     access: ENTITLEMENT_REQUIRED

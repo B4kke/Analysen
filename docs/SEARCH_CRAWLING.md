@@ -28,17 +28,19 @@ Foretrekk direkte source adapter foran bred websearch:
 - SearXNG/GDELT for bred omtale/discovery.
 
 ## Fetch waterfall
-1. `httpx` + Trafilatura for enkel HTML.
-2. Crawl4AI for struktur/JS/deep crawl der tillatt og nødvendig.
-3. Playwright kun når nødvendig.
+1. Kontrollert `httpx` henter og lagrer originale responsbytes før ekstraksjon.
+2. Trafilatura og Crawl4AIs markdown-generator ekstraherer det lagrede HTML-innholdet uten egen nettverkstilgang.
+3. Playwright brukes ved nødvendig JavaScript-rendering. Chromium er offline; dokumenter, scripts og XHR går gjennom samme kontrollerte HTTP-fetch via route fulfillment. Service workers og WebSockets blokkeres. Renderet HTML lagres som avledet snapshot med separat hash; originalhash og hentetid beholdes.
+
+Denne waterfall tillater ikke automatisk deep crawl. Hver ekstra ressurs belastes samme request-/domenegrenser.
 
 Deep crawl skal fortsatt være bundet til scope, information need og domain/page budget.
 
 ## URL-policy
-Kun http/https. DNS/IP kontrolleres før og etter redirect. Blokker localhost, RFC1918/private, link-local, metadata endpoints og `file://`.
+Kun http/https uten innebygde credentials. Hvert redirect-hop valideres på nytt. HTTP-transporten resolver DNS og kobler direkte til en kontrollert offentlig IP med opprinnelig Host/TLS-SNI; proxy fra miljøet brukes ikke. Ikke-offentlige, multicast og private/mapped adresser avvises, inkludert localhost, link-local og metadata endpoints.
 
 ## Domain policy
-Per-domain concurrency, delay, max pages og failure backoff. Respekter eksplisitte tilgangsbegrensninger og ikke forsøk CAPTCHA/login bypass.
+Robots sjekkes før hvert nytt domene/hop. Robots 404 gir eksplisitt fravær; tilgangsfeil og utilgjengelig robots gir fail-closed. Per-domene concurrency gjelder hele respons-streamen, og requests har delay, sidebudsjett og en samlet request-grense per fetcher. Redirects er begrenset til tre. Wire- og dekomprimert innhold kontrolleres mot størrelsesgrensen under lesing. Respekter eksplisitte tilgangsbegrensninger og ikke forsøk CAPTCHA/login bypass.
 
 ## Canonicalization
 Fjern kjente tracking params, normaliser host/scheme/trailing slash forsiktig og behold original URL. Dedup med canonical URL + content hash.

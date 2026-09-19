@@ -525,10 +525,7 @@ def embedding_request(
         if last.status_code not in {400, 422}:
             return last
     return last or CallResult(
-        ok=False,
-        latency_s=0.0,
-        attempts=0,
-        error="embedding call not attempted",
+        ok=False, latency_s=0.0, attempts=0, error="embedding call not attempted"
     )
 
 
@@ -669,9 +666,7 @@ def summarize(results: list[CaseResult]) -> dict[str, Any]:
                 "p95_latency_s": round(max(latencies), 3) if latencies else None,
                 "json_valid_rate_pct": (
                     round(
-                        100.0
-                        * sum(1 for item in json_items if item.json_valid)
-                        / len(json_items),
+                        100.0 * sum(1 for item in json_items if item.json_valid) / len(json_items),
                         2,
                     )
                     if json_items

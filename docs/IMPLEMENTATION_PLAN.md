@@ -128,12 +128,7 @@ Kun etter stabil MVP:
 Monitoring arver samme scope/expansion-regler; en monitor skal ikke gradvis utvide saken på egen hånd.
 
 ## Prioritert neste arbeid
-Aktiv kø er autoritativ i `docs/TASK_QUEUE.md`. P0 etter dokumentoppdateringen:
-1. Implementer scope i API/domain/schema.
-2. Implementer scope/expansion gate i planner/scheduler.
-3. Implementer trigger evaluator og typed search metadata.
-4. Implementer coverage ledger og dynamisk UI/report.
-5. Legg til scope/trigger eval-suite.
+Aktiv kø er autoritativ i `docs/TASK_QUEUE.md`. MVP-kjeden AQ-001–AQ-030 og NB-utvidelsene AQ-031–AQ-040 er lukket med E2E-/kontraktbevis. Nye behov skal opprettes som egne queue-items med eksplisitt scope, acceptance og integrert verifikasjon.
 
 ## Definition of done for MVP
 - Norsk person kan identifiseres med eksplisitt usikkerhet.

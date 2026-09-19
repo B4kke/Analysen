@@ -2,29 +2,30 @@
 
 ```text
 Analysen/
-├── .github/workflows/ci.yml
 ├── apps/
 │   ├── api/app/
-│   │   ├── core/
-│   │   ├── domain/
-│   │   ├── providers/
-│   │   ├── services/
-│   │   └── sources/
-│   ├── worker/app/
-│   └── web/app/
-├── config/
-│   ├── models.yaml
-│   ├── policies.yaml
-│   └── sources.yaml
-├── db/schema.sql
-├── docker/
-├── docs/
-├── prompts/
-├── tests/
-├── .env.example
+│   │   ├── api/routes/         HTTP-kontrakter og execution gates
+│   │   ├── core/               settings, YAML-validering, database/readiness
+│   │   ├── domain/             typed mål, scope, leads og coverage
+│   │   ├── repositories/       PostgreSQL-transaksjoner og audit
+│   │   ├── providers/          NIM-provider
+│   │   ├── services/           deterministisk domene-/policylogikk
+│   │   └── sources/            adapters for eksterne kilder
+│   ├── worker/app/             Dramatiq/Redis og bakgrunnsjobber
+│   └── web/                   Next.js, undersøkelsesskjema og leseflate
+├── config/                    modeller, kilder, policy og SearXNG
+├── db/migrations/             Alembic og frosne SQL-revisjoner
+├── db/schema.sql              lesbar skjemaoversikt
+├── docker/                    separate API-/web-bygg
+├── prompts/                   versjonerte LLM-kontrakter
+├── tests/integration/         ekte PostgreSQL + API, eksterne adapters erstattes
+├── tests/                     deterministiske unit-/kontrakttester
+├── docs/                      arkitektur, beslutninger, arbeidskø, drift
+├── .github/workflows/ci.yml
+├── alembic.ini
 ├── docker-compose.yml
-├── Makefile
-└── README.md
+├── requirements*.lock         låste runtime/dev/research-avhengigheter
+└── Makefile
 ```
 
-Når databasen blir aktivt migrert, flytt `db/schema.sql` til Alembic baseline + migrations uten å miste schema-dokumentasjonen.
+API eier database og domene. Web bruker HTTP-kontrakten og deler ingen databaselegitimasjon. Worker gjenbruker domene/services/repositories. SQL-migreringer eies av én koordinator; historiske migreringer endres ikke etter utrulling. PostgreSQL er autoritativt; Redis er kø/cache. Ingen direkte kobling fra LLM til database eller eksterne verktøy uten deterministisk gate.

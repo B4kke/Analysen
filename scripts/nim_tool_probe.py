@@ -41,8 +41,8 @@ TOOLS = [
         "function": {
             "name": "web_search",
             "description": (
-                "Search public web pages when an authoritative registry "
-                "is not the right first source."
+                "Search public web pages when an authoritative registry is not "
+                "the right first source."
             ),
             "parameters": {
                 "type": "object",
