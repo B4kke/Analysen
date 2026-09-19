@@ -47,12 +47,20 @@ class SourceConfig(StrictModel):
     access: Literal[
         "OPEN_NO_KEY",
         "PUBLIC_WEB",
+        "PUBLIC_ACCESS",
+        "OPEN_DOWNLOAD",
+        "PUBLIC_WEB_DOWNLOAD",
+        "MIXED_RIGHTS",
         "SELF_HOSTED",
         "ENTITLEMENT_REQUIRED",
+        "PUBLIC_API_KEY_REQUIRED",
+        "PUBLIC_REGISTRATION_REQUIRED",
+        "API_KEY_REQUIRED",
         "DISABLED_BY_POLICY",
     ]
     evidence_tier: int | None = Field(default=None, ge=1, le=5)
     base_url: HttpUrl | None = None
+    dhlab_base_url: HttpUrl | None = None
     endpoint: str | None = None
     url: HttpUrl | None = None
     reference: HttpUrl | None = None
@@ -64,12 +72,22 @@ class SourceConfig(StrictModel):
     discovery_only: bool | None = None
     historical: bool | None = None
     base_url_env: str | None = None
+    candidate: bool | None = None
+    retention_policy: str | None = None
+    rights_policy: str | None = None
+    notes: list[str] | None = None
 
     @model_validator(mode="after")
     def validate_disabled_source(self) -> "SourceConfig":
         if not self.enabled and not self.reason:
             raise ValueError("disabled sources must document a reason")
-        if self.enabled and self.access in {"ENTITLEMENT_REQUIRED", "DISABLED_BY_POLICY"}:
+        if self.enabled and self.access in {
+            "ENTITLEMENT_REQUIRED",
+            "PUBLIC_API_KEY_REQUIRED",
+            "PUBLIC_REGISTRATION_REQUIRED",
+            "API_KEY_REQUIRED",
+            "DISABLED_BY_POLICY",
+        }:
             raise ValueError(f"source access class {self.access} cannot be enabled")
         if self.discovery_only and self.evidence_tier is not None:
             raise ValueError("discovery-only sources cannot have an evidence tier")
