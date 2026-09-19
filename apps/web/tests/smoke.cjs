@@ -87,6 +87,47 @@ async function createThroughForm(page, type, name, purpose, extra = {}) {
     const firstTerminal = await waitForTerminal(companyId);
     assert.equal(firstTerminal.research.status, "COMPLETED");
 
+    // Render persisted queue/worker states explicitly so the UI cannot regress
+    // to calling an ENQUEUED job "running".
+    const now = new Date().toISOString();
+    const queuedBody = {
+      ...firstTerminal,
+      research: {
+        ...firstTerminal.research,
+        status: "ENQUEUED",
+        job_id: "00000000-0000-0000-0000-000000000041",
+        requested_at: now,
+        enqueued_at: now,
+        started_at: null,
+        completed_at: null,
+        summary: null,
+        error_code: null,
+      },
+    };
+    await page.route(`${api}/api/v1/investigations/${companyId}`, (route) =>
+      route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(queuedBody) }),
+    );
+    await page.goto(`${web}/investigations/${companyId}`);
+    await page.getByText("Jobben er købekreftet").waitFor();
+    assert.doesNotMatch(await page.locator("main").innerText(), /Research kjører/);
+    await page.unroute(`${api}/api/v1/investigations/${companyId}`);
+
+    const runningBody = {
+      ...firstTerminal,
+      research: {
+        ...queuedBody.research,
+        status: "RUNNING",
+        started_at: now,
+      },
+    };
+    await page.route(`${api}/api/v1/investigations/${companyId}`, (route) =>
+      route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(runningBody) }),
+    );
+    await page.reload();
+    await page.getByText("Research kjører", { exact: true }).waitFor();
+    assert.match(await page.locator("main").innerText(), /Worker har startet/);
+    await page.unroute(`${api}/api/v1/investigations/${companyId}`);
+
     const personId = await createThroughForm(
       page,
       "person",
