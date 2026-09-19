@@ -91,3 +91,17 @@ Alle primære views skal være responsive. Graf får liste-/timeline-fallback p�
 ## Implementert live-state (AQ-025)
 
 Detaljsiden leser faktisk passaktivitet, moduler/coverage/stop-årsak, entities/expansion, leads og claim/evidence fra API. Aktivt pass oppdateres med polling etter at forrige lesing er fullført; manuell statusoppdatering finnes, gamle svar kan ikke overskrive nyere data, og oppdateringsfeil beholder tidligere data med varsel. Siste lagrede status og tidspunkt vises uten liveness-garanti. Completed gjelder ett pass, og uvalgte/ikke undersøkte moduler beholder sin status. Påstander skiller støttet/delvis/motstrid/utilstrekkelig/uverifisert, med original kilde, relevant evidens og hentetid. Dokument-/evidence-tellinger inkluderer materiale som ennå ikke har claims. Originalsnapshot lastes ned via hash-verifisert attachment. Full rapportvisning er implementert fra canonical report JSON, inkludert medienevnter og rettighetsstyrt visning av lagrede artikkelcrops. Graf/editor og SSE gjenstår. Opprettelsesskjema bruker arrays for kjente virksomheter/orgnr, heltall for fødselsår og sender fødselsdata kun ved personmål.
+
+## Research-start og progresjon (AQ-041)
+
+Primærflyten skal være «velg søkeområder → opprett → research starter». Når minst ett søkeområde er valgt, sender webklienten POST /research/run automatisk etter vellykket saksopprettelse og går deretter til detaljsiden. Tomt scope er fortsatt tillatt, men UI må eksplisitt si at ingen research vil starte.
+
+Detaljsiden skiller backend-tilstandene sannferdig:
+- REQUESTED: startforespørselen er lagret, men køsystemet har ikke bekreftet jobben.
+- ENQUEUED: jobben er købekreftet, men en worker har ikke registrert start.
+- RUNNING: en worker har registrert RESEARCH_PASS_STARTED.
+- COMPLETED/FAILED: terminaltilstand for siste pass.
+
+UI skal ikke kalle REQUESTED/ENQUEUED for «kjører». Det finnes foreløpig ikke heartbeat, derfor betyr RUNNING at worker har startet passet, ikke at UI kan bevise kontinuerlig prosess-liveness. Siden viser requested/enqueued/started/completed-tidspunkter, jobb-ID, siste vellykkede UI-lesing og at aktiv status poller hvert 2,5 sekund.
+
+Fremdriftsmeteren er fasebasert (sak → kø → worker → resultat), ikke en påstått prosent av totalt research-arbeid. Lead-teller, dokumenter, evidence og modulstatus gir separat konkret fremdrift. Interne modulenum erstattes i primærvisningen med norske navn og tydelige statusmerker.
