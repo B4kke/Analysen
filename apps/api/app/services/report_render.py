@@ -10,8 +10,9 @@ from __future__ import annotations
 
 import html
 import json
+from collections.abc import Mapping
 from io import BytesIO
-from typing import Any, Mapping
+from typing import Any
 from uuid import UUID
 
 from fpdf import FPDF
