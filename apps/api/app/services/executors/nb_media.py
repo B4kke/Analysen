@@ -49,12 +49,12 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from apps.api.app.domain.models import ClaimStatus, Lead, ResolutionState
 from apps.api.app.domain.scope import QueryClass, ScopeModule, TriggerType
 from apps.api.app.repositories import investigations as repository
+from apps.api.app.services.media_identity import load_verified_aliases, resolve_media_identity
 from apps.api.app.services.nb_article_extract import (
     NBExtractError,
     PageOcrFn,
     extract_permitted_article,
 )
-from apps.api.app.services.media_identity import load_verified_aliases, resolve_media_identity
 from apps.api.app.services.nb_article_locator import match_page_anchors, parse_original_url
 from apps.api.app.services.raw_store import store_raw_bytes, store_raw_snapshot
 

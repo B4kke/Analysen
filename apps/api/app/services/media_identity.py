@@ -26,9 +26,16 @@ class MediaIdentityResult:
     reasons: tuple[str, ...]
 
 
+def _search_normalize(value: str) -> str:
+    """Normalize punctuation as separators for conservative phrase matching."""
+    return " ".join(
+        part for part in re.sub(r"[^a-z0-9]+", " ", normalize_name(value)).split() if part
+    )
+
+
 def _contains_normalized(haystack: str, needle: str) -> bool:
-    normalized_haystack = f" {normalize_name(haystack)} "
-    normalized_needle = normalize_name(needle)
+    normalized_haystack = f" {_search_normalize(haystack)} "
+    normalized_needle = _search_normalize(needle)
     return bool(normalized_needle) and f" {normalized_needle} " in normalized_haystack
 
 
