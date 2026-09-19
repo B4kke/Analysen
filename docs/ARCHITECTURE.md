@@ -104,7 +104,7 @@ Investigations opprettes med eksplisitte moduler (standard ingen). Scope-oppdate
 
 BRREG-ingest tillates foreløpig bare for et entydig company/organization-mål med ett `known_orgnrs` og aktiv `BUSINESS_ROLES`. Generiske BRREG GET-ruter er manuelle registeroppslag, ikke del av en automatisk investigation. Utvidelse til relaterte entities krever senere scheduler/materiality-workflow; discovery eller et oppgitt personnavn gir ingen autorisasjon.
 
-`Lead`, `SearchMetadata`, module coverage og expansion states har typed kontrakter og databasestruktur. Deterministisk frontier/trigger-evaluator, BRREG target-executor, avgrenset worker-pass med integrert NIM-planner og dekningsrapport er implementert. Flere source executors, entailment-verifier og full rapportmotor gjenstår i arbeidskøen.
+`Lead`, `SearchMetadata`, module coverage og expansion states har typed kontrakter og databasestruktur. Deterministisk frontier/trigger-evaluator, avgrenset worker-pass med integrert NIM-planner, allowlistet source-router (BRREG/SearXNG/web/PDF/NB), verifier/citation-gate og full report builder/rendering er implementert. Videre arbeid skal legges som eksplisitte queue-items i stedet for å omtale allerede leverte deler som fremtidig arkitektur.
 
 ## Lead admission (AQ-005)
 

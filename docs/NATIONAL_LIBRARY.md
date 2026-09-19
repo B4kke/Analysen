@@ -359,7 +359,7 @@ Hver report media mention skal minst kunne inneholde:
 - image_embeddable
 - citations
 
-Når crop/fulltekst kan inkluderes lovlig, kan HTML/PDF vise den med kilde/attribution/hash.
+Når crop/fulltekst kan inkluderes lovlig, viser Next.js/HTML cropen via det case-gatede `GET /investigations/{id}/media/image/{document_id}`-endepunktet og PDF kan bygge inn de samme hash-verifiserte raw-store-bytene. Endepunktet svarer bare når `image_embeddable=true` og dokumentet er knyttet til samme investigation.
 
 Når innhold ikke kan inkluderes, vis metadata, lawful context og direkte NB-link med eksplisitt access forklaring.
 

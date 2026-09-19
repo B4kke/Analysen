@@ -329,7 +329,14 @@ Fullførte oppgaver beholdes her for sporbarhet inntil en senere opprydding flyt
 ### AQ-039 — NB Catalog live-parserfiks (rotårsak: tom kandidatliste)
 **Status:** DONE
 **Verifisert 2026-09-19:** Live-reproduksjon av brukerfeilen: NB-leads «COMPLETED» men `candidate_count=0`/`mention_count=0` — Catalog-endepunktet leverer nå hits gruppert under `_embedded.mediaTypeResults[].result._embedded.items` med `accessInfo`/`metadata.identifiers.urn`/`originInfo.issued` (compact `YYYYMMDD`), ikke de flate feltene parseren forventet. `parse_catalog_search_payload` traverserer begge former (live-gruppert + flat/fixture), kartlegger URN som issue_urn, `metadata.title` som publikasjon, `accessInfo` som access-metadata og compact datoer. Ny sanitisert live-shape-fixture (`catalog_mediatype_results.json`) + 2 parser-tester; live-probe verifiserer 20 kandidater (Maylen), 25 (Hadeland/Eltonåsen). Fullskala E2E mot live NB: personsak → `mention_count=20`, `restricted_count=5`, 0 failed, 1 mention-rad i PostgreSQL med korrekt `access_class=PUBLIC_VIEW_ONLY`. Alle tidligere feilende forsøk i leads-tabellen (executor_unavailable/AttributeError/invalid_*) skyldtes denne + worker-wiring (ADR-022) og er nå borte.
-**Prioritet:** P2
-**Avhenger av:** AQ-032
-**Leveranse:** `GET /investigations/{id}/export` inkluderer `media_mentions`-rader (med evidence_id/image_document_id-referanser) slik at eksportert sak er komplett; sletting bevarer dagens cascade/SET NULL-semantikk.
-**Acceptance:** Eksportert pakke inneholder lagrede medienevnter med evidensreferanser; roundtrip-test (eksport → tellinger) dekker mentions.
+**Prioritet:** P0
+**Avhenger av:** AQ-031
+**Leveranse:** Parseren støtter både dagens grupperte Catalog-shape og eldre flat fixture-shape, inkludert nested access/URN/tittel og compact datoer, uten å degradere gyldige treff til tom kandidatliste.
+**Acceptance:** Sanitiserte live-shape fixtures gir kandidater; live-probe gir ikke falsk null-dekning; full NB-pass kan opprette mentions fra dagens Catalog-respons uten parserrelaterte FAILED-leads.
+
+### AQ-040 — Lovlig visning av NB-artikkelcrops i rapport
+**Status:** IN_PROGRESS
+**Prioritet:** P1
+**Avhenger av:** AQ-031, AQ-032, AQ-036
+**Leveranse:** Case-gatet bildeendepunkt for lagrede NB-crops, faktisk visning i Next.js/HTML og embedding i PDF når `image_embeddable=true`; restricted/non-embeddable materiale skal aldri eksponeres via denne ruten.
+**Acceptance:** Samme sak + embeddable crop gir verifiserte bildebytes; annen sak eller ikke-embeddable rad gir 404; HTML/web bruker bildeendepunktet; PDF inkluderer de samme raw-store-verifiserte crop-bytene; full CI er grønn.
