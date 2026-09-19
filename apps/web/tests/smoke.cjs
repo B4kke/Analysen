@@ -124,7 +124,7 @@ async function createThroughForm(page, type, name, purpose, extra = {}) {
       route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(runningBody) }),
     );
     await page.reload();
-    await page.getByText("Research kjører", { exact: true }).waitFor();
+    await page.getByRole("heading", { name: "Research kjører", exact: true }).waitFor();
     assert.match(await page.locator("main").innerText(), /Worker har startet/);
     await page.unroute(`${api}/api/v1/investigations/${companyId}`);
 
