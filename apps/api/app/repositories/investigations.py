@@ -440,8 +440,9 @@ async def export_investigation(session: AsyncSession, investigation_id: UUID) ->
     """Full data export for one investigation (GDPR data portability).
 
     Includes record, modules, entities, claims, leads, documents (with raw
-    snapshot keys) and audit events. Raw bytes stay in the object store; the
-    export references them by hash so integrity can be verified after import.
+    snapshot keys), media mentions (with evidence/document/anchor references)
+    and audit events. Raw bytes stay in the object store; the export
+    references them by hash so integrity can be verified after import.
     """
     from datetime import UTC, datetime
 
@@ -490,6 +491,24 @@ async def export_investigation(session: AsyncSession, investigation_id: UUID) ->
         .mappings()
         .all()
     )
+    mention_rows = (
+        (
+            await session.execute(
+                text("""
+                SELECT id, target_query, publication, published_at,
+                    page_number, issue_urn, page_urn, headline, summary,
+                    text_excerpt, text_availability, identity_state, source_url,
+                    access_class, license_code, image_document_id,
+                    image_embeddable, evidence_id, xywh_anchors, created_at
+                FROM media_mentions WHERE investigation_id = :id
+                ORDER BY published_at NULLS LAST, page_number NULLS LAST
+            """),
+                {"id": investigation_id},
+            )
+        )
+        .mappings()
+        .all()
+    )
     return {
         "investigation": detail.model_dump(mode="json"),
         "modules": [module.model_dump(mode="json") for module in detail.modules],
@@ -497,6 +516,7 @@ async def export_investigation(session: AsyncSession, investigation_id: UUID) ->
         "claims": [claim.model_dump(mode="json") for claim in detail.claims],
         "leads": [dict(row) for row in lead_rows],
         "documents": [dict(row) for row in document_rows],
+        "media_mentions": [dict(row) for row in mention_rows],
         "audit_log": [dict(row) for row in audit_rows],
         "exported_at": datetime.now(UTC).isoformat(),
     }
@@ -565,38 +585,107 @@ async def set_lead_status(
     )
 
 
+# Coverage counter keys the ledger accepts from executors. Unknown keys are
+# ignored so a source can never invent ledger fields.
+COVERAGE_COUNTER_KEYS = frozenset(
+    {
+        "candidate_count",
+        "located_count",
+        "concordance_count",
+        "fulltext_count",
+        "restricted_count",
+        "fetched_count",
+    }
+)
+
+
 async def bump_module_coverage(
     session: AsyncSession,
     investigation_id: UUID,
     module: ScopeModule,
     *,
     provider: str,
+    query_class: str | None = None,
+    endpoints: list[str] | None = None,
+    counters: dict[str, int] | None = None,
+    time_from: str | None = None,
+    time_to: str | None = None,
 ) -> None:
-    """Record one executed fetch in the module coverage ledger."""
+    """Record one executed fetch in the module coverage ledger.
+
+    Beyond the base query/document counts and provider, executors may report
+    the query class used, source endpoints attempted, per-source result
+    counters (only ``COVERAGE_COUNTER_KEYS`` are accepted) and the ISO date
+    range their sources cover. Counters accumulate; string lists stay
+    deduplicated; the time range widens monotonically. Unknown counter keys
+    are ignored.
+    """
+    clean_counters = {
+        key: max(0, int(value))
+        for key, value in (counters or {}).items()
+        if key in COVERAGE_COUNTER_KEYS
+    }
+    core = """jsonb_set(
+        jsonb_set(
+            coverage,
+            '{query_count}',
+            to_jsonb(COALESCE((coverage->>'query_count')::int, 0) + 1)
+        ),
+        '{document_count}',
+        to_jsonb(COALESCE((coverage->>'document_count')::int, 0) + 1)
+    )"""
+    for key in sorted(clean_counters):
+        core = (
+            f"jsonb_set({core}, '{{{key}}}', "
+            f"to_jsonb(COALESCE((coverage->>'{key}')::int, 0) + {clean_counters[key]}))"
+        )
     await session.execute(
-        text("""
+        text(f"""
             UPDATE investigation_modules
             SET status = CASE WHEN status = 'NOT_STARTED' THEN 'IN_PROGRESS' ELSE status END,
                 started_at = COALESCE(started_at, now()),
-                coverage = jsonb_set(
-                    jsonb_set(
-                        coverage,
-                        '{query_count}',
-                        to_jsonb(COALESCE((coverage->>'query_count')::int, 0) + 1)
-                    ),
-                    '{document_count}',
-                    to_jsonb(COALESCE((coverage->>'document_count')::int, 0) + 1)
-                ) || jsonb_build_object(
+                coverage = {core} || jsonb_build_object(
                     'providers',
                     (SELECT COALESCE(jsonb_agg(DISTINCT value), '[]'::jsonb)
                      FROM jsonb_array_elements_text(
                          COALESCE(coverage->'providers', '[]'::jsonb)
                              || to_jsonb(CAST(:provider AS text))
+                     ) AS value),
+                    'query_classes',
+                    (SELECT COALESCE(jsonb_agg(DISTINCT value), '[]'::jsonb)
+                     FROM jsonb_array_elements_text(
+                         COALESCE(coverage->'query_classes', '[]'::jsonb)
+                             || CASE WHEN CAST(:query_class AS text) IS NULL THEN '[]'::jsonb
+                                     ELSE to_jsonb(CAST(:query_class AS text)) END
+                     ) AS value),
+                    'endpoints',
+                    (SELECT COALESCE(jsonb_agg(DISTINCT value), '[]'::jsonb)
+                     FROM jsonb_array_elements_text(
+                         COALESCE(coverage->'endpoints', '[]'::jsonb)
+                             || COALESCE(CAST(:endpoints AS jsonb), '[]'::jsonb)
                      ) AS value)
                 )
+                || CASE WHEN CAST(:time_from AS text) IS NULL
+                    THEN '{{}}'::jsonb ELSE jsonb_build_object(
+                    'time_from', LEAST(
+                        COALESCE(coverage->>'time_from', '9999-12-31'), CAST(:time_from AS text))
+                ) END
+                || CASE WHEN CAST(:time_to AS text) IS NULL
+                    THEN '{{}}'::jsonb ELSE jsonb_build_object(
+                    'time_to', GREATEST(
+                        COALESCE(coverage->>'time_to', '0001-01-01'), CAST(:time_to AS text))
+                ) END
             WHERE investigation_id = :id AND module = :module
         """),
-        {"id": investigation_id, "module": module.value, "provider": provider},
+        {
+            "id": investigation_id,
+            "module": module.value,
+            "provider": provider,
+            "query_class": query_class,
+            "endpoints": json.dumps(sorted(set(endpoints or []))),
+            "time_from": time_from,
+            "time_to": time_to,
+        },
     )
 
 

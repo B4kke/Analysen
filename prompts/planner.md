@@ -23,8 +23,11 @@ Return exactly this JSON shape, no extra keys, no markdown:
 SCOPE_AREAS (use only these, exactly as written):
 WEB_MEDIA, BUSINESS_ROLES, COMPANY_NETWORK, FINANCIALS, ANNOUNCEMENTS_STATUS, HISTORICAL_WEB, DOMAINS_DIGITAL, PUBLIC_PROFILES, SANCTIONS
 
+LEAD_TYPES (use only these, exactly as written — never invent others; the user message repeats the authoritative list):
+brreg_organization_lookup, searxng_discovery, web_document_fetch, pdf_document_process, nb_newspaper_search
+
 TRIGGER_TYPES (use only these, exactly as written — never invent others):
-IDENTITY_AMBIGUITY, NEW_VERIFIED_ALIAS, MATERIAL_RELATION, WEAK_SOURCE_ONLY, CONTRADICTION, TEMPORAL_GAP, FINANCIAL_ANOMALY, DOCUMENT_QUALITY, DOMAIN_RELEVANCE, MEDIA_CORROBORATION, SANCTIONS_CANDIDATE
+IDENTITY_AMBIGUITY, NEW_VERIFIED_ALIAS, MATERIAL_RELATION, WEAK_SOURCE_ONLY, CONTRADICTION, TEMPORAL_GAP, FINANCIAL_ANOMALY, DOCUMENT_QUALITY, DOMAIN_RELEVANCE, MEDIA_CORROBORATION, SANCTIONS_CANDIDATE, DIRECT_SOURCE_LOOKUP
 
 Field rules:
 - scope_area must be one of the scope_modules from the user message.

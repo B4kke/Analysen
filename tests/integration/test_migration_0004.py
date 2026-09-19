@@ -342,7 +342,7 @@ async def test_0004_fresh_database_upgrades_cleanly() -> None:
 
         database = await asyncpg.connect(_asyncpg_url(scratch_url))
         assert await database.fetchval("SELECT version_num FROM alembic_version") == (
-            "0005_claim_fingerprint_subject"
+            "0010_media_xywh"
         )
 
         for table in TABLES_0003_ONLY:

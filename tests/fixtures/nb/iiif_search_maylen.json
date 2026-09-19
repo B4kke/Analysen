@@ -1,0 +1,22 @@
+{
+  "resources": [
+    {
+      "@id": "https://api.nb.no/catalog/v1/items/URN:NBN:no-nb_digavis_romerikesblad_20260519/canvas/30#xywh=1200,800,400,50",
+      "on": "https://api.nb.no/catalog/v1/items/URN:NBN:no-nb_digavis_romerikesblad_20260519/canvas/30#xywh=1200,800,400,50",
+      "type": "Annotation",
+      "motivation": "searching"
+    },
+    {
+      "@id": "https://api.nb.no/catalog/v1/items/URN:NBN:no-nb_digavis_romerikesblad_20260519/canvas/30#xywh=1250,860,350,45",
+      "on": "https://api.nb.no/catalog/v1/items/URN:NBN:no-nb_digavis_romerikesblad_20260519/canvas/30#xywh=1250,860,350,45",
+      "type": "Annotation",
+      "motivation": "searching"
+    },
+    {
+      "@id": "https://api.nb.no/catalog/v1/items/URN:NBN:no-nb_digavis_romerikesblad_20260519/canvas/30#xywh=1300,920,300,40",
+      "on": "https://api.nb.no/catalog/v1/items/URN:NBN:no-nb_digavis_romerikesblad_20260519/canvas/30#xywh=1300,920,300,40",
+      "type": "Annotation",
+      "motivation": "searching"
+    }
+  ]
+}

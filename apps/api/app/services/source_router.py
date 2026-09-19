@@ -5,6 +5,7 @@ EXECUTOR_ROUTES: dict[str, str] = {
     "searxng_discovery": "searxng",
     "web_document_fetch": "web_fetch",
     "pdf_document_process": "pdf",
+    "nb_newspaper_search": "nb_media",
 }
 
 

@@ -254,7 +254,8 @@ Fullførte oppgaver beholdes her for sporbarhet inntil en senere opprydding flyt
 
 
 ### AQ-031 — Nasjonalbiblioteket media-/avispipeline
-**Status:** READY
+**Status:** DONE
+**Verifisert 2026-09-19:** Deterministisk `nb_newspaper_search`-seed (target + verifiserte aliaser, `DIRECT_SOURCE_LOOKUP`, uten planner-avhengighet) gjennom lead-gate, trigger-evaluator, source-router og eksekutor. Catalog/IIIF/DH-lab-responser lagres immutable før parsing; contentfragments er kun page locator; IIIF `xywh` bevares som evidence-locator og anchor på crop-path; DH-lab er alltid `PARTIAL_CONTEXT`; item-rights feiler lukket og restricted-case kaller aldri bildehenter; permitted-case går page bytes → raw → crop → norsk OCR → Document/Evidence; same-name forblir `UNRESOLVED`; `ReportDocument.media_mentions` deles av JSON/HTML/PDF/Next.js. Migrering 0008 (`UNIQUE NULLS NOT DISTINCT`) gjør rerun idempotent også for issue-level rader. 102 NB-enhetstester + 10 NB-integrasjonstester (ekte PostgreSQL) + 63 rapporttester; full suite 544+ grønne, Ruff/mypy rene, web typecheck/bygg grønt, 390 px Chromium-smoke bestått. Oppfølging er egne kø-items (AQ-032–AQ-036).
 **Prioritet:** P0
 **Agent:** `nb-media` + `research-orchestration` + `db-provenance` + `ui-reporting`
 **Reviewer:** `integration-reviewer`
@@ -276,3 +277,59 @@ Fullførte oppgaver beholdes her for sporbarhet inntil en senere opprydding flyt
 - Next.js rapportside bruker full report-kontrakt, ikke bare `/report/sections`, og mobile smoke ved 390 px passerer.
 - E2E bruker ekte PostgreSQL/repositories/research-loop/verifier/report builder; bare ekstern NB/model-boundary kan fakes.
 - Rerun er idempotent; full test/type/build/review-gate passerer før DONE.
+
+### AQ-032 — Media-mention citations (oppfølging AQ-031)
+**Status:** DONE
+**Verifisert 2026-09-19:** Migrering 0009 (`media_mentions.evidence_id` FK, SET NULL) + repo-param + executor-threading (`_persist_crop_document` → 3-tuppel → `_persist_mention`): permitted crop lenker mention til sitt Evidence. `ReportCitation.claim_id` er nå valgfri (None for mentions, aldri fabrikkert claim); `MediaMention.citations` mappes i `report_build` fra lagret evidence+document-rad og rendres klikkbart i JSON/HTML/PDF/Next.js. Mentions uten evidens har tom liste i alle renderere. 3 builder-tester + 3 renderer-tester + oppdatert endpoint-kontrakt (17 felt) + repo-roundtrip med evidence_id + ny integrasjonstest (crop → evidence_id → report-citation, ekte PostgreSQL); full suite 555 grønne, Ruff/mypy rene, web typecheck/bygg grønt.
+**Prioritet:** P1
+**Avhenger av:** AQ-031
+**Leveranse:** `citations` per media mention i `ReportDocument` (NATIONAL_LIBRARY.md report contract), persistert evidenskobling fra executor og mapping i `report_build`, rendering i HTML/PDF og typer i Next.js — uten å fabrikkere lenker der provenance mangler.
+**Acceptance:** Hver media mention med lagret Document/Evidence eksponerer klikkbar citation i JSON/HTML/PDF/web; mentions uten evidens har tom citations-liste, aldri fabrikkerte lenker.
+
+### AQ-033 — Per-mention xywh/locator-persistens (oppfølging AQ-031)
+**Status:** DONE
+**Verifisert 2026-09-19:** Migrering 0010 (`media_mentions.xywh_anchors` JSONB) + repo-param (tomme strenger → NULL) + executor-wiring: ny pure matcher `match_page_anchors` (eksakt URN først, canvas-fallback på item/issue + sidenummer) korrelerer IIIF-ankre til fragmentsider — tidligere matchet canvas-URL-er aldri URN-lokatorer, så verken crop-ankring eller persistens slo til på reelle NB-former. `MediaMention.xywh_anchors` mappes i `report_build` og vises som Tekstanker-linje i HTML/PDF/Next.js; rader uten ankre har tom liste. 7 matcher-tester (inkl. fixture-form-bevis) + render/builder/repo-tester + lead-fly-integrasjon (canvas-fallback → rad, ekte PostgreSQL); full suite 570 grønne, Ruff/mypy rene, web typecheck/bygg grønt.
+**Prioritet:** P2
+**Avhenger av:** AQ-031
+**Leveranse:** Migrering med `xywh`/locator-kolonne på `media_mentions` (ordentlig ALTER, ikke IF NOT EXISTS-paper-over), repo-param, executor-wiring fra `xywh_by_page` og mapping i `build_media_mention_from_row`, slik at også mentions uten validert crop bærer typed anker.
+**Acceptance:** No-crop mention bevarer IIIF-anker + parent page URN typed; crop-path fortsetter å bære full geometri i Evidence-locator; rerun forblir idempotent.
+
+### AQ-034 — NB-dekning i coverage-ledger (oppfølging AQ-031)
+**Status:** DONE
+**Verifisert 2026-09-19:** `Coverage`/`CoverageEntry` bærer endpoints, query-klasser, 6 tellere og tidsrom; `bump_module_coverage` akkumulerer tellere (ukjente nøkler ignoreres), deduperer lister og utvider tidsrom monotont; NB-executor rapporterer query-klasse, endepunkter og reelle tellinger; report.json og Next.js viser forsøkt/funnet/blokkert. Egen bump-merge-test + lead-fly-asserter (ledger + report.json); full suite grønn (570 via gate-subagent, deretter 581 med AQ-035), Ruff/mypy rene, web typecheck/bygg grønt.
+**Prioritet:** P2
+**Avhenger av:** AQ-031
+**Leveranse:** `CoverageEntry`/ledger bærer NB query classes, endpoints, kandidat-/side-/concordance-/full-/restricted-/fetch-tellinger og tidsrom (i dag kun i `LEAD_EXECUTED`-audit), med mapping fra executor-bump til `report_build`.
+**Acceptance:** `WEB_MEDIA`-dekning viser hva som er forsøkt, funnet og blokkert; «ingen funn» er bare gyldig innen dokumentert dekning.
+
+### AQ-035 — Automatisk NB til web_document_fetch-bro (oppfølging AQ-031)
+**Status:** DONE
+**Verifisert 2026-09-19:** Typed `original_url` (kun http(s) med hostname) fra Catalog-metadata via `parse_original_url` → `NBIssueCandidate` → executor-bro: `collect_original_urls` (dedup, cap 5) + `build_original_url_lead` (WEB_MEDIA/dybde 0/`DIRECT_SOURCE_LOOKUP`) + `bridge_original_urls` som foreslår via deterministisk `propose_lead`-gate (aldri direkte fetch), med rerun-dedup mot lagrede leads og `bridged_count/blocked` i audit. Kjeden `NB COMPLETED → PENDING web_document_fetch → web_fetch COMPLETED` er bevist mot ekte PostgreSQL (kun fetch-transport fakes); uten WEB_MEDIA blir forslaget `BLOCKED/module_disabled`. Parser/collector-enhetstester + 4 bro-integrasjonstester; full suite 581 grønne (uavhengig gate-subagent, null fikser), Ruff/mypy rene, web typecheck/bygg grønt.
+**Prioritet:** P2
+**Avhenger av:** AQ-031
+**Leveranse:** Deterministisk bro som foreslår gated `web_document_fetch`-lead (`DIRECT_SOURCE_LOOKUP`/`WEB_MEDIA`/dybde 0) når NB/nettavis-metadata bærer original artikkel-URL, med fixture som inneholder slikt felt og integrasjonstest `NB COMPLETED → PENDING web_document_fetch → web_fetch COMPLETED`. Executors foreslår aldri direkte; evaluering skjer i neste loop-pass.
+**Acceptance:** Original-URL fra NB kan gå gjennom eksisterende safe fetcher med scope/trigger/provenance-gater; ingen auto-bro uten typed felt + test.
+
+### AQ-036 — Full report-kontrakt i Next.js (oppfølging AQ-031)
+**Status:** DONE
+**Verifisert 2026-09-19:** Rapportsiden rendrer funn (med kildebelegg-lenker/SHA), uavklarte spor og kontekstenheter (med ikke-bakgrunnssjekket-disclaimer) fra `report.json` i egne seksjoner i backend-rekkefølge; dekning fortsatt fra `/report/sections`. Smoke utvidet med `Medienevnter (0)` + tom-tekst, funn/spor/kontekst-overskrifter og 390 px overflow-sjekk på `/report` — bestått. `npm run typecheck`/bygg grønt. Levert av `ui-reporting`-subagent, verifisert av orchestrator (diff + build + live smoke).
+**Prioritet:** P2
+**Avhenger av:** AQ-031
+**Leveranse:** Rapportsiden rendrer findings, unverified leads og context entities fra `report.json` i tillegg til media mentions og coverage fra `/report/sections`, med 390 px smoke-asserter for medieinnhold og coverage-aware tom-tekster.
+**Acceptance:** Siden bruker full report-kontrakt; ingen negative funn fra uvalgte moduler; mobil-smoke dekker media-seksjonen.
+
+### AQ-037 — Per-sak eksport dekker medienevnter (oppfølging AQ-031/AQ-032)
+**Status:** DONE
+**Verifisert 2026-09-19:** `export_investigation` inkluderer `media_mentions`-rader (alle rapport-/provenancefelt inkl. evidence_id og xywh_anchors); sletting beholder cascade/SET NULL. 2 nye lifecycle-tester (med og uten mentions); 6 lifecycle-tester grønne.
+
+### AQ-038 — Forløpsstatus og robust opprettelse (brukerønske)
+**Status:** DONE
+**Verifisert 2026-09-19:** Detaljsiden viser FORLØP-stegbar (Opprettet → Lagt på kø → Under arbeid → Fullført/Feilet) med lead-teller (`X/Y leads ferdig`), sammendraget ved fullføring og fremdriftsmeter med `role=progressbar`, oppdatert live via eksisterende polling. Opprettelsesskjemaet har 30 s timeout med norsk feilmelding, så «Oppretter …» kan aldri henge evig. Smoke utvidet med FORLØP-asserter (inkl. 390 px) — bestått; `npm run typecheck`/bygg grønt.
+
+### AQ-039 — NB Catalog live-parserfiks (rotårsak: tom kandidatliste)
+**Status:** DONE
+**Verifisert 2026-09-19:** Live-reproduksjon av brukerfeilen: NB-leads «COMPLETED» men `candidate_count=0`/`mention_count=0` — Catalog-endepunktet leverer nå hits gruppert under `_embedded.mediaTypeResults[].result._embedded.items` med `accessInfo`/`metadata.identifiers.urn`/`originInfo.issued` (compact `YYYYMMDD`), ikke de flate feltene parseren forventet. `parse_catalog_search_payload` traverserer begge former (live-gruppert + flat/fixture), kartlegger URN som issue_urn, `metadata.title` som publikasjon, `accessInfo` som access-metadata og compact datoer. Ny sanitisert live-shape-fixture (`catalog_mediatype_results.json`) + 2 parser-tester; live-probe verifiserer 20 kandidater (Maylen), 25 (Hadeland/Eltonåsen). Fullskala E2E mot live NB: personsak → `mention_count=20`, `restricted_count=5`, 0 failed, 1 mention-rad i PostgreSQL med korrekt `access_class=PUBLIC_VIEW_ONLY`. Alle tidligere feilende forsøk i leads-tabellen (executor_unavailable/AttributeError/invalid_*) skyldtes denne + worker-wiring (ADR-022) og er nå borte.
+**Prioritet:** P2
+**Avhenger av:** AQ-032
+**Leveranse:** `GET /investigations/{id}/export` inkluderer `media_mentions`-rader (med evidence_id/image_document_id-referanser) slik at eksportert sak er komplett; sletting bevarer dagens cascade/SET NULL-semantikk.
+**Acceptance:** Eksportert pakke inneholder lagrede medienevnter med evidensreferanser; roundtrip-test (eksport → tellinger) dekker mentions.

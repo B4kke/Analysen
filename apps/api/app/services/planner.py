@@ -17,6 +17,7 @@ from typing import Any, Protocol
 from apps.api.app.core.config import get_settings
 from apps.api.app.domain.planner import PlannerLeadProposal, PlannerPlan
 from apps.api.app.domain.scope import ScopeSettings
+from apps.api.app.services.source_router import supported_lead_types
 
 _PROMPT_PATH = Path(__file__).resolve().parents[4] / "prompts" / "planner.md"
 
@@ -73,13 +74,18 @@ def _render_user(context: PlannerContext) -> str:
             "max_relation_depth": context.scope.max_relation_depth,
             "open_leads": context.open_leads,
             "budgets": context.budgets,
+            # Canonical tool/lead catalog: the planner may only propose lead
+            # types the typed source router can execute. This list is built
+            # from the router allowlist, never hardcoded here.
+            "allowed_lead_types": sorted(supported_lead_types()),
             "instruction": (
                 "Propose up to 5 next evidence-gathering leads as JSON: "
                 '{"actions": [...]}. Each action needs lead_type, value, reason, '
                 "information_need, scope_area, trigger_type, relation_depth, "
                 "priority, expected_information_gain and optional "
                 "originating_lead_id. Only propose inside the listed "
-                "scope_modules. Never invent identifiers."
+                "scope_modules. Only propose lead_type values from "
+                "allowed_lead_types. Never invent identifiers or lead types."
             ),
         },
         ensure_ascii=False,
@@ -98,7 +104,10 @@ async def plan_next_actions(
 
     Raises PlannerError when the model output cannot be validated. Duplicate
     proposals inside one plan are dropped deterministically (first wins), so a
-    looping model cannot multiply the same lead in a single call.
+    looping model cannot multiply the same lead in a single call. A proposal
+    whose lead_type is schema-valid but outside the typed router allowlist is
+    rejected with the whole plan: the planner must never produce a lead the
+    runtime cannot execute.
     """
     system = _PROMPT_PATH.read_text(encoding="utf-8")
     raw = await provider.chat_json(
@@ -112,6 +121,12 @@ async def plan_next_actions(
         plan = PlannerPlan.model_validate(raw)
     except Exception as exc:
         raise PlannerError(f"planner returned schema-invalid output: {exc}") from exc
+    allowed = supported_lead_types()
+    for proposal in plan.actions:
+        if proposal.lead_type not in allowed:
+            raise PlannerError(
+                f"planner proposed unsupported lead_type: {proposal.lead_type!r}"
+            )
     seen: set[str] = set()
     proposals: list[PlannerLeadProposal] = []
     for proposal in plan.actions[:MAX_PROPOSALS_PER_CALL]:

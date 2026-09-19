@@ -1,0 +1,57 @@
+{
+  "totalElements": 2,
+  "_embedded": {
+    "aggregations": [
+      {"buckets": [{"key": "aviser", "count": 2}], "name": "mediatype"}
+    ],
+    "mediaTypeResults": [
+      {
+        "mediaType": "aviser",
+        "result": {
+          "_embedded": {
+            "items": [
+              {
+                "id": "3a146f0299bd0384506925a7fcfb8013",
+                "_links": {
+                  "self": {"href": "https://api.nb.no:443/catalog/v1/items/3a146f0299bd0384506925a7fcfb8013"}
+                },
+                "accessInfo": {
+                  "accessAllowedFrom": "EVERYWHERE",
+                  "isPublicDomain": false,
+                  "license": "NLOD-2.0",
+                  "viewability": "ALL"
+                },
+                "metadata": {
+                  "title": "Hadeland ",
+                  "originInfo": {"issued": "20201223"},
+                  "identifiers": {
+                    "sesamId": "3a146f0299bd0384506925a7fcfb8013",
+                    "urn": "URN:NBN:no-nb_digavis_hadeland_20201223"
+                  }
+                }
+              },
+              {
+                "id": "9c2d44aa11bb0384506925a7fcfb8014",
+                "accessInfo": {
+                  "accessAllowedFrom": "LIBRARY",
+                  "isPublicDomain": false,
+                  "viewability": "NONE"
+                },
+                "metadata": {
+                  "title": "Romerikes Blad",
+                  "originInfo": {"issued": "2026-05-19"},
+                  "identifiers": {"urn": "URN:NBN:no-nb_digavis_romerikesblad_20260519"}
+                }
+              }
+            ]
+          }
+        }
+      },
+      {
+        "mediaType": "tidsskrift",
+        "result": {"_embedded": {"items": []}}
+      }
+    ]
+  },
+  "_links": {}
+}

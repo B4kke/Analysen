@@ -135,6 +135,15 @@ async def test_fresh_investigation_is_not_started_with_zero_read_model_counts(st
         "document_count": 0,
         "gaps": [],
         "unavailable_sources": [],
+        "endpoints": [],
+        "candidate_count": 0,
+        "located_count": 0,
+        "concordance_count": 0,
+        "fulltext_count": 0,
+        "restricted_count": 0,
+        "fetched_count": 0,
+        "time_from": None,
+        "time_to": None,
     }
 
 
@@ -260,6 +269,12 @@ async def test_actual_worker_can_commit_before_late_enqueue_audit(
             )
 
     monkeypatch.setattr(tasks, "BrregAdapter", FixtureBrregAdapter)
+    # Hermetic planner: this test asserts exact pass counts, so the live NIM
+    # planner stays disabled even when .env provides a key.
+    monkeypatch.setenv("NIM_API_KEY", "")
+    from apps.api.app.core import config
+
+    config.get_settings.cache_clear()
     with ThreadPoolExecutor(max_workers=1) as executor:
 
         def send(_investigation_id: str, *, job_id: str) -> None:
@@ -329,6 +344,12 @@ async def test_detail_snapshot_does_not_mix_pre_and_post_worker_rows(
             )
 
     monkeypatch.setattr(tasks, "BrregAdapter", FixtureBrregAdapter)
+    # Hermetic planner: this test asserts exact worker-path counts, so the
+    # live NIM planner stays disabled even when .env provides a key.
+    monkeypatch.setenv("NIM_API_KEY", "")
+    from apps.api.app.core import config
+
+    config.get_settings.cache_clear()
     sent: list[str] = []
     monkeypatch.setattr(
         tasks.run_research_pass_actor,

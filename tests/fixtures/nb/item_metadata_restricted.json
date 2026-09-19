@@ -1,0 +1,14 @@
+{
+  "itemId": "URN:NBN:no-nb_digavis_romerikesblad_20260519_0030",
+  "publication": "Romerikes Blad",
+  "issued": "2026-05-19",
+  "issueUrn": "URN:NBN:no-nb_digavis_romerikesblad_20260519",
+  "title": "Romerikes Blad 19. mai 2026",
+  "access": {
+    "accessAllowedFrom": "LIBRARY",
+    "viewability": "ALL",
+    "isPublicDomain": false,
+    "license": "NLOD-2.0",
+    "rightsUri": "https://creativecommons.org/licenses/by/4.0/"
+  }
+}

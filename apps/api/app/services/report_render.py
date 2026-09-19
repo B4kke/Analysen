@@ -16,9 +16,11 @@ from fpdf import FPDF
 from fpdf.enums import WrapMode, XPos, YPos
 
 from apps.api.app.domain.models import ClaimStatus
+from apps.api.app.domain.nb_media import NBTextAvailability
 from apps.api.app.domain.report import (
     ContextEntity,
     CoverageEntry,
+    MediaMention,
     ReportCitation,
     ReportDocument,
     ReportFinding,
@@ -42,6 +44,36 @@ _STATUS_LABEL_NB: dict[ClaimStatus, str] = {
 }
 
 _CONTEXT_DISCLAIMER = "Enhetene nedenfor er kun nevnt som kontekst og er ikke bakgrunnssjekket."
+
+# Shared vocabulary for media mentions (AQ-031): both the HTML and the PDF
+# renderer use these labels so the two outputs describe the same semantics.
+# Concordance text is labeled PARTIAL_CONTEXT and is never "full artikkeltekst".
+_TEXT_AVAILABILITY_LABEL_NB: dict[NBTextAvailability, str] = {
+    NBTextAvailability.FULL: "Full artikkeltekst",
+    NBTextAvailability.PARTIAL_CONTEXT: "Kontekstutdrag (ikke full artikkeltekst)",
+    NBTextAvailability.UNAVAILABLE: "Kun metadata (fulltekst ikke tilgjengelig)",
+}
+
+_MEDIA_IDENTITY_NOTE = (
+    "Medienevnter er ikke identitetsbevis: navntreff i aviser er nevnelser, "
+    "og identitetsstatus er oppgitt per nevning."
+)
+
+# Empty-state note when the media module was never selected (AQ-031/Norwegian
+# report semantics): absence of mentions must never read as a negative
+# finding. Used only when the document provably deselects WEB_MEDIA; unknown
+# or investigated-but-empty documents keep the existing "Ingen medienevnter."
+# text so empty reports stay stable.
+_MEDIA_NOT_SELECTED_NOTE = (
+    "Mediemodulen (WEB_MEDIA) er ikke valgt for denne undersøkelsen. "
+    "Fravær av medienevnter er ikke et negativt funn."
+)
+
+_MEDIA_ACCESS_NOTE_UNAVAILABLE = (
+    "Innholdet er tilgangsbegrenset: rapporten viser kun metadata og lenke; "
+    "fulltekst kan ikke vises eller kopieres her. Åpne kilden hos "
+    "Nasjonalbiblioteket for videre lesing."
+)
 
 _CSS = (
     "body{font-family:sans-serif;max-width:70em;margin:2em auto;padding:0 1em;"
@@ -146,6 +178,130 @@ def _coverage_row_html(entry: CoverageEntry) -> str:
     )
 
 
+def _web_media_not_selected(doc: ReportDocument) -> bool:
+    """True only when the document provably deselects the WEB_MEDIA module.
+
+    Coverage wins over scope: an explicit disabled/IKKE_VALGT WEB_MEDIA entry
+    means not selected even if scope lists differ. An enabled WEB_MEDIA entry
+    means selected. With no WEB_MEDIA coverage entry, a non-empty
+    ``scope_modules`` without WEB_MEDIA means not selected. Empty scope with
+    no coverage is unknown (conservative False) so bare empty reports keep
+    their existing text.
+    """
+    for entry in doc.coverage or []:
+        if entry.module == "WEB_MEDIA":
+            return not entry.enabled or entry.outcome == "IKKE_VALGT"
+    if doc.scope_modules:
+        return "WEB_MEDIA" not in doc.scope_modules
+    return False
+
+
+def _nb_item_url(urn: str | None) -> str | None:
+    """Direct NB item URL for a URN:NBN identifier, or None.
+
+    Only URN-shaped identifiers are turned into links; a missing or foreign
+    URN never becomes a fabricated URL.
+    """
+    if not urn or not urn.upper().startswith("URN:NBN:"):
+        return None
+    return f"https://www.nb.no/items/{urn}"
+
+
+def _media_mention_link(mention: MediaMention) -> tuple[str, str] | None:
+    """Direct source link for a mention: (url, link text) or None.
+
+    A stored ``source_url`` wins; otherwise the NB item URL is built from
+    the page or issue URN. Mentions without any locator stay linkless
+    instead of getting an invented URL.
+    """
+    if mention.source_url:
+        return mention.source_url, "Åpne kilden"
+    urn_url = _nb_item_url(mention.page_urn) or _nb_item_url(mention.issue_urn)
+    if urn_url:
+        return urn_url, "Åpne kilden hos Nasjonalbiblioteket"
+    return None
+
+
+def _media_mention_meta(mention: MediaMention) -> list[str]:
+    """Shared metadata lines for HTML and PDF media mention rendering."""
+    parts: list[str] = []
+    if mention.publication:
+        parts.append(f"Publikasjon: {mention.publication}")
+    if mention.published_at:
+        parts.append(f"Dato: {mention.published_at.isoformat()}")
+    if mention.page_number is not None:
+        parts.append(f"Side: {mention.page_number}")
+    if mention.access_class:
+        parts.append(f"Tilgangsklasse: {mention.access_class}")
+    if mention.license_code:
+        parts.append(f"Lisens: {mention.license_code}")
+    if mention.identity_state:
+        parts.append(f"Identitetsstatus: {mention.identity_state}")
+    if mention.issue_urn:
+        parts.append(f"Issue URN: {mention.issue_urn}")
+    if mention.page_urn:
+        parts.append(f"Side URN: {mention.page_urn}")
+    if mention.xywh_anchors:
+        parts.append(f"Tekstanker: {', '.join(mention.xywh_anchors)}")
+    # The page image itself is never rendered (no image bytes are available
+    # here, so an <img>/crop could only ever be broken): a lawfully embeddable
+    # derived image is referenced as a stored document instead.
+    if mention.image_embeddable and mention.image_document_id:
+        parts.append(f"Artikkelbilde lagret som dokument: {mention.image_document_id}")
+    return parts
+
+
+def _media_mention_text(mention: MediaMention) -> str | None:
+    """Shared text selection for HTML and PDF: lawful stored text, or None.
+
+    ``UNAVAILABLE`` mentions return None: those rows show metadata, the
+    explicit access explanation and the direct NB link only — never text
+    that would read as available full article text. Concordance/context
+    excerpts stay labeled ``PARTIAL_CONTEXT``, never "full artikkeltekst".
+    """
+    if mention.text_availability is NBTextAvailability.UNAVAILABLE:
+        return None
+    return mention.text_excerpt or mention.summary or None
+
+
+def _media_mention_html(mention: MediaMention) -> str:
+    """One media mention: metadata, lawful text and direct source link.
+
+    Text is only rendered for ``FULL`` and ``PARTIAL_CONTEXT``; an
+    ``UNAVAILABLE`` mention shows metadata, the explicit access explanation
+    and the direct NB link — never fabricated full text or a broken image.
+    """
+    label = _TEXT_AVAILABILITY_LABEL_NB.get(
+        mention.text_availability, mention.text_availability.value
+    )
+    parts = ['<article class="media-mention">']
+    if mention.headline:
+        parts.append(f"<h4>{_esc(mention.headline)}</h4>")
+    parts.append(
+        f'<p><span class="badge">{_esc(label)} '
+        f"({_esc(mention.text_availability.value)})</span></p>"
+    )
+    meta = _media_mention_meta(mention)
+    if meta:
+        parts.append(f'<div class="cite-meta">{" · ".join(_esc(part) for part in meta)}</div>')
+    if mention.text_availability is NBTextAvailability.UNAVAILABLE:
+        parts.append(f'<p class="cite-meta">{_esc(_MEDIA_ACCESS_NOTE_UNAVAILABLE)}</p>')
+    else:
+        shown = _media_mention_text(mention)
+        parts.append(
+            f"<pre>{_esc(shown)}</pre>" if shown else "<p>Ingen lagret tekstutdrag.</p>"
+        )
+    link = _media_mention_link(mention)
+    if link:
+        href = html.escape(link[0], quote=True)
+        parts.append(f'<p><a href="{href}">{html.escape(link[1], quote=True)}</a></p>')
+    cites = "".join(_citation_html(c) for c in mention.citations or [])
+    if cites:
+        parts.append(f'<ul class="citations">{cites}</ul>')
+    parts.append("</article>")
+    return "".join(parts)
+
+
 def render_report_html(doc: ReportDocument) -> str:
     """Render a self-contained Norwegian HTML page for a ReportDocument."""
     counts = {status: 0 for status in _FINDING_GROUP_ORDER}
@@ -171,6 +327,7 @@ def render_report_html(doc: ReportDocument) -> str:
         f"<tr><td>Dokumenter totalt</td><td>{documents}</td></tr>"
         f"<tr><td>Uavklarte spor</td><td>{len(doc.unverified_leads or [])}</td></tr>"
         f"<tr><td>Kontekstenheter</td><td>{len(doc.context_entities or [])}</td></tr>"
+        f"<tr><td>Medienevnter</td><td>{len(doc.media_mentions or [])}</td></tr>"
         "</tbody></table>"
     )
 
@@ -190,6 +347,23 @@ def render_report_html(doc: ReportDocument) -> str:
         if leads
         else "<p>Ingen uavklarte spor.</p>"
     )
+
+    mentions = doc.media_mentions or []
+    if not mentions:
+        if _web_media_not_selected(doc):
+            mentions_html = (
+                f"<p>{_esc(_MEDIA_IDENTITY_NOTE)}</p>"
+                f"<p>{_esc(_MEDIA_NOT_SELECTED_NOTE)}</p>"
+            )
+        else:
+            mentions_html = (
+                f"<p>{_esc(_MEDIA_IDENTITY_NOTE)}</p><p>Ingen medienevnter.</p>"
+            )
+    else:
+        mentions_html = (
+            f"<p>{_esc(_MEDIA_IDENTITY_NOTE)}</p>"
+            f"{''.join(_media_mention_html(mention) for mention in mentions)}"
+        )
 
     entities = doc.context_entities or []
     context_html = (
@@ -231,6 +405,8 @@ def render_report_html(doc: ReportDocument) -> str:
         f"{summary}</section>"
         '<section id="funn"><h2>Vesentlige funn</h2>'
         f"{findings_html}</section>"
+        '<section id="medienevnter"><h2>Medienevnter</h2>'
+        f"{mentions_html}</section>"
         '<section id="spor"><h2>Uavklarte spor</h2>'
         f"{leads_html}</section>"
         '<section id="kontekst"><h2>Kontekst</h2>'
@@ -248,6 +424,37 @@ def _pdf_text(value: Any | None) -> str:
         return "-"
     text = value if isinstance(value, str) else str(value)
     return text.encode("latin-1", errors="replace").decode("latin-1")
+
+
+def _pdf_media_mention(pdf: FPDF, mention: MediaMention) -> None:
+    """One media mention in the PDF: same semantics as the HTML renderer.
+
+    Text is only rendered for ``FULL`` and ``PARTIAL_CONTEXT``; an
+    ``UNAVAILABLE`` mention shows metadata, the explicit access explanation
+    and the direct NB link — never fabricated full text or a broken image.
+    """
+    label = _TEXT_AVAILABILITY_LABEL_NB.get(
+        mention.text_availability, mention.text_availability.value
+    )
+    _pdf_section(pdf, f"{label} ({mention.text_availability.value})")
+    if mention.headline:
+        _pdf_body(pdf, f"Overskrift: {mention.headline}")
+    for part in _media_mention_meta(mention):
+        _pdf_body(pdf, part)
+    if mention.text_availability is NBTextAvailability.UNAVAILABLE:
+        _pdf_body(pdf, _MEDIA_ACCESS_NOTE_UNAVAILABLE)
+    else:
+        shown = _media_mention_text(mention)
+        _pdf_body(pdf, f"Tekst: {shown}" if shown else "Ingen lagret tekstutdrag.")
+    link = _media_mention_link(mention)
+    if link:
+        _pdf_body(pdf, f"URL: {link[0]}")
+    for citation in mention.citations or []:
+        _pdf_body(pdf, f"Kildebelegg: {citation.excerpt or citation.source_id or '-'}")
+        if citation.url:
+            _pdf_body(pdf, f"Kilde-URL: {citation.url}")
+        if citation.sha256:
+            _pdf_body(pdf, f"Kilde-SHA: {citation.sha256[:8]}")
 
 
 def _pdf_section(pdf: FPDF, title: str) -> None:
@@ -318,6 +525,7 @@ def render_report_pdf(doc: ReportDocument) -> bytes:
     _pdf_body(pdf, f"Dokumenter totalt: {sum(e.document_count for e in coverage)}")
     _pdf_body(pdf, f"Uavklarte spor: {len(doc.unverified_leads or [])}")
     _pdf_body(pdf, f"Kontekstenheter: {len(doc.context_entities or [])}")
+    _pdf_body(pdf, f"Medienevnter: {len(doc.media_mentions or [])}")
 
     _pdf_section(pdf, "Vesentlige funn")
     findings = doc.findings or []
@@ -340,6 +548,17 @@ def render_report_pdf(doc: ReportDocument) -> bytes:
                     _pdf_body(pdf, f"SHA: {citation.sha256[:8]}")
                 if citation.fetched_at:
                     _pdf_body(pdf, f"Hentet: {citation.fetched_at.isoformat()}")
+
+    _pdf_section(pdf, "Medienevnter")
+    mentions = doc.media_mentions or []
+    if not mentions:
+        _pdf_body(pdf, _MEDIA_IDENTITY_NOTE)
+        if _web_media_not_selected(doc):
+            _pdf_body(pdf, _MEDIA_NOT_SELECTED_NOTE)
+        else:
+            _pdf_body(pdf, "Ingen medienevnter.")
+    for mention in mentions:
+        _pdf_media_mention(pdf, mention)
 
     _pdf_section(pdf, "Uavklarte spor")
     leads = doc.unverified_leads or []

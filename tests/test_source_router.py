@@ -15,6 +15,11 @@ def test_all_four_types_route_correctly() -> None:
     assert route_lead("pdf_document_process") == "pdf"
 
 
+def test_nb_newspaper_search_routes_to_nb_media() -> None:
+    assert route_lead("nb_newspaper_search") == "nb_media"
+    assert "nb_newspaper_search" in supported_lead_types()
+
+
 def test_unknown_raises() -> None:
     with pytest.raises(UnknownLeadType):
         route_lead("no_such_lead")

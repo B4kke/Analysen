@@ -133,6 +133,53 @@ async def test_export_lists_documents_with_raw_snapshot_key(lifecycle_client) ->
     assert document["original_url"].endswith("/974760673")
 
 
+async def test_export_includes_media_mentions_with_evidence_refs(lifecycle_client) -> None:
+    http, created, factory = lifecycle_client
+    investigation_id = await _create_company(http, created, "Lifecycle Media Probe AS")
+
+    from apps.api.app.repositories import media_mentions as store
+
+    page_urn = "URN:NBN:no-nb_lifecycle_media_30"
+    async with factory() as session:
+        await store.upsert_media_mention(
+            session,
+            investigation_id=uuid.UUID(investigation_id),
+            target_query="Lifecycle Media Probe AS",
+            publication="Hadeland",
+            page_urn=page_urn,
+            text_availability="PARTIAL_CONTEXT",
+            text_excerpt="... kontekst ...",
+            identity_state="UNRESOLVED",
+            access_class="PUBLIC_VIEW_ONLY",
+            xywh_anchors=["xywh=1,2,3,4"],
+        )
+        await session.commit()
+
+    export = await http.get(f"/api/v1/investigations/{investigation_id}/export")
+    assert export.status_code == 200, export.text
+    data = export.json()
+    assert len(data["media_mentions"]) == 1
+    mention = data["media_mentions"][0]
+    assert mention["target_query"] == "Lifecycle Media Probe AS"
+    assert mention["publication"] == "Hadeland"
+    assert mention["page_urn"] == page_urn
+    assert mention["text_availability"] == "PARTIAL_CONTEXT"
+    assert mention["identity_state"] == "UNRESOLVED"
+    assert mention["access_class"] == "PUBLIC_VIEW_ONLY"
+    assert mention["xywh_anchors"] == ["xywh=1,2,3,4"]
+    assert mention["evidence_id"] is None
+    assert mention["created_at"]
+
+
+async def test_export_lists_no_media_mentions_when_none_stored(lifecycle_client) -> None:
+    http, created, _factory = lifecycle_client
+    investigation_id = await _create_company(http, created, "Lifecycle Empty Media AS")
+
+    export = await http.get(f"/api/v1/investigations/{investigation_id}/export")
+    assert export.status_code == 200, export.text
+    assert export.json()["media_mentions"] == []
+
+
 async def test_delete_erases_data_and_leaves_audit_trail(lifecycle_client) -> None:
     http, created, factory = lifecycle_client
     investigation_id = await _create_company(http, created, "Lifecycle Delete Probe AS")

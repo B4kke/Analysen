@@ -25,6 +25,7 @@ from apps.api.app.services.lead_gate import gate_lead
 from apps.api.app.sources.base import SourceRecord
 
 if TYPE_CHECKING:
+    from apps.api.app.services.executors.nb_media import NBMediaClient
     from apps.api.app.services.pdf_extraction import ExtractedDocument
     from apps.api.app.services.url_canonicalization import FetchResult
     from apps.api.app.sources.base import DiscoveryResult
@@ -43,6 +44,7 @@ class ExecutorTools:
     searxng_search: SearxngSearchFn | None = None
     web_fetch: WebFetchFn | None = None
     pdf_extract: PdfExtractFn | None = None
+    nb_media_client: "NBMediaClient | None" = None
 
 
 async def execute_lead(
@@ -142,6 +144,14 @@ async def execute_lead(
 
         return await execute_pdf_process(
             session, investigation_id, lead_id, lead, tools.pdf_extract
+        )
+    if executor_name == "nb_media":
+        if tools.nb_media_client is None:
+            return await _fail(session, investigation_id, lead_id, "executor_unavailable")
+        from apps.api.app.services.executors.nb_media import execute_nb_media_lead
+
+        return await execute_nb_media_lead(
+            session, investigation_id, lead_id, lead, client=tools.nb_media_client
         )
     return await _fail(session, investigation_id, lead_id, "unsupported_lead_type")
 

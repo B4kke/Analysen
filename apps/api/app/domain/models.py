@@ -65,7 +65,7 @@ class TargetInput(BaseModel):
 
 class InvestigationCreate(ScopeSettings):
     target: TargetInput
-    purpose: str = Field(min_length=3, max_length=1000)
+    purpose: str = Field(default="", max_length=1000)
     legal_basis_note: str | None = Field(default=None, max_length=2000)
 
     @model_validator(mode="after")

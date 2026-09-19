@@ -1,5 +1,6 @@
 """Typed investigation permissions and coverage; no model can grant itself scope."""
 
+from datetime import date
 from enum import StrEnum
 from uuid import UUID
 
@@ -44,6 +45,7 @@ class TriggerType(StrEnum):
     DOMAIN_RELEVANCE = "DOMAIN_RELEVANCE"
     MEDIA_CORROBORATION = "MEDIA_CORROBORATION"
     SANCTIONS_CANDIDATE = "SANCTIONS_CANDIDATE"
+    DIRECT_SOURCE_LOOKUP = "DIRECT_SOURCE_LOOKUP"
 
 
 class QueryClass(StrEnum):
@@ -96,6 +98,18 @@ class Coverage(BaseModel):
     document_count: int = Field(default=0, ge=0)
     gaps: list[str] = Field(default_factory=list)
     unavailable_sources: list[str] = Field(default_factory=list)
+    # Source endpoints attempted (e.g. nb_catalog, nb_contentsearch).
+    endpoints: list[str] = Field(default_factory=list)
+    # Per-source result counters (e.g. NB candidates/located/concordances).
+    candidate_count: int = Field(default=0, ge=0)
+    located_count: int = Field(default=0, ge=0)
+    concordance_count: int = Field(default=0, ge=0)
+    fulltext_count: int = Field(default=0, ge=0)
+    restricted_count: int = Field(default=0, ge=0)
+    fetched_count: int = Field(default=0, ge=0)
+    # Documented time range (ISO dates) covered by the module's sources.
+    time_from: date | None = None
+    time_to: date | None = None
 
 
 class InvestigationModuleRecord(BaseModel):

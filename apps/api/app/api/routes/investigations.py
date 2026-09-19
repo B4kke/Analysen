@@ -277,6 +277,10 @@ async def execute_lead_endpoint(
         from apps.api.app.services.document_fetcher import DocumentFetcher
         from apps.api.app.services.lead_executor import ExecutorTools
         from apps.api.app.services.pdf_extraction import extract_pdf_document
+        from apps.api.app.sources.national_library import (
+            NationalLibraryClient,
+            NBMediaClientAdapter,
+        )
         from apps.api.app.sources.searxng import SearxngAdapter
 
         async with (
@@ -286,13 +290,18 @@ async def execute_lead_endpoint(
         ):
             settings = get_settings()
             searxng = SearxngAdapter(settings.searxng_base_url, http_client)
-            tools = ExecutorTools(
-                brreg_fetch=adapter.fetch,
-                searxng_search=searxng.search,
-                web_fetch=fetcher.fetch,
-                pdf_extract=extract_pdf_document,
-            )
-            status = await execute_lead(session, investigation_id, lead_id, tools)
+            nb_client = NBMediaClientAdapter(NationalLibraryClient())
+            try:
+                tools = ExecutorTools(
+                    brreg_fetch=adapter.fetch,
+                    searxng_search=searxng.search,
+                    web_fetch=fetcher.fetch,
+                    pdf_extract=extract_pdf_document,
+                    nb_media_client=nb_client,
+                )
+                status = await execute_lead(session, investigation_id, lead_id, tools)
+            finally:
+                await nb_client.aclose()
     except InvestigationNotFound as exc:
         raise HTTPException(status_code=404, detail="Investigation or lead not found") from exc
     await session.commit()

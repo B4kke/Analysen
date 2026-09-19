@@ -19,8 +19,8 @@ from uuid import UUID, uuid4
 import structlog
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from apps.api.app.domain.models import Lead
-from apps.api.app.domain.scope import ExpansionState
+from apps.api.app.domain.models import Lead, TargetType
+from apps.api.app.domain.scope import ExpansionState, ScopeModule, TriggerType
 from apps.api.app.domain.trigger_eval import FrontierLead, TriggerDecision
 from apps.api.app.repositories import investigations as repository
 from apps.api.app.services.frontier import select_next
@@ -60,6 +60,161 @@ def _pending_lead_signature(lead_type: str, scope_area: str, value: Any) -> str:
         default=str,
     )
     return hashlib.sha256(canonical.encode("utf-8")).hexdigest()
+
+
+NB_SEED_LEAD_TYPE = "nb_newspaper_search"
+NB_SEED_QUERY_CLASS = "ENTITY_ALIAS_EXACT"
+
+
+def _deduplicate_seed_names(names: list[str]) -> list[str]:
+    """Deduplicate exact-name seed queries deterministically.
+
+    Stripped names shorter than 3 chars are dropped. Dedup is on the
+    normalized form (unidecode + casefold) so a verified alias that only
+    differs by case/whitespace/diacritics from the target name never
+    produces a second lead. First-seen spelling wins; order is preserved.
+    """
+    from apps.api.app.services.entity_resolution import normalize_name
+
+    ordered: list[str] = []
+    seen: set[str] = set()
+    for raw in names:
+        cleaned = (raw or "").strip()
+        if len(cleaned) < 3:
+            continue
+        key = normalize_name(cleaned)
+        if not key or key in seen:
+            continue
+        seen.add(key)
+        ordered.append(cleaned)
+    return ordered
+
+
+def build_nb_seed_lead(target_name: str) -> Lead | None:
+    """Build the deterministic NB exact-name seed lead, or None for no name.
+
+    Pure constructor so the seed shape is unit-testable without a database.
+    The lead always goes through propose_lead admission before it can run.
+    """
+    names = _deduplicate_seed_names([target_name or ""])
+    if not names:
+        return None
+    return build_nb_seed_leads(names)[0]
+
+
+def build_nb_seed_leads(names: list[str]) -> list[Lead]:
+    """Build deduplicated NB exact-name seed leads for target + aliases.
+
+    Pure constructor: every lead uses ``nb_newspaper_search`` /
+    ``DIRECT_SOURCE_LOOKUP`` under ``WEB_MEDIA`` at relation depth 0.
+    Verified aliases intentionally reuse ``DIRECT_SOURCE_LOOKUP`` — the
+    passive ``NEW_VERIFIED_ALIAS`` trigger would park the lead as
+    ``BLOCKED/passive_trigger_requires_review`` and it would never run.
+    """
+    leads: list[Lead] = []
+    for name in _deduplicate_seed_names(list(names)):
+        leads.append(
+            Lead(
+                lead_type=NB_SEED_LEAD_TYPE,
+                value={"query": name, "query_class": NB_SEED_QUERY_CLASS},
+                reason="Deterministisk NB-oppslag på investigation-target (exact-name)",
+                priority=0.7,
+                depth=0,
+                scope_area=ScopeModule.WEB_MEDIA,
+                trigger_type=TriggerType.DIRECT_SOURCE_LOOKUP,
+                information_need=(
+                    "Finn avisomtale av personen i Nasjonalbibliotekets avissamling"
+                ),
+                relation_depth=0,
+            )
+        )
+    return leads
+
+
+async def _load_verified_alias_names(
+    session: AsyncSession,
+    investigation_id: UUID,
+) -> list[str]:
+    """Load verified (MATCH) alias spellings attached to this investigation.
+
+    Fail-closed to ``[]``: alias seeding is best-effort and must never break
+    the baseline target seed. Only ``MATCH`` entities count as verified;
+    ``PROBABLE_MATCH``/``UNRESOLVED`` still require human review.
+    """
+    from sqlalchemy import text
+
+    try:
+        rows = (
+            (
+                await session.execute(
+                    text("""
+                        SELECT DISTINCT ea.alias AS alias
+                        FROM entity_aliases ea
+                        JOIN entities e ON e.id = ea.entity_id
+                        JOIN investigation_entities ie ON ie.entity_id = e.id
+                        WHERE ie.investigation_id = :id
+                          AND e.resolution_state = 'MATCH'
+                        ORDER BY ea.alias
+                    """),
+                    {"id": investigation_id},
+                )
+            )
+            .mappings()
+            .all()
+        )
+    except Exception:
+        return []
+    names: list[str] = []
+    for row in rows:
+        alias = row.get("alias")
+        if isinstance(alias, str) and alias.strip():
+            names.append(alias)
+    return names
+
+
+async def seed_nb_media_lead(
+    session: AsyncSession,
+    investigation_id: UUID,
+    investigation: Any,
+) -> int:
+    """Seed the deterministic NB lookup for a person target with WEB_MEDIA.
+
+    The seed never waits for the planner: an explicit person target under an
+    active WEB_MEDIA module always gets deduplicated exact-name
+    ``nb_newspaper_search`` leads with a DIRECT_SOURCE_LOOKUP trigger — one
+    for the target name plus one per verified (MATCH) alias spelling. Every
+    lead passes the same deterministic admission (propose_lead) as any other
+    proposal. Reruns never duplicate: identity covers every stored lead
+    regardless of status, and alias spellings that normalize to an existing
+    query never produce a second lead. Returns the number of lead rows
+    proposed (0 when nothing new was needed).
+    """
+    if investigation.target.type != TargetType.PERSON:
+        return 0
+    if ScopeModule.WEB_MEDIA not in investigation.scope_modules:
+        return 0
+    alias_names = await _load_verified_alias_names(session, investigation_id)
+    leads = build_nb_seed_leads([investigation.target.name, *alias_names])
+    if not leads:
+        return 0
+    rows = await repository.list_lead_identity_rows(session, investigation_id)
+    existing = {
+        _pending_lead_signature(row["lead_type"], str(row["scope_area"]), row["value"])
+        for row in rows
+    }
+    proposed = 0
+    for lead in leads:
+        signature = _pending_lead_signature(
+            lead.lead_type, lead.scope_area.value, lead.value
+        )
+        if signature in existing:
+            continue
+        existing.add(signature)
+        await repository.propose_lead(session, investigation_id, lead)
+        proposed += 1
+    if proposed:
+        await session.commit()
+    return proposed
 
 
 async def _plan_and_admit(
@@ -131,6 +286,10 @@ async def _run_research_pass(
 ) -> dict:
     """Run one bounded pass; return an audited summary dict."""
     investigation = await repository.get_investigation_record(session, investigation_id)
+    # Deterministic direct-source seed first: a person target with WEB_MEDIA
+    # always gets its baseline NB lookup without waiting for the planner.
+    # The seed is idempotent and gated like every other proposal.
+    await seed_nb_media_lead(session, investigation_id, investigation)
     executed = 0
     blocked = 0
     failed = 0

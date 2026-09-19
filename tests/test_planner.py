@@ -45,7 +45,7 @@ class _FakeProvider:
 
 def _proposal_dict(**overrides: Any) -> dict[str, Any]:
     payload = {
-        "lead_type": "web_media_lookup",
+        "lead_type": "web_document_fetch",
         "value": {"url": "https://example.com/article"},
         "reason": "Independent confirmation of registered status",
         "information_need": "Confirm registered status from a secondary source",

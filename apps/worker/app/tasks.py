@@ -70,21 +70,35 @@ def run_research_pass_actor(
             searxng = SearxngAdapter(settings.searxng_base_url)
             try:
                 async with DocumentFetcher() as fetcher:
-                    tools = ExecutorTools(
-                        brreg_fetch=adapter.fetch,
-                        searxng_search=searxng.search,
-                        web_fetch=fetcher.fetch,
-                        pdf_extract=extract_pdf_document,
+                    from apps.api.app.services.raw_store import store_raw_snapshot
+                    from apps.api.app.sources.national_library import (
+                        NationalLibraryClient,
+                        NBMediaClientAdapter,
                     )
-                    return await run_research_pass(
-                        session,
-                        UUID(investigation_id),
-                        tools,
-                        max_leads=max_leads,
-                        job_id=UUID(job_id) if job_id else None,
-                        planner_provider=provider,
-                        planner_model=model,
+
+                    nb_client = NBMediaClientAdapter(
+                        NationalLibraryClient(),
+                        raw_sink=lambda payload: store_raw_snapshot(payload),
                     )
+                    try:
+                        tools = ExecutorTools(
+                            brreg_fetch=adapter.fetch,
+                            searxng_search=searxng.search,
+                            web_fetch=fetcher.fetch,
+                            pdf_extract=extract_pdf_document,
+                            nb_media_client=nb_client,
+                        )
+                        return await run_research_pass(
+                            session,
+                            UUID(investigation_id),
+                            tools,
+                            max_leads=max_leads,
+                            job_id=UUID(job_id) if job_id else None,
+                            planner_provider=provider,
+                            planner_model=model,
+                        )
+                    finally:
+                        await nb_client.aclose()
             finally:
                 await searxng.client.aclose()
 

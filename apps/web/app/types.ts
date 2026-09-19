@@ -41,6 +41,15 @@ export type ModuleState = {
     document_count?: number;
     gaps?: string[];
     unavailable_sources?: string[];
+    endpoints?: string[];
+    candidate_count?: number;
+    located_count?: number;
+    concordance_count?: number;
+    fulltext_count?: number;
+    restricted_count?: number;
+    fetched_count?: number;
+    time_from?: string | null;
+    time_to?: string | null;
   };
   stop_reason: string | null;
 };
@@ -118,6 +127,108 @@ export type EntityState = {
   expansion_state: string;
   material_reason: string | null;
 };
+
+export type TextAvailability = "FULL" | "PARTIAL_CONTEXT" | "UNAVAILABLE";
+
+// Media mention (AQ-031, Nasjonalbiblioteket): matches the API contract 1:1.
+// published_at er en date (YYYY-MM-DD) i API-et. Concordance er aldri "full
+// artikkeltekst"; restricted content vises aldri som ødelagt bilde.
+export type MediaMention = {
+  publication: string | null;
+  published_at: string | null;
+  page_number: number | null;
+  headline: string | null;
+  summary: string | null;
+  text_excerpt: string | null;
+  text_availability: TextAvailability;
+  identity_state: string | null;
+  issue_urn: string | null;
+  page_urn: string | null;
+  source_url: string | null;
+  access_class: string | null;
+  license_code: string | null;
+  image_document_id: string | null;
+  image_embeddable: boolean;
+  target_query: string | null;
+  citations: ReportCitation[];
+  xywh_anchors: string[];
+};
+
+export type ReportCitation = {
+  claim_id: string | null;
+  evidence_id: string | null;
+  document_id: string | null;
+  source_id: string | null;
+  excerpt: string | null;
+  url: string | null;
+  fetched_at: string | null;
+  sha256: string | null;
+};
+
+export type ReportFinding = {
+  predicate: string;
+  value: unknown;
+  status: ClaimStatus;
+  subject_name: string | null;
+  citations: ReportCitation[];
+};
+
+export type CoverageEntry = {
+  module: string;
+  enabled: boolean;
+  status: string;
+  outcome: string;
+  stop_reason: string | null;
+  providers: string[];
+  query_count: number;
+  document_count: number;
+  endpoints?: string[];
+  query_classes?: string[];
+  candidate_count?: number;
+  located_count?: number;
+  concordance_count?: number;
+  fulltext_count?: number;
+  restricted_count?: number;
+  fetched_count?: number;
+  time_from?: string | null;
+  time_to?: string | null;
+};
+
+export type ContextEntity = {
+  name: string | null;
+  entity_schema: string;
+  relation: string | null;
+};
+
+export type UnverifiedLead = {
+  predicate: string | null;
+  information_need: string;
+  reason: string | null;
+};
+
+// Full report-kontrakt fra GET /api/v1/investigations/{id}/report.json.
+// JSON, HTML, PDF og Next.js konsumerer samme canonical contract.
+export type ReportDocument = {
+  investigation_id: string;
+  target_name: string;
+  target_type: string;
+  purpose: string;
+  generated_at: string;
+  expansion_policy: string;
+  max_relation_depth: number;
+  scope_modules: string[];
+  findings: ReportFinding[];
+  media_mentions: MediaMention[];
+  unverified_leads: UnverifiedLead[];
+  context_entities: ContextEntity[];
+  coverage: CoverageEntry[];
+};
+
+// Direkte NB item-URL fra URN:NBN-identifikator; null for fremmede/missing URN-er.
+export function nbItemUrl(urn: string | null | undefined): string | null {
+  if (!urn || !urn.toUpperCase().startsWith("URN:NBN:")) return null;
+  return `https://www.nb.no/items/${urn}`;
+}
 
 export type InvestigationDetail = {
   id: string;

@@ -161,14 +161,14 @@ async def test_0005_rescopes_legacy_fingerprints_without_losing_links() -> None:
         assert link is not None
         assert link["relation"] == "supports"
         revision = await database.fetchval("SELECT version_num FROM alembic_version")
-        assert revision == "0005_claim_fingerprint_subject"
+        assert revision == "0010_media_xywh"
         await database.close()
 
         _upgrade(scratch_url)
 
         database = await asyncpg.connect(_asyncpg_url(scratch_url))
         assert await database.fetchval("SELECT version_num FROM alembic_version") == (
-            "0005_claim_fingerprint_subject"
+            "0010_media_xywh"
         )
         assert (
             await database.fetchval("SELECT fingerprint FROM claims WHERE id = $1", claim_id)
