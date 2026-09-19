@@ -142,6 +142,13 @@ async def test_fresh_investigation_is_not_started_with_zero_read_model_counts(st
         "fulltext_count": 0,
         "restricted_count": 0,
         "fetched_count": 0,
+        "content_fragment_error_count": 0,
+        "iiif_error_count": 0,
+        "concordance_error_count": 0,
+        "crop_unavailable_count": 0,
+        "identity_match_count": 0,
+        "identity_probable_count": 0,
+        "identity_unresolved_count": 0,
         "time_from": None,
         "time_to": None,
     }
