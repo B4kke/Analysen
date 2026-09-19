@@ -362,7 +362,7 @@ export default function InvestigationPage() {
 
       <section className={`research-status-card research-status-card--${view.tone}`} aria-live="polite">
         <div className="research-status-main">
-          <span className={`activity-indicator ${research.status === "RUNNING" ? "activity-indicator--live" : ""}`} aria-hidden="true" />
+          <span className={`activity-indicator ${research.status === "RUNNING" ? "activity-indicator--running" : ""}`} aria-hidden="true" />
           <div>
             <p className="eyebrow">RESEARCHSTATUS</p>
             <h2>{view.title}</h2>
@@ -441,7 +441,7 @@ export default function InvestigationPage() {
 
       <section className="summary-grid">
         <div><span>Søkeområder</span><strong>{enabledModules.length}</strong></div>
-        <div><span>Ferdige leads</span><strong>{doneLeads} / {investigation.leads.length}</strong></div>
+        <div><span>Avsluttede leads</span><strong>{doneLeads} / {investigation.leads.length}</strong></div>
         <div><span>Dokumenter</span><strong>{investigation.document_count}</strong></div>
         <div><span>Evidence</span><strong>{investigation.evidence_count}</strong></div>
       </section>
