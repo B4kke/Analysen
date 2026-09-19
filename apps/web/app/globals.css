@@ -42,8 +42,7 @@
 .research-status-card--queued .activity-indicator{background:#b58a32;box-shadow:0 0 0 5px rgba(181,138,50,.14)}
 .research-status-card--complete .activity-indicator{background:var(--green);box-shadow:0 0 0 5px rgba(20,102,77,.12)}
 .research-status-card--failed .activity-indicator{background:#b34f37;box-shadow:0 0 0 5px rgba(179,79,55,.12)}
-.activity-indicator--live{background:var(--green);animation:research-pulse 1.6s ease-in-out infinite}
-@keyframes research-pulse{0%,100%{box-shadow:0 0 0 4px rgba(20,102,77,.13)}50%{box-shadow:0 0 0 10px rgba(20,102,77,.02)}}
+.activity-indicator--running{background:var(--green);box-shadow:0 0 0 5px rgba(20,102,77,.12)}
 
 .research-facts{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:1px;background:var(--line);border:1px solid var(--line);margin-top:22px}
 .research-facts>div{background:var(--paper);padding:12px;min-width:0}
@@ -91,3 +90,4 @@
   .coverage-row{align-items:flex-start;gap:12px}
   .module-status{margin-top:1px}
 }
+.research-actions .submit-button:disabled{cursor:not-allowed}
