@@ -650,7 +650,7 @@ async def test_permitted_crop_links_mention_evidence_and_report_citation(
         allow_context=True,
         allow_page_fetch=True,
         allow_derived_crop=True,
-        allow_report_embed=False,
+        allow_report_embed=True,
         reason="test",
     )
     async with factory() as session:
@@ -739,6 +739,23 @@ async def test_permitted_crop_links_mention_evidence_and_report_citation(
     assert citation.url == f"https://api.nb.no/catalog/v1/items/{PERMITTED_ITEM_ID}"
     assert citation.excerpt is not None and "Maylen" in citation.excerpt
     assert citation.sha256 is not None
+
+    image_response = await http.get(
+        f"/api/v1/investigations/{investigation_id}/media/image/{document_id}"
+    )
+    assert image_response.status_code == 200
+    assert image_response.headers["content-type"].startswith("image/png")
+    assert image_response.headers["content-disposition"] == "inline"
+    assert image_response.headers["x-content-type-options"] == "nosniff"
+    assert hashlib.sha256(image_response.content).hexdigest() == citation.sha256
+
+    other_investigation_id = await _create_company(
+        http, created, name="Other Media Case AS"
+    )
+    denied = await http.get(
+        f"/api/v1/investigations/{other_investigation_id}/media/image/{document_id}"
+    )
+    assert denied.status_code == 404
 
     bare = [m for m in document.media_mentions if m.page_urn == RESTRICTED_PAGE_URN]
     assert len(bare) == 1

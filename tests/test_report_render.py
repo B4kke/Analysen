@@ -6,6 +6,7 @@ semantics in both outputs), UNAVAILABLE mentions showing metadata + direct
 NB link and never fabricated full text, and escaping inside media mentions.
 """
 
+import base64
 import html
 import re
 import zlib
@@ -331,34 +332,49 @@ def test_html_media_mention_escaping() -> None:
     assert f"<pre>… {_ESC_EM}Ola {escaped} Nordmann{_ESC_EM_END} …" in out
 
 
-def test_html_no_img_tags_even_when_image_embeddable() -> None:
-    doc = _full_doc()
-    doc.media_mentions.append(
-        MediaMention(
-            publication="Aftenposten",
-            published_at=date(1994, 12, 16),
-            page_number=72,
-            headline=None,
-            summary=None,
-            text_excerpt=None,
-            text_availability=NBTextAvailability.UNAVAILABLE,
-            identity_state="UNRESOLVED",
-            issue_urn=None,
-            page_urn=None,
-            source_url=None,
-            access_class="PUBLIC_VIEW_ONLY",
-            license_code=None,
-            image_document_id=UUID(int=43),
-            image_embeddable=True,
-            target_query="Ola Nordmann",
-        )
+def _embeddable_mention() -> MediaMention:
+    return MediaMention(
+        publication="Aftenposten",
+        published_at=date(1994, 12, 16),
+        page_number=72,
+        headline="Lovlig artikkelutsnitt",
+        summary=None,
+        text_excerpt="Kort lagret utdrag",
+        text_availability=NBTextAvailability.PARTIAL_CONTEXT,
+        identity_state="UNRESOLVED",
+        issue_urn="URN:NBN:no-nb_digavis_aftenposten_19941216",
+        page_urn="URN:NBN:no-nb_digavis_aftenposten_19941216_1_72_1",
+        source_url=None,
+        access_class="PUBLIC_DOMAIN",
+        license_code="NLOD-2.0",
+        image_document_id=UUID(int=43),
+        image_embeddable=True,
+        target_query="Ola Nordmann",
     )
-    out = render_report_html(doc)
-    # No image bytes are available to a renderer: never a broken image.
-    assert "<img" not in out.lower()
-    # The lawfully embeddable image is referenced as a stored document.
-    assert f"Artikkelbilde lagret som dokument: {UUID(int=43)}" in out
 
+
+def test_html_embeds_lawfully_embeddable_media_crop() -> None:
+    doc = _full_doc()
+    doc.media_mentions = [_embeddable_mention()]
+    out = render_report_html(doc)
+    expected = (
+        f"/api/v1/investigations/{doc.investigation_id}/media/image/{UUID(int=43)}"
+    )
+    assert '<img class="media-image"' in out
+    assert expected in out
+    assert "Artikkelbilde: tilgjengelig for rapportvisning" in out
+
+
+def test_pdf_embeds_lawfully_embeddable_media_crop() -> None:
+    doc = _full_doc()
+    doc.media_mentions = [_embeddable_mention()]
+    png = base64.b64decode(
+        "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk"
+        "+A8AAQUBAScY42YAAAAASUVORK5CYII="
+    )
+    out = render_report_pdf(doc, media_images={UUID(int=43): png})
+    assert out.startswith(b"%PDF")
+    assert b"/Subtype /Image" in out
 
 def test_html_media_mention_without_urn_or_url_stays_linkless() -> None:
     doc = _full_doc()

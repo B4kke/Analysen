@@ -10,7 +10,9 @@ from __future__ import annotations
 
 import html
 import json
-from typing import Any
+from io import BytesIO
+from typing import Any, Mapping
+from uuid import UUID
 
 from fpdf import FPDF
 from fpdf.enums import WrapMode, XPos, YPos
@@ -86,6 +88,7 @@ _CSS = (
     ".finding{border:1px solid #ccc;margin:1em 0;padding:0.5em 1em}"
     "pre{background:#f6f6f6;padding:0.5em;white-space:pre-wrap;word-wrap:break-word}"
     ".cite-meta{color:#555;font-size:0.9em}"
+    ".media-image{display:block;max-width:100%;height:auto;margin:1em 0;border:1px solid #ccc}"
 )
 
 
@@ -243,11 +246,8 @@ def _media_mention_meta(mention: MediaMention) -> list[str]:
         parts.append(f"Side URN: {mention.page_urn}")
     if mention.xywh_anchors:
         parts.append(f"Tekstanker: {', '.join(mention.xywh_anchors)}")
-    # The page image itself is never rendered (no image bytes are available
-    # here, so an <img>/crop could only ever be broken): a lawfully embeddable
-    # derived image is referenced as a stored document instead.
     if mention.image_embeddable and mention.image_document_id:
-        parts.append(f"Artikkelbilde lagret som dokument: {mention.image_document_id}")
+        parts.append("Artikkelbilde: tilgjengelig for rapportvisning")
     return parts
 
 
@@ -264,7 +264,7 @@ def _media_mention_text(mention: MediaMention) -> str | None:
     return mention.text_excerpt or mention.summary or None
 
 
-def _media_mention_html(mention: MediaMention) -> str:
+def _media_mention_html(mention: MediaMention, investigation_id: UUID) -> str:
     """One media mention: metadata, lawful text and direct source link.
 
     Text is only rendered for ``FULL`` and ``PARTIAL_CONTEXT``; an
@@ -284,6 +284,18 @@ def _media_mention_html(mention: MediaMention) -> str:
     meta = _media_mention_meta(mention)
     if meta:
         parts.append(f'<div class="cite-meta">{" · ".join(_esc(part) for part in meta)}</div>')
+    if mention.image_embeddable and mention.image_document_id:
+        image_src = (
+            f"/api/v1/investigations/{investigation_id}/media/image/"
+            f"{mention.image_document_id}"
+        )
+        alt = mention.headline or mention.publication or "Lagret artikkelutsnitt"
+        parts.append(
+            f'<figure><img class="media-image" src="{html.escape(image_src, quote=True)}" '
+            f'alt="{html.escape(alt, quote=True)}" loading="lazy">'
+            '<figcaption class="cite-meta">Lagret artikkelutsnitt fra kildebelegget.</figcaption>'
+            "</figure>"
+        )
     if mention.text_availability is NBTextAvailability.UNAVAILABLE:
         parts.append(f'<p class="cite-meta">{_esc(_MEDIA_ACCESS_NOTE_UNAVAILABLE)}</p>')
     else:
@@ -362,7 +374,7 @@ def render_report_html(doc: ReportDocument) -> str:
     else:
         mentions_html = (
             f"<p>{_esc(_MEDIA_IDENTITY_NOTE)}</p>"
-            f"{''.join(_media_mention_html(mention) for mention in mentions)}"
+            f"{''.join(_media_mention_html(mention, doc.investigation_id) for mention in mentions)}"
         )
 
     entities = doc.context_entities or []
@@ -426,7 +438,11 @@ def _pdf_text(value: Any | None) -> str:
     return text.encode("latin-1", errors="replace").decode("latin-1")
 
 
-def _pdf_media_mention(pdf: FPDF, mention: MediaMention) -> None:
+def _pdf_media_mention(
+    pdf: FPDF,
+    mention: MediaMention,
+    media_images: Mapping[UUID, bytes],
+) -> None:
     """One media mention in the PDF: same semantics as the HTML renderer.
 
     Text is only rendered for ``FULL`` and ``PARTIAL_CONTEXT``; an
@@ -441,6 +457,13 @@ def _pdf_media_mention(pdf: FPDF, mention: MediaMention) -> None:
         _pdf_body(pdf, f"Overskrift: {mention.headline}")
     for part in _media_mention_meta(mention):
         _pdf_body(pdf, part)
+    if mention.image_embeddable and mention.image_document_id:
+        image_bytes = media_images.get(mention.image_document_id)
+        if image_bytes:
+            try:
+                pdf.image(BytesIO(image_bytes), w=160)
+            except Exception:
+                _pdf_body(pdf, "Artikkelbildet kunne ikke rendres i PDF.")
     if mention.text_availability is NBTextAvailability.UNAVAILABLE:
         _pdf_body(pdf, _MEDIA_ACCESS_NOTE_UNAVAILABLE)
     else:
@@ -479,7 +502,11 @@ def _pdf_body(pdf: FPDF, text: Any | None) -> None:
     )
 
 
-def render_report_pdf(doc: ReportDocument) -> bytes:
+def render_report_pdf(
+    doc: ReportDocument,
+    *,
+    media_images: Mapping[UUID, bytes] | None = None,
+) -> bytes:
     """Render the same ReportDocument sections as deterministic PDF bytes."""
     pdf = FPDF()
     pdf.set_creation_date(doc.generated_at)
@@ -558,7 +585,7 @@ def render_report_pdf(doc: ReportDocument) -> bytes:
         else:
             _pdf_body(pdf, "Ingen medienevnter.")
     for mention in mentions:
-        _pdf_media_mention(pdf, mention)
+        _pdf_media_mention(pdf, mention, media_images or {})
 
     _pdf_section(pdf, "Uavklarte spor")
     leads = doc.unverified_leads or []

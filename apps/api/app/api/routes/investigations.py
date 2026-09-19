@@ -142,6 +142,81 @@ async def raw_evidence_endpoint(
     )
 
 
+async def _load_embeddable_media_image(
+    session: AsyncSession,
+    investigation_id: UUID,
+    document_id: UUID,
+) -> tuple[bytes, str] | None:
+    """Load a report-safe media crop only when the case and rights row allow embedding."""
+    row = (
+        (
+            await session.execute(
+                text("""
+        SELECT d.sha256, d.raw_storage_key, d.mime_type
+        FROM media_mentions mention
+        JOIN documents d ON d.id = mention.image_document_id
+        JOIN investigation_documents link ON link.document_id = d.id
+        WHERE mention.investigation_id = :investigation_id
+          AND mention.image_document_id = :document_id
+          AND mention.image_embeddable IS TRUE
+          AND link.investigation_id = :investigation_id
+        LIMIT 1
+    """),
+                {
+                    "investigation_id": investigation_id,
+                    "document_id": document_id,
+                },
+            )
+        )
+        .mappings()
+        .one_or_none()
+    )
+    if row is None or not row["raw_storage_key"]:
+        return None
+    media_type = row["mime_type"]
+    if media_type not in {"image/png", "image/jpeg", "image/webp"}:
+        return None
+    try:
+        content = await asyncio.to_thread(
+            load_raw_bytes, row["raw_storage_key"], row["sha256"]
+        )
+    except RawSnapshotUnavailable:
+        structlog.get_logger().warning(
+            "media_image_snapshot_unavailable",
+            investigation_id=str(investigation_id),
+            document_id=str(document_id),
+        )
+        return None
+    return content, media_type
+
+
+@router.get("/{investigation_id}/media/image/{document_id}")
+async def media_image_endpoint(
+    investigation_id: UUID,
+    document_id: UUID,
+    session: DatabaseSession,
+) -> Response:
+    """Serve a lawfully embeddable stored article crop, scoped to its investigation."""
+    try:
+        await get_investigation_record(session, investigation_id)
+    except InvestigationNotFound as exc:
+        raise HTTPException(status_code=404, detail="Investigation not found") from exc
+
+    loaded = await _load_embeddable_media_image(session, investigation_id, document_id)
+    if loaded is None:
+        raise HTTPException(status_code=404, detail="Embeddable media image not found")
+    content, media_type = loaded
+    return Response(
+        content=content,
+        media_type=media_type,
+        headers={
+            "Content-Disposition": "inline",
+            "Cache-Control": "private, no-store",
+            "X-Content-Type-Options": "nosniff",
+        },
+    )
+
+
 @router.patch("/{investigation_id}/scope", response_model=InvestigationDetail)
 async def update_scope_endpoint(
     investigation_id: UUID, request: ScopeUpdate, session: DatabaseSession
@@ -219,8 +294,18 @@ async def report_pdf_endpoint(
     from apps.api.app.services.report_render import render_report_pdf
 
     document = await _report_document_or_404(session, investigation_id)
+    media_images: dict[UUID, bytes] = {}
+    document_ids = {
+        mention.image_document_id
+        for mention in document.media_mentions
+        if mention.image_embeddable and mention.image_document_id is not None
+    }
+    for document_id in document_ids:
+        loaded = await _load_embeddable_media_image(session, investigation_id, document_id)
+        if loaded is not None:
+            media_images[document_id] = loaded[0]
     return Response(
-        render_report_pdf(document),
+        render_report_pdf(document, media_images=media_images),
         media_type="application/pdf",
         headers={"Content-Disposition": f'attachment; filename="analysen-{investigation_id}.pdf"'},
     )
