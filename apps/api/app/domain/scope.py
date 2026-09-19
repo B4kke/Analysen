@@ -107,6 +107,13 @@ class Coverage(BaseModel):
     fulltext_count: int = Field(default=0, ge=0)
     restricted_count: int = Field(default=0, ge=0)
     fetched_count: int = Field(default=0, ge=0)
+    content_fragment_error_count: int = Field(default=0, ge=0)
+    iiif_error_count: int = Field(default=0, ge=0)
+    concordance_error_count: int = Field(default=0, ge=0)
+    crop_unavailable_count: int = Field(default=0, ge=0)
+    identity_match_count: int = Field(default=0, ge=0)
+    identity_probable_count: int = Field(default=0, ge=0)
+    identity_unresolved_count: int = Field(default=0, ge=0)
     # Documented time range (ISO dates) covered by the module's sources.
     time_from: date | None = None
     time_to: date | None = None

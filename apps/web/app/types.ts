@@ -48,6 +48,13 @@ export type ModuleState = {
     fulltext_count?: number;
     restricted_count?: number;
     fetched_count?: number;
+    content_fragment_error_count?: number;
+    iiif_error_count?: number;
+    concordance_error_count?: number;
+    crop_unavailable_count?: number;
+    identity_match_count?: number;
+    identity_probable_count?: number;
+    identity_unresolved_count?: number;
     time_from?: string | null;
     time_to?: string | null;
   };
@@ -190,6 +197,13 @@ export type CoverageEntry = {
   fulltext_count?: number;
   restricted_count?: number;
   fetched_count?: number;
+  content_fragment_error_count?: number;
+  iiif_error_count?: number;
+  concordance_error_count?: number;
+  crop_unavailable_count?: number;
+  identity_match_count?: number;
+  identity_probable_count?: number;
+  identity_unresolved_count?: number;
   time_from?: string | null;
   time_to?: string | null;
 };

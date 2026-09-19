@@ -6,6 +6,7 @@ rows. The external NB boundary is faked with sanitized fixtures over
 ``httpx.MockTransport`` -- no live NB in CI. Opt-in: TEST_DATABASE_URL.
 """
 
+import hashlib
 import json
 import os
 import uuid
@@ -1008,3 +1009,93 @@ async def test_wrongly_wired_raw_client_fails_closed(nb_pipeline_client) -> None
             {"id": lead_id},
         )
     assert reason == "executor_unavailable"
+
+
+async def test_media_identity_match_bridges_to_verified_claim(nb_pipeline_client) -> None:
+    """A corroborated company mention becomes MATCH and a verified claim."""
+    from apps.api.app.domain.models import SourceRegistryRecord
+    from apps.api.app.repositories import claims_evidence
+    from apps.api.app.repositories import media_mentions as mention_store
+    from apps.api.app.services.executors import nb_media as executor
+
+    http, created, factory = nb_pipeline_client
+    investigation_id = await _create_company(http, created, name="Match Probe AS")
+    iid = uuid.UUID(investigation_id)
+    excerpt = "Match Probe AS (org.nr. 974 760 673) er omtalt i denne artikkelen."
+
+    async with factory() as session:
+        await claims_evidence.upsert_source(
+            session,
+            SourceRegistryRecord(
+                id="test_media_identity",
+                name="Test media identity source",
+                evidence_tier=2,
+                access_class="TEST",
+                base_url="https://example.test",
+            ),
+        )
+        digest = hashlib.sha256(f"media-identity:{investigation_id}".encode()).hexdigest()
+        document_id = await claims_evidence.upsert_document(
+            session,
+            source_id="test_media_identity",
+            original_url="https://example.test/article",
+            canonical_url="https://example.test/article",
+            mime_type="text/plain",
+            sha256=digest,
+            raw_storage_key=None,
+            extracted_text=excerpt,
+            parser_metadata={"test": "media_identity"},
+        )
+        await claims_evidence.attach_document(
+            session, iid, document_id, reason="media_identity_test"
+        )
+        evidence_id = await claims_evidence.store_evidence(
+            session,
+            document_id,
+            "article_excerpt",
+            {"test": "media_identity"},
+            excerpt,
+            {"target_validated": True},
+        )
+        mention_id = await mention_store.upsert_media_mention(
+            session,
+            investigation_id=iid,
+            target_query="Match Probe AS",
+            publication="Testavisen",
+            text_excerpt=excerpt,
+            text_availability="PARTIAL_CONTEXT",
+            identity_state="UNRESOLVED",
+            source_url="https://example.test/article",
+            evidence_id=evidence_id,
+        )
+        state, claim_id, claim_status = await executor._resolve_and_verify_mention(
+            session,
+            iid,
+            mention_id=mention_id,
+            target_query="Match Probe AS",
+            text_excerpt=excerpt,
+            evidence_id=evidence_id,
+            publication="Testavisen",
+            published_at=None,
+            page_urn="URN:NBN:test:page:1",
+            source_url="https://example.test/article",
+        )
+        await session.commit()
+
+        stored_state = await session.scalar(
+            text("SELECT identity_state FROM media_mentions WHERE id = :id"),
+            {"id": mention_id},
+        )
+        stored_claim = (
+            await session.execute(
+                text("SELECT predicate, status FROM claims WHERE id = :id"),
+                {"id": claim_id},
+            )
+        ).mappings().one()
+
+    assert state == "MATCH"
+    assert claim_id is not None
+    assert claim_status == "SUPPORTED"
+    assert stored_state == "MATCH"
+    assert stored_claim["predicate"] == "media_mention"
+    assert stored_claim["status"] == "SUPPORTED"

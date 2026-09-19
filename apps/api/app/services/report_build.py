@@ -390,6 +390,13 @@ async def build_report_document(
             fulltext_count=module.coverage.fulltext_count,
             restricted_count=module.coverage.restricted_count,
             fetched_count=module.coverage.fetched_count,
+            content_fragment_error_count=module.coverage.content_fragment_error_count,
+            iiif_error_count=module.coverage.iiif_error_count,
+            concordance_error_count=module.coverage.concordance_error_count,
+            crop_unavailable_count=module.coverage.crop_unavailable_count,
+            identity_match_count=module.coverage.identity_match_count,
+            identity_probable_count=module.coverage.identity_probable_count,
+            identity_unresolved_count=module.coverage.identity_unresolved_count,
             time_from=module.coverage.time_from,
             time_to=module.coverage.time_to,
         )

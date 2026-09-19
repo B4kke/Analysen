@@ -77,6 +77,13 @@ class CoverageEntry(BaseModel):
     fulltext_count: int = 0
     restricted_count: int = 0
     fetched_count: int = 0
+    content_fragment_error_count: int = 0
+    iiif_error_count: int = 0
+    concordance_error_count: int = 0
+    crop_unavailable_count: int = 0
+    identity_match_count: int = 0
+    identity_probable_count: int = 0
+    identity_unresolved_count: int = 0
     time_from: date | None = None
     time_to: date | None = None
 
