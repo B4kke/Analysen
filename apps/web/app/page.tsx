@@ -116,15 +116,30 @@ export default function Home() {
 
       if (willStartResearch) {
         setSubmitStage("starting");
-        const startResponse = await fetch(`${API_BASE}/api/v1/investigations/${id}/research/run`, {
-          method: "POST",
-        });
-        const startPayload = await startResponse.json().catch(() => null);
-        if (!startResponse.ok && startResponse.status !== 409) {
+        const startController = new AbortController();
+        const startTimer = window.setTimeout(() => startController.abort(), 15000);
+        try {
+          const startResponse = await fetch(
+            `${API_BASE}/api/v1/investigations/${id}/research/run`,
+            { method: "POST", signal: startController.signal },
+          );
+          const startPayload = await startResponse.json().catch(() => null);
+          if (!startResponse.ok && startResponse.status !== 409) {
+            const warning =
+              formatApiDetail(startPayload?.detail) ||
+              "Saken ble opprettet, men research kunne ikke startes automatisk.";
+            window.sessionStorage.setItem(`analysen:start-warning:${id}`, warning);
+          }
+        } catch (startError) {
           const warning =
-            formatApiDetail(startPayload?.detail) ||
-            "Saken ble opprettet, men research kunne ikke startes automatisk.";
+            startError instanceof DOMException && startError.name === "AbortError"
+              ? "Saken ble opprettet, men start av research tidsavbrøt etter 15 sekunder."
+              : startError instanceof Error
+                ? startError.message
+                : "Saken ble opprettet, men research kunne ikke startes automatisk.";
           window.sessionStorage.setItem(`analysen:start-warning:${id}`, warning);
+        } finally {
+          window.clearTimeout(startTimer);
         }
       }
 
