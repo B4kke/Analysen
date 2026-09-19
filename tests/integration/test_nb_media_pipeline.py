@@ -749,6 +749,19 @@ async def test_permitted_crop_links_mention_evidence_and_report_citation(
     assert image_response.headers["x-content-type-options"] == "nosniff"
     assert hashlib.sha256(image_response.content).hexdigest() == citation.sha256
 
+    html_response = await http.get(
+        f"/api/v1/investigations/{investigation_id}/report.html"
+    )
+    assert html_response.status_code == 200
+    assert '<img class="media-image"' in html_response.text
+    assert f"/media/image/{document_id}" in html_response.text
+
+    pdf_response = await http.get(
+        f"/api/v1/investigations/{investigation_id}/report.pdf"
+    )
+    assert pdf_response.status_code == 200
+    assert b"/Subtype /Image" in pdf_response.content
+
     other_investigation_id = await _create_company(
         http, created, name="Other Media Case AS"
     )
@@ -756,6 +769,20 @@ async def test_permitted_crop_links_mention_evidence_and_report_citation(
         f"/api/v1/investigations/{other_investigation_id}/media/image/{document_id}"
     )
     assert denied.status_code == 404
+
+    async with factory() as session:
+        await session.execute(
+            text(
+                "UPDATE media_mentions SET image_embeddable = FALSE "
+                "WHERE investigation_id = :iid AND page_urn = :page_urn"
+            ),
+            {"iid": iid, "page_urn": PERMITTED_PAGE_URN},
+        )
+        await session.commit()
+    policy_denied = await http.get(
+        f"/api/v1/investigations/{investigation_id}/media/image/{document_id}"
+    )
+    assert policy_denied.status_code == 404
 
     bare = [m for m in document.media_mentions if m.page_urn == RESTRICTED_PAGE_URN]
     assert len(bare) == 1
