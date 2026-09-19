@@ -28,8 +28,10 @@ Thin orchestration wiring (AQ-031), not the adapter/policy/extraction work:
 Status, audit and coverage follow the existing executor convention: every
 outcome is terminal (COMPLETED/FAILED), failures carry a machine-readable
 blocked_reason, and every outcome is audited with a LEAD_EXECUTED event.
-Same-name hits are always persisted as ``UNRESOLVED`` — name alone is never
-identity. No model calls.
+Same-name hits start as ``UNRESOLVED`` — name alone is never identity.
+A deterministic post-persist identity bridge may promote only when the stored
+context corroborates target facts; promoted mentions create evidence-backed
+claims that pass through the canonical verifier. No model calls.
 """
 
 from __future__ import annotations
@@ -44,7 +46,7 @@ from uuid import UUID
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from apps.api.app.domain.models import Lead
+from apps.api.app.domain.models import ClaimStatus, Lead, ResolutionState
 from apps.api.app.domain.scope import QueryClass, ScopeModule, TriggerType
 from apps.api.app.repositories import investigations as repository
 from apps.api.app.services.nb_article_extract import (
@@ -52,6 +54,7 @@ from apps.api.app.services.nb_article_extract import (
     PageOcrFn,
     extract_permitted_article,
 )
+from apps.api.app.services.media_identity import load_verified_aliases, resolve_media_identity
 from apps.api.app.services.nb_article_locator import match_page_anchors, parse_original_url
 from apps.api.app.services.raw_store import store_raw_bytes, store_raw_snapshot
 
@@ -461,6 +464,12 @@ async def execute_nb_media_lead(
     page_fetch_blocked = 0
     crop_count = 0
     crop_skipped = 0
+    content_fragment_errors = 0
+    iiif_errors = 0
+    concordance_errors = 0
+    identity_match_count = 0
+    identity_probable_count = 0
+    identity_unresolved_count = 0
     duplicate_skips = 0
     dhlab_attempted = False
     earliest_issued: date | None = None
@@ -490,12 +499,14 @@ async def execute_nb_media_lead(
         try:
             fragments = await resolved_client.content_fragments(str(item_id), query)
         except Exception:
+            content_fragment_errors += 1
             fragments = []
         pages = [page for page in (fragments or [])][:MAX_PAGES_PER_ISSUE]
 
         try:
             anchors = await resolved_client.iiif_search(str(item_id), query)
         except Exception:
+            iiif_errors += 1
             anchors = []
         # IIIF anchor targets are canvas URLs while fragment locators are
         # URN page identifiers, so verbatim dict lookup would silently drop
@@ -528,6 +539,7 @@ async def execute_nb_media_lead(
                     page_urns, query, window=CONC_WINDOW, limit=CONC_LIMIT
                 )
             except Exception:
+                concordance_errors += 1
                 concs = []
             for conc in concs or []:
                 urn = _field(conc, "urn")
@@ -566,6 +578,7 @@ async def execute_nb_media_lead(
                     session, investigation_id, lead_id, "persist_error:MediaMentionPersistFailed"
                 )
             mention_count += 1
+            identity_unresolved_count += 1
             continue
 
         for page in pages:
@@ -628,7 +641,11 @@ async def execute_nb_media_lead(
                         f"source_error:{type(exc).__name__}",
                     )
                 if isinstance(image_bytes, (bytes, bytearray)) and bytes(image_bytes):
-                    store_raw_bytes(bytes(image_bytes))
+                    # PUBLIC_VIEW_ONLY may be fetched for an in-memory, rights-gated
+                    # derived crop but the full page is not retained unless the
+                    # item policy explicitly allows full-content storage.
+                    if verdict.allow_full_text_storage:
+                        store_raw_bytes(bytes(image_bytes))
                     page_fetch_count += 1
                     crop_attempted = bool(verdict.allow_derived_crop and page_anchors)
                     image_document_id, crop_text, crop_evidence_id = (
@@ -691,6 +708,24 @@ async def execute_nb_media_lead(
                     session, investigation_id, lead_id, "persist_error:MediaMentionPersistFailed"
                 )
             mention_count += 1
+            identity_state, _claim_id, _claim_status = await _resolve_and_verify_mention(
+                session,
+                investigation_id,
+                mention_id=outcome,
+                target_query=query,
+                text_excerpt=excerpt,
+                evidence_id=crop_evidence_id,
+                publication=publication if isinstance(publication, str) else None,
+                published_at=_coerce_published_at(issued_at),
+                page_urn=str(page_urn) if page_urn is not None else None,
+                source_url=source_url if isinstance(source_url, str) else None,
+            )
+            if identity_state == ResolutionState.MATCH.value:
+                identity_match_count += 1
+            elif identity_state == ResolutionState.PROBABLE_MATCH.value:
+                identity_probable_count += 1
+            else:
+                identity_unresolved_count += 1
         if stop_reason == "duplicate_results":
             break
 
@@ -714,6 +749,13 @@ async def execute_nb_media_lead(
             "fulltext_count": fulltext_count,
             "restricted_count": restricted_count,
             "fetched_count": page_fetch_count,
+            "content_fragment_error_count": content_fragment_errors,
+            "iiif_error_count": iiif_errors,
+            "concordance_error_count": concordance_errors,
+            "crop_unavailable_count": crop_skipped,
+            "identity_match_count": identity_match_count,
+            "identity_probable_count": identity_probable_count,
+            "identity_unresolved_count": identity_unresolved_count,
         },
         time_from=earliest_issued.isoformat() if earliest_issued else None,
         time_to=latest_issued.isoformat() if latest_issued else None,
@@ -739,6 +781,12 @@ async def execute_nb_media_lead(
             "page_fetch_blocked": page_fetch_blocked,
             "crop_count": crop_count,
             "crop_skipped": crop_skipped,
+            "content_fragment_errors": content_fragment_errors,
+            "iiif_errors": iiif_errors,
+            "concordance_errors": concordance_errors,
+            "identity_match_count": identity_match_count,
+            "identity_probable_count": identity_probable_count,
+            "identity_unresolved_count": identity_unresolved_count,
             "duplicate_skips": duplicate_skips,
             "stop_reason": stop_reason,
             "bridged_count": bridged_count,
@@ -901,6 +949,96 @@ async def _persist_mention(
         return result
     except Exception:
         return None
+
+
+async def _resolve_and_verify_mention(
+    session: AsyncSession,
+    investigation_id: UUID,
+    *,
+    mention_id: UUID,
+    target_query: str,
+    text_excerpt: str | None,
+    evidence_id: UUID | None,
+    publication: str | None,
+    published_at: date | None,
+    page_urn: str | None,
+    source_url: str | None,
+) -> tuple[str, UUID | None, str | None]:
+    """Resolve a persisted mention and bridge corroborated hits into claims.
+
+    Name-only hits stay UNRESOLVED. MATCH evidence is linked as SUPPORTS;
+    PROBABLE_MATCH evidence is linked only as PARTIAL/context. The canonical
+    verifier then computes the claim status from the real evidence row.
+    """
+    from apps.api.app.repositories import claims_evidence
+    from apps.api.app.repositories import media_mentions as mention_store
+    from apps.api.app.services.verifier import verify_claim
+
+    investigation = await repository.get_investigation_record(session, investigation_id)
+    aliases = await load_verified_aliases(session, investigation_id)
+    result = resolve_media_identity(
+        investigation.target,
+        target_query=target_query,
+        text_excerpt=text_excerpt,
+        verified_aliases=tuple(aliases),
+    )
+    await mention_store.update_media_mention_identity(
+        session,
+        mention_id,
+        identity_state=result.state.value,
+    )
+    await repository._audit(
+        session,
+        investigation_id,
+        "MEDIA_IDENTITY_EVALUATED",
+        {
+            "mention_id": str(mention_id),
+            "state": result.state.value,
+            "score": result.score,
+            "reasons": list(result.reasons),
+            "target_query": target_query,
+        },
+    )
+
+    if evidence_id is None or result.state not in {
+        ResolutionState.MATCH,
+        ResolutionState.PROBABLE_MATCH,
+    }:
+        return result.state.value, None, None
+
+    evidence_role = (
+        "SUPPORTS" if result.state == ResolutionState.MATCH else "PARTIAL"
+    )
+    claim_id = await claims_evidence.upsert_claim(
+        session,
+        investigation_id,
+        None,
+        "media_mention",
+        {
+            "target_query": target_query,
+            "identity_state": result.state.value,
+            "publication": publication,
+            "published_at": published_at.isoformat() if published_at else None,
+            "page_urn": page_urn,
+            "source_url": source_url,
+        },
+        ClaimStatus.UNVERIFIED_LEAD.value,
+        [evidence_id],
+        evidence_role,
+    )
+    verification = await verify_claim(session, investigation_id, claim_id)
+    await repository._audit(
+        session,
+        investigation_id,
+        "MEDIA_CLAIM_VERIFIED",
+        {
+            "mention_id": str(mention_id),
+            "claim_id": str(claim_id),
+            "identity_state": result.state.value,
+            "claim_status": verification.status.value,
+        },
+    )
+    return result.state.value, claim_id, verification.status.value
 
 
 async def _extract_and_persist_crop(
