@@ -11,6 +11,7 @@ from __future__ import annotations
 import re
 from dataclasses import dataclass
 from datetime import date
+from uuid import UUID
 
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -47,7 +48,7 @@ def _contains_numeric_identifier(haystack: str, identifier: str) -> bool:
     digits = _digits(identifier)
     if not digits:
         return False
-    pattern = r"(?<!\\d)" + r"[\\s.\\-]*".join(re.escape(ch) for ch in digits) + r"(?!\\d)"
+    pattern = r"(?<!\d)" + r"[\s.\-]*".join(re.escape(ch) for ch in digits) + r"(?!\d)"
     return re.search(pattern, haystack) is not None
 
 
@@ -62,7 +63,7 @@ def _date_variants(value: date) -> tuple[str, ...]:
 
 async def load_verified_aliases(
     session: AsyncSession,
-    investigation_id,
+    investigation_id: UUID,
 ) -> list[str]:
     """Return aliases attached to MATCH entities in this investigation.
 
