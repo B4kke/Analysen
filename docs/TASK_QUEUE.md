@@ -343,8 +343,17 @@ Fullførte oppgaver beholdes her for sporbarhet inntil en senere opprydding flyt
 **Verifisert 2026-09-19:** `GET /investigations/{id}/media/image/{document_id}` krever samme investigation, `image_embeddable=true` og en Evidence-rad som peker på nøyaktig samme Document; bytes lastes via hash-verifisert raw-store og serveres inline med `nosniff`/no-store. Next.js og report.html viser cropen, report.pdf bygger inn de samme bytes. Integrasjonstesten beviser 200 for korrekt case, 404 for annen case, 404 ved manglende evidence-link og 404 når embed-policy slås av. CI run #248: Alembic, Ruff, mypy (85 kildefiler), Next.js build og pytest grønne; 596 passed, 5 skipped.
 
 ### AQ-041 — Forståelig research-start og faktisk progresjonsstatus
-**Status:** IN_PROGRESS
+**Status:** DONE
 **Prioritet:** P0
 **Avhenger av:** AQ-025, AQ-038
 **Leveranse:** Opprettelsesskjema starter automatisk research når minst ett søkeområde er valgt; detaljsiden skiller eksplisitt REQUESTED, ENQUEUED og RUNNING, viser jobb-/fasetidspunkter, automatisk polling og siste UI-lesing, og bruker fasefremdrift uten å fremstille ukjent totalarbeid som en reell prosent. Modulstatus vises med menneskelige navn og tydelige statuser.
 **Acceptance:** Scoped opprettelse gir registrert research-status uten ekstra klikk; UI sier aldri at en ENQUEUED-jobb faktisk kjører; RUNNING vises som worker-startet; tomt scope forklares tydelig; 390 px smoke dekker auto-start, terminal status, stale-data-varsling og rerun.
+
+**Verifisert 2026-09-19:** Opprettelse med minst ett valgt søkeområde auto-starter research; detaljsiden skiller REQUESTED, ENQUEUED og RUNNING uten å fremstille kø som worker-kjøring, viser jobb-/fasetidspunkter og bruker fasefremdrift i stedet for en oppdiktet totalprosent. Siste code-head ble validert i CI run #271: Alembic/Ruff/mypy grønne, 596 passed / 5 skipped, Next.js build grønt og ny Playwright/Chromium-gate bestod hele 390×844-flyten med auto-start, eksplisitt ENQUEUED/RUNNING, terminalstatus, stale/recovery, rapport og rerun.
+
+### AQ-042 — Worker-heartbeat og live aktivitetsstrøm
+**Status:** READY
+**Prioritet:** P1
+**Avhenger av:** AQ-041
+**Leveranse:** Ekte liveness-signal fra worker under RUNNING og en lett event-/SSE-strøm til web som kan vise siste aktivitet uten polling av uendret status. Signalet skal beskrive offentlig arbeidsfase/checkpoint, aldri modellens skjulte resonnering.
+**Acceptance:** UI kan skille «worker startet» fra «nylig heartbeat mottatt» og «ingen fersk heartbeat» uten å terminalisere jobben på gjetning; reconnect er robust; heartbeat knyttes til korrekt job_id og stopper ved terminaltilstand; tests dekker stale heartbeat, reconnect og kryss-jobb-isolasjon.
