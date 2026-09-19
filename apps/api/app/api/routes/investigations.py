@@ -155,6 +155,9 @@ async def _load_embeddable_media_image(
         SELECT d.sha256, d.raw_storage_key, d.mime_type
         FROM media_mentions mention
         JOIN documents d ON d.id = mention.image_document_id
+        JOIN evidence e
+          ON e.id = mention.evidence_id
+         AND e.document_id = d.id
         JOIN investigation_documents link ON link.document_id = d.id
         WHERE mention.investigation_id = :investigation_id
           AND mention.image_document_id = :document_id

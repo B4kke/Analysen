@@ -773,10 +773,29 @@ async def test_permitted_crop_links_mention_evidence_and_report_citation(
     async with factory() as session:
         await session.execute(
             text(
-                "UPDATE media_mentions SET image_embeddable = FALSE "
+                "UPDATE media_mentions SET evidence_id = NULL "
                 "WHERE investigation_id = :iid AND page_urn = :page_urn"
             ),
             {"iid": iid, "page_urn": PERMITTED_PAGE_URN},
+        )
+        await session.commit()
+    provenance_denied = await http.get(
+        f"/api/v1/investigations/{investigation_id}/media/image/{document_id}"
+    )
+    assert provenance_denied.status_code == 404
+
+    async with factory() as session:
+        await session.execute(
+            text(
+                "UPDATE media_mentions "
+                "SET evidence_id = :evidence_id, image_embeddable = FALSE "
+                "WHERE investigation_id = :iid AND page_urn = :page_urn"
+            ),
+            {
+                "iid": iid,
+                "page_urn": PERMITTED_PAGE_URN,
+                "evidence_id": evidence_id,
+            },
         )
         await session.commit()
     policy_denied = await http.get(
