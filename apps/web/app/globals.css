@@ -23,3 +23,71 @@
 .step-meter>i{display:block;height:100%;background:var(--green)}
 
 .mention-image{display:block;width:auto;max-width:min(100%,760px);height:auto;max-height:70vh;object-fit:contain;margin-top:12px;border:1px solid var(--line);background:#fff}
+
+/* AQ-041: tydelig research-start, køstatus og sannferdig progresjon. */
+.start-hint{margin:14px 0 0;padding:12px 14px;border-left:3px solid var(--line);background:#fff;font-size:12px;line-height:1.45}
+.start-hint--ready{border-left-color:var(--green);background:#e6f4ec;color:#0d513c}
+.start-hint--idle{border-left-color:#b58a32;background:#fff7df;color:#715719}
+
+.research-status-card{margin:34px 0 8px;border:1px solid var(--line);border-left:5px solid #9ca7a2;background:#fff;padding:24px}
+.research-status-card--queued{border-left-color:#b58a32}
+.research-status-card--running{border-left-color:var(--green);box-shadow:0 8px 30px rgba(20,102,77,.08)}
+.research-status-card--complete{border-left-color:var(--green);background:#fbfefc}
+.research-status-card--failed{border-left-color:#b34f37;background:#fffafa}
+.research-status-main{display:flex;gap:16px;align-items:flex-start}
+.research-status-main .eyebrow{margin:0 0 7px}
+.research-status-main h2{font-family:Georgia,serif;font-size:31px;font-weight:400;margin:0 0 8px}
+.research-status-main p:last-child{color:var(--muted);line-height:1.5;margin:0;max-width:720px}
+.activity-indicator{width:13px;height:13px;border-radius:50%;background:#9ca7a2;flex:0 0 auto;margin-top:3px;box-shadow:0 0 0 5px rgba(156,167,162,.14)}
+.research-status-card--queued .activity-indicator{background:#b58a32;box-shadow:0 0 0 5px rgba(181,138,50,.14)}
+.research-status-card--complete .activity-indicator{background:var(--green);box-shadow:0 0 0 5px rgba(20,102,77,.12)}
+.research-status-card--failed .activity-indicator{background:#b34f37;box-shadow:0 0 0 5px rgba(179,79,55,.12)}
+.activity-indicator--live{background:var(--green);animation:research-pulse 1.6s ease-in-out infinite}
+@keyframes research-pulse{0%,100%{box-shadow:0 0 0 4px rgba(20,102,77,.13)}50%{box-shadow:0 0 0 10px rgba(20,102,77,.02)}}
+
+.research-facts{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:1px;background:var(--line);border:1px solid var(--line);margin-top:22px}
+.research-facts>div{background:var(--paper);padding:12px;min-width:0}
+.research-facts span{display:block;color:var(--muted);font-size:9px;letter-spacing:.09em;text-transform:uppercase;margin-bottom:6px}
+.research-facts strong{display:block;font-size:11px;overflow-wrap:anywhere}
+
+.research-timeline{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;margin-top:14px}
+.research-timeline>span{color:var(--muted);font-size:10px}
+.research-timeline strong{display:block;color:var(--ink);font-size:11px;margin-top:4px;font-weight:600}
+
+.research-actions{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-top:20px}
+.secondary-button{background:#fff;border:1px solid var(--line);border-radius:2px;color:var(--green);font-size:12px;font-weight:700;padding:12px 14px}
+.secondary-button:hover{border-color:var(--green);background:var(--mint)}
+.auto-refresh-note{color:var(--muted);font-size:11px}
+.research-status-card .form-error,.research-status-card .form-success{margin:16px 0 0}
+
+.flow-section{padding:34px 0 8px}
+.flow-heading{display:flex;justify-content:space-between;gap:24px;align-items:end}
+.flow-heading .eyebrow{margin:0 0 8px}
+.flow-heading h2{font-family:Georgia,serif;font-size:28px;font-weight:400;margin:0}
+.flow-heading>p{color:var(--muted);font-size:11px;line-height:1.45;max-width:330px;margin:0}
+.step-meter--running>i{position:relative;overflow:hidden}
+.step-meter--running>i:after{content:"";position:absolute;inset:0;background:linear-gradient(90deg,transparent,rgba(255,255,255,.55),transparent);animation:meter-sweep 1.5s linear infinite}
+@keyframes meter-sweep{from{transform:translateX(-100%)}to{transform:translateX(100%)}}
+
+.coverage-row small{display:block;color:var(--muted);font-size:11px;line-height:1.45;margin-top:5px}
+.module-status{flex:0 0 auto;border-radius:999px;padding:5px 8px;font-size:10px;font-weight:700;white-space:nowrap;background:#edf1ef;color:#53605b}
+.module-status--complete{background:#e3f3e8;color:#166534}
+.module-status--in-progress{background:#e7f0fb;color:#214f7a}
+.module-status--partial{background:#fff3d6;color:#79590d}
+.module-status--blocked{background:#fde8e8;color:#991b1b}
+.module-status--not-started,.module-status--disabled{background:#edf1ef;color:#66736e}
+
+@media(max-width:850px){
+  .research-facts,.research-timeline{grid-template-columns:1fr 1fr}
+  .flow-heading{align-items:flex-start;flex-direction:column}
+}
+@media(max-width:480px){
+  .research-status-card{padding:18px 14px;margin-top:24px}
+  .research-status-main h2{font-size:26px}
+  .research-facts,.research-timeline{grid-template-columns:1fr}
+  .research-actions{align-items:stretch;flex-direction:column}
+  .research-actions .submit-button,.research-actions .secondary-button{justify-content:center;width:100%}
+  .auto-refresh-note{text-align:center}
+  .coverage-row{align-items:flex-start;gap:12px}
+  .module-status{margin-top:1px}
+}
