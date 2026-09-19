@@ -101,7 +101,7 @@ Implementert:
 - `GET /investigations/{id}/report.json`: fullt typed rapportdokument (funn med citations per status, uavklarte spor, kontekst-entiteter kun ved navn, dekning). Samme JSON som HTML og PDF rendres fra.
 - `GET /investigations/{id}/report.html`: norsk standardrapport (lang=nb, escapet output, ingen JS) med klikkbare citations.
 - `GET /investigations/{id}/report.pdf`: PDF-bytes fra samme rapport-JSON; lovlig embeddable NB-crops lastes fra hash-verifisert raw-store og bygges inn i PDF.
-- `GET /investigations/{id}/media/image/{document_id}`: case-gatet inline-bilde for et lagret media-crop. Ruten krever at dokumentet er knyttet til samme investigation og at den tilhørende `media_mentions`-raden har `image_embeddable=true`; ellers 404.
+- `GET /investigations/{id}/media/image/{document_id}`: case-gatet inline-bilde for et lagret media-crop. Ruten krever samme investigation, `image_embeddable=true` og at mentionens `evidence_id` peker på Evidence for nøyaktig samme Document; ellers 404. Bytes verifiseres mot lagret SHA før respons.
 
 Planlagt:
 - `POST /investigations/{id}/reports` (persistert draft/reviewed/final-states; `reports`-tabellen finnes)

@@ -335,8 +335,9 @@ Fullførte oppgaver beholdes her for sporbarhet inntil en senere opprydding flyt
 **Acceptance:** Sanitiserte live-shape fixtures gir kandidater; live-probe gir ikke falsk null-dekning; full NB-pass kan opprette mentions fra dagens Catalog-respons uten parserrelaterte FAILED-leads.
 
 ### AQ-040 — Lovlig visning av NB-artikkelcrops i rapport
-**Status:** IN_PROGRESS
+**Status:** DONE
 **Prioritet:** P1
 **Avhenger av:** AQ-031, AQ-032, AQ-036
 **Leveranse:** Case-gatet bildeendepunkt for lagrede NB-crops, faktisk visning i Next.js/HTML og embedding i PDF når `image_embeddable=true`; restricted/non-embeddable materiale skal aldri eksponeres via denne ruten.
 **Acceptance:** Samme sak + embeddable crop gir verifiserte bildebytes; annen sak eller ikke-embeddable rad gir 404; HTML/web bruker bildeendepunktet; PDF inkluderer de samme raw-store-verifiserte crop-bytene; full CI er grønn.
+**Verifisert 2026-09-19:** `GET /investigations/{id}/media/image/{document_id}` krever samme investigation, `image_embeddable=true` og en Evidence-rad som peker på nøyaktig samme Document; bytes lastes via hash-verifisert raw-store og serveres inline med `nosniff`/no-store. Next.js og report.html viser cropen, report.pdf bygger inn de samme bytes. Integrasjonstesten beviser 200 for korrekt case, 404 for annen case, 404 ved manglende evidence-link og 404 når embed-policy slås av. CI run #248: Alembic, Ruff, mypy (85 kildefiler), Next.js build og pytest grønne; 596 passed, 5 skipped.

@@ -128,7 +128,7 @@ Kun etter stabil MVP:
 Monitoring arver samme scope/expansion-regler; en monitor skal ikke gradvis utvide saken på egen hånd.
 
 ## Prioritert neste arbeid
-Aktiv kø er autoritativ i `docs/TASK_QUEUE.md`. MVP-kjeden AQ-001–AQ-030 og NB-utvidelsene AQ-031–AQ-039 er lukket med E2E-/kontraktbevis. AQ-040 ferdigstiller den gjenværende report-gap-en for lovlig embeddable NB-artikkelcrops; nye behov skal opprettes som egne queue-items etter integrert verifikasjon.
+Aktiv kø er autoritativ i `docs/TASK_QUEUE.md`. MVP-kjeden AQ-001–AQ-030 og NB-utvidelsene AQ-031–AQ-040 er lukket med E2E-/kontraktbevis. Nye behov skal opprettes som egne queue-items med eksplisitt scope, acceptance og integrert verifikasjon.
 
 ## Definition of done for MVP
 - Norsk person kan identifiseres med eksplisitt usikkerhet.
