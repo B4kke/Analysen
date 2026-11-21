@@ -394,3 +394,11 @@ Fullførte oppgaver beholdes her for sporbarhet inntil en senere opprydding flyt
 **Prioritet:** P0
 **Leveranse:** Lokal ikke-transitiv crop, hel-token romlig validering, OCR/pikselbudsjett, feilgrasiøs bildeinnhenting og rettighetskontroll for råfil. Kildebelegg beskriver algoritme og partial context.
 **Acceptance:** Regresjoner for adskilte treff, substring, feil rekkefølge, korte/avkortede OCR-utdrag, falsk lisens, manglende provenance og report/raw eksport; komplett CI. Native OCR mot offentlig dokument og canvas-dimensjonskontrakt skal kontrolleres separat.
+
+
+### AQ-048 — NB native and live contract verification
+**Status:** IN_PROGRESS
+**Prioritet:** P0
+**Avhenger av:** AQ-047
+**Leveranse:** Separate native Norwegian OCR smoke plus NB-only live Catalog/fragment/IIIF/page correlation checks with explicit reuse gate. Diagnostic counts only; do not equate locator access to actual reusable full article.
+**Acceptance:** Fixture CI, native OCR smoke, positive page correlation on a public institutional topic; actual licensed image and crop result explicitly recorded if available. No false pass for unreadable or unlicensed material.

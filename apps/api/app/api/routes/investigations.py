@@ -120,7 +120,14 @@ async def raw_evidence_endpoint(
         JOIN investigation_documents link ON link.document_id = d.id
         WHERE e.id = :evidence_id AND link.investigation_id = :investigation_id
           AND (
-            e.locator_type <> 'nb_article_crop'
+            (
+              e.locator_type <> 'nb_article_crop'
+              AND NOT (d.source_id = 'nb_catalog' AND d.mime_type LIKE 'image/%')
+              AND NOT EXISTS (
+                  SELECT 1 FROM media_mentions any_mention
+                  WHERE any_mention.image_document_id = d.id
+              )
+            )
             OR EXISTS (
                 SELECT 1 FROM media_mentions mention
                 WHERE mention.investigation_id = :investigation_id
@@ -378,6 +385,7 @@ async def execute_lead_endpoint(
         from apps.api.app.services.document_fetcher import DocumentFetcher
         from apps.api.app.services.lead_executor import ExecutorTools
         from apps.api.app.services.pdf_extraction import extract_pdf_document
+        from apps.api.app.services.raw_store import store_raw_snapshot
         from apps.api.app.sources.national_library import (
             NationalLibraryClient,
             NBMediaClientAdapter,
@@ -391,7 +399,9 @@ async def execute_lead_endpoint(
         ):
             settings = get_settings()
             searxng = SearxngAdapter(settings.searxng_base_url, http_client)
-            nb_client = NBMediaClientAdapter(NationalLibraryClient())
+            nb_client = NBMediaClientAdapter(
+                NationalLibraryClient(), raw_sink=store_raw_snapshot
+            )
             try:
                 tools = ExecutorTools(
                     brreg_fetch=adapter.fetch,

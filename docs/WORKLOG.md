@@ -74,3 +74,5 @@ Kort, append-only oversikt over fullførte milepæler. Dette er ikke en ny TODO-
 - 2026-11-21 — AQ-047 implementert: NB lokal crop v2, eksakt romlig tekstvalidering, OCR-timeout og pikselbudsjett, rettighetsgate for rådownload. Tidligere CI på 4830471 var grønn; NB Catalog live bestod (2 kandidater, 2,0 s); samlet source-smoke feilet pga. GDELT 429. Ny CI gjenstår.
 
 - 2026-11-21 — NB native OCR smoke, crop-specific contrast/PSM, OCR metrics, rights-aware probe and user-friendly image preview with fallback. Native and fixture CI pending.
+
+- 2026-11-21 — Native OCR passed on 9291d36 (synthetic 1.8 MP page, 110260 crop pixels, 6 OCR words, mean OCR confidence 90.17). Fixture Python on 28fd6ca: 625 passed / 5 skipped. Added dedicated bounded NB live document contract checks, hardened raw-download by document classification and aligned API-driven raw sink with worker-driven path. Final CI pending.
