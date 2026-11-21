@@ -61,3 +61,6 @@ Kort, append-only oversikt over fullførte milepæler. Dette er ikke en ny TODO-
 - AQ-040 lukket: lovlig embeddable NB-artikkelcrops rendres nå faktisk i Next.js/report.html og bygges inn i report.pdf. Ny case-gatet bilderute krever samme investigation, `image_embeddable=true` og evidence→samme document før hash-verifiserte raw-bytes kan serveres; annen sak, manglende provenance eller deaktivert embed-policy gir 404. CI run #248 grønn: Alembic, Ruff, mypy (85 kildefiler), Next.js build, 596 passed / 5 skipped.
 
 - AQ-041 lukket: UI-flyten er gjort eksplisitt fra «opprett og start» til kø → worker → resultat. REQUESTED/ENQUEUED/RUNNING skilles sannferdig, module-navn/status er menneskelige, fasefremdrift erstatter misvisende totalprosent, og autostart-feil åpner fortsatt den opprettede saken med varsel. Ny permanent Chromium-smoke i CI kjører API + Dramatiq + Next mot isolert PostgreSQL/Redis ved 390×844; CI #271 grønn med 596 pass / 5 skip. AQ-042 opprettet for ekte worker-heartbeat/SSE.
+
+
+- 2026-11-21 — AQ-043: V2-dokumentasjon, source-switch ved lead execution, intel-first detaljside og regresjonstester. CI/lokal runtime og live-kildekontroll gjenstår; ikke markert DONE.

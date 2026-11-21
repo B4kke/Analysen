@@ -63,7 +63,12 @@ async def execute_lead(
     tools = tools if tools is not None else ExecutorTools()
     # Deferred imports: the router and executors land as independent
     # deliverables; execute_lead must stay importable without them.
-    from apps.api.app.services.source_router import UnknownLeadType, route_lead
+    from apps.api.app.core.config import get_settings
+    from apps.api.app.services.source_router import (
+        UnknownLeadType,
+        executor_source_enabled,
+        route_lead,
+    )
 
     investigation = await repository.get_investigation_record(
         session, investigation_id, for_update=True
@@ -106,11 +111,12 @@ async def execute_lead(
             session, investigation_id, lead_id, "unsupported_lead_type"
         )
 
+    _, sources, _ = get_settings().validate_yaml_configs()
     decision = gate_lead(
         investigation,
         lead,
         expansion_state=ExpansionState.TARGET,
-        source_enabled=True,
+        source_enabled=executor_source_enabled(executor_name, sources),
     )
     if decision is not None:
         return await refuse(decision)

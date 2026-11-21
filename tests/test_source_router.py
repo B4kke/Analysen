@@ -50,3 +50,24 @@ def test_keys_non_empty() -> None:
 
 def test_supported_lead_types_matches_keys() -> None:
     assert supported_lead_types() == frozenset(EXECUTOR_ROUTES.keys())
+
+
+
+def test_executor_source_gate_respects_configuration() -> None:
+    from apps.api.app.core.config_models import SourceConfig, SourcesConfig
+    from apps.api.app.services.source_router import (
+        EXECUTOR_SOURCE_IDS,
+        executor_source_enabled,
+    )
+
+    assert set(EXECUTOR_SOURCE_IDS) == set(EXECUTOR_ROUTES.values())
+    sources = SourcesConfig(sources={
+        "brreg_entities": SourceConfig(enabled=False, access="OPEN_NO_KEY", reason="test"),
+        "searxng": SourceConfig(enabled=True, access="SELF_HOSTED"),
+    })
+    assert not executor_source_enabled("brreg", sources)
+    assert not executor_source_enabled("nb_media", sources)
+    assert executor_source_enabled("searxng", sources)
+    assert executor_source_enabled("web_fetch", sources)
+    assert executor_source_enabled("pdf", sources)
+    assert not executor_source_enabled("unknown", sources)

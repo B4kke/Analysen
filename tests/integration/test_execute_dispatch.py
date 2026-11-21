@@ -258,3 +258,37 @@ async def test_dispatch_without_tools_fails_unavailable(dispatch_client) -> None
             )
         ).scalar_one()
     assert reason == "executor_unavailable"
+
+
+
+async def test_disabled_source_never_calls_adapter(dispatch_client, monkeypatch, tmp_path) -> None:
+    import yaml
+
+    from apps.api.app.core.config import get_settings
+    from apps.api.app.sources.searxng import SearxngAdapter
+
+    called = False
+
+    async def forbidden_search(self, query: str, **kwargs):
+        nonlocal called
+        called = True
+        raise AssertionError("Disabled source must not be called")
+
+    monkeypatch.setattr(SearxngAdapter, "search", forbidden_search)
+    http, created, _ = dispatch_client
+    investigation_id = await _create_company(http, created, ["WEB_MEDIA"])
+    lead_id = await _admit(
+        http, investigation_id, "searxng_discovery", {"query": "Dispatch Probe AS"}, "WEB_MEDIA"
+    )
+    settings = get_settings()
+    raw = settings.load_yaml(settings.source_config_path)
+    raw["sources"]["searxng"].update(enabled=False, reason="Disabled regression test")
+    path = tmp_path / "sources.yaml"
+    path.write_text(yaml.safe_dump(raw), encoding="utf-8")
+    monkeypatch.setattr(settings, "source_config_path", path)
+    response = await http.post(
+        f"/api/v1/investigations/{investigation_id}/leads/{lead_id}/execute"
+    )
+    assert response.status_code == 200, response.text
+    assert response.json()["status"] == "BLOCKED"
+    assert not called

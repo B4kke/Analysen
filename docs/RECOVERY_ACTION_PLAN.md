@@ -2,7 +2,7 @@
 
 Dette dokumentet styrer reparasjon og integrasjon etter kodegjennomgangen 2026-09-18. Målet er ikke flere isolerte komponenter, men én etterprøvbar vertikal kjede.
 
-## Arbeidsmodell i OpenCode2
+## Arbeidsmodell i OpenCode V2
 
 Primær agent er `analysen-orchestrator`.
 

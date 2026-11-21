@@ -357,3 +357,18 @@ Fullførte oppgaver beholdes her for sporbarhet inntil en senere opprydding flyt
 **Avhenger av:** AQ-041
 **Leveranse:** Ekte liveness-signal fra worker under RUNNING og en lett event-/SSE-strøm til web som kan vise siste aktivitet uten polling av uendret status. Signalet skal beskrive offentlig arbeidsfase/checkpoint, aldri modellens skjulte resonnering.
 **Acceptance:** UI kan skille «worker startet» fra «nylig heartbeat mottatt» og «ingen fersk heartbeat» uten å terminalisere jobben på gjetning; reconnect er robust; heartbeat knyttes til korrekt job_id og stopper ved terminaltilstand; tests dekker stale heartbeat, reconnect og kryss-jobb-isolasjon.
+
+
+### AQ-043 — V2, source-gate og intel-first gjennomgang
+**Status:** IN_PROGRESS
+**Prioritet:** P0
+**Avhenger av:** AQ-024, AQ-041
+**Leveranse:** OpenCode V2 er eksplisitt standard; source-router respekterer konfigurerte switches ved eksekvering av BRREG, SearXNG og NB; funn vises før teknisk aktivitet og grupperes etter kildebelegg/motstrid.
+**Acceptance:** CI grønn, deaktivert kilde når aldri adapteren, 390px smoke grønn, lokal opencode V2 agent-/skill-lasting verifisert. Separat live-kildekontroll kreves.
+
+### AQ-044 — Full funksjons- og kildeverifikasjon
+**Status:** READY
+**Prioritet:** P0
+**Avhenger av:** AQ-043
+**Leveranse:** Kartlegg konfigurert kilde vs adapter vs executor vs direkte API; ikke presenter katalogoppføringer som fungerende automatiserte integrasjoner. Verifiser tilgang, provenance, reelle feilstater og dekning med syntetiske virksomheter/offentlige institusjoner. Test også jobbliveness, scope, rapporteksport og mobil GUI. Ingen utvidelse av personkartlegging eller tilgangskontroller.
+**Acceptance:** dokumentert testmatrise med resultat per faktisk rute, ratebegrensede live-smokes, end-to-end med DB/worker og eksplisitte gaps for utilgjengelige kilder.
