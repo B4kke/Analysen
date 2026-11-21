@@ -259,7 +259,7 @@ class TestFindArticleRegion:
         assert region.x + region.w <= 1000
         assert region.y + region.h <= 1400
 
-    def test_matching_ocr_words_join_seed(self):
+    def test_distant_matching_word_cannot_expand_seed(self):
         region = find_article_region(
             parent_page_urn="URN:NBN:page:30",
             page_width=1000,
@@ -268,9 +268,9 @@ class TestFindArticleRegion:
             ocr_words=[_word("Maylen", 500, 900), _word("vann", 10, 10)],
             target_expression="Maylen Sorkness Andersen",
         )
-        # The matching OCR word far from the anchor stretches the region.
-        assert region.x + region.w >= 560
-        assert region.y + region.h >= 918
+        # A distant word must not join an unrelated article column.
+        assert region.x + region.w < 500
+        assert region.y + region.h < 900
 
     def test_ocr_match_without_anchors_still_locates(self):
         region = find_article_region(
@@ -396,8 +396,9 @@ class TestNorwegianOcrBackend:
 
         captured: dict = {}
 
-        def fake_image_to_data(image, *, lang=None, output_type=None):
+        def fake_image_to_data(image, *, lang=None, output_type=None, timeout=None):
             captured["lang"] = lang
+            assert timeout == 45
             assert isinstance(image, Image.Image)
             return {
                 "text": ["Maylen", "", "Andersen"],
@@ -724,3 +725,49 @@ class TestOriginalUrlBridge:
         assert lead.trigger_type.value == "DIRECT_SOURCE_LOOKUP"
         assert lead.relation_depth == 0
         assert 0 <= lead.priority <= 1
+
+
+@pytest.mark.parametrize(
+    "words",
+    [
+        [_word("solenergi", 5, 5), _word("plan", 70, 5)],
+        [_word("plan", 5, 5), _word("sol", 70, 5)],
+        [_word("sol", 5, 5), _word("annen", 70, 5), _word("plan", 135, 5)],
+        [_word("sol", 5, 5), _word("plan", 280, 5)],
+        [_word("sol", 5, 5), _word("plan", 70, 200)],
+    ],
+)
+def test_crop_validation_rejects_unrelated_tokens(words):
+    from apps.api.app.services.nb_article_extract import validated_crop_text
+
+    excerpt, valid = validated_crop_text(words, ["sol", "plan"])
+    assert excerpt
+    assert not valid
+
+
+def test_crop_validation_keeps_text_and_line_order():
+    from apps.api.app.services.nb_article_extract import validated_crop_text
+
+    words = [_word("SOL,", 5, 5), _word("plan", 70, 5), _word("vedtak", 5, 30)]
+    excerpt, valid = validated_crop_text(words, ["sol", "plan"])
+    assert valid
+    assert excerpt == "SOL, plan\nvedtak"
+
+
+def test_crop_validation_does_not_accept_tokens_outside_retained_excerpt():
+    from apps.api.app.services.nb_article_extract import validated_crop_text
+
+    words = [_word("x" * 500, 5, 5) for _ in range(10)]
+    words += [_word("sol", 5, 5), _word("plan", 70, 5)]
+    excerpt, valid = validated_crop_text(words, ["sol", "plan"])
+    assert excerpt and len(excerpt) <= 5000
+    assert not valid
+
+
+def test_page_pixel_budget_before_ocr(monkeypatch):
+    from apps.api.app.services import nb_article_extract as extract
+
+    monkeypatch.setattr(extract, "MAX_PAGE_PIXELS", 100)
+    with pytest.raises(NBExtractError) as exc:
+        page_image_size(_synthetic_page(20, 20))
+    assert exc.value.code == "image_too_large"

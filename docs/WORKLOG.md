@@ -70,3 +70,5 @@ Kort, append-only oversikt over fullførte milepæler. Dette er ikke en ny TODO-
 - 2026-11-21 — AQ-042 del-leveranse: faktisk Redis worker-heartbeat, separat fra fase-/sluttstatus, saks- og jobbkorrelasjon, GUI-varsel for manglende/foreldet signal, regresjonstester. SSE og integrert live-test gjenstår.
 
 - 2026-11-21 — AQ-046: web provenance og discovery-coverage reparert; fixtures bruker ekte immutable råsnapshot. CI gjenstår.
+
+- 2026-11-21 — AQ-047 implementert: NB lokal crop v2, eksakt romlig tekstvalidering, OCR-timeout og pikselbudsjett, rettighetsgate for rådownload. Tidligere CI på 4830471 var grønn; NB Catalog live bestod (2 kandidater, 2,0 s); samlet source-smoke feilet pga. GDELT 429. Ny CI gjenstår.

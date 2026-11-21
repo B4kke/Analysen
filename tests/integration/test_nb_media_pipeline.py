@@ -748,6 +748,10 @@ async def test_permitted_crop_links_mention_evidence_and_report_citation(
     assert image_response.headers["content-disposition"] == "inline"
     assert image_response.headers["x-content-type-options"] == "nosniff"
     assert hashlib.sha256(image_response.content).hexdigest() == citation.sha256
+    raw_url = f"/api/v1/investigations/{investigation_id}/evidence/{evidence_id}/raw"
+    permitted_raw = await http.get(raw_url)
+    assert permitted_raw.status_code == 200
+    assert permitted_raw.content == image_response.content
 
     html_response = await http.get(
         f"/api/v1/investigations/{investigation_id}/report.html"
@@ -783,6 +787,7 @@ async def test_permitted_crop_links_mention_evidence_and_report_citation(
         f"/api/v1/investigations/{investigation_id}/media/image/{document_id}"
     )
     assert provenance_denied.status_code == 404
+    assert (await http.get(raw_url)).status_code == 404
 
     async with factory() as session:
         await session.execute(
@@ -802,6 +807,7 @@ async def test_permitted_crop_links_mention_evidence_and_report_citation(
         f"/api/v1/investigations/{investigation_id}/media/image/{document_id}"
     )
     assert policy_denied.status_code == 404
+    assert (await http.get(raw_url)).status_code == 404
 
     bare = [m for m in document.media_mentions if m.page_urn == RESTRICTED_PAGE_URN]
     assert len(bare) == 1

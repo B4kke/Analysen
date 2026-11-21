@@ -119,6 +119,16 @@ async def raw_evidence_endpoint(
         FROM evidence e JOIN documents d ON d.id = e.document_id
         JOIN investigation_documents link ON link.document_id = d.id
         WHERE e.id = :evidence_id AND link.investigation_id = :investigation_id
+          AND (
+            e.locator_type <> 'nb_article_crop'
+            OR EXISTS (
+                SELECT 1 FROM media_mentions mention
+                WHERE mention.investigation_id = :investigation_id
+                  AND mention.evidence_id = e.id
+                  AND mention.image_document_id = d.id
+                  AND mention.image_embeddable IS TRUE
+            )
+          )
     """),
                 {"evidence_id": evidence_id, "investigation_id": investigation_id},
             )

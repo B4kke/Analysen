@@ -36,6 +36,7 @@ claims that pass through the canonical verifier. No model calls.
 
 from __future__ import annotations
 
+import asyncio
 import hashlib
 import json
 from dataclasses import dataclass, field
@@ -633,13 +634,11 @@ async def execute_nb_media_lead(
                 except NBPageFetchDenied:
                     page_fetch_blocked += 1
                     image_bytes = b""
-                except Exception as exc:
-                    return await _fail(
-                        session,
-                        investigation_id,
-                        lead_id,
-                        f"source_error:{type(exc).__name__}",
-                    )
+                except Exception:
+                    # Image retrieval is optional: preserve the catalog/page
+                    # locator and lawful context rather than aborting the pass.
+                    crop_skipped += 1
+                    image_bytes = b""
                 if isinstance(image_bytes, (bytes, bytearray)) and bytes(image_bytes):
                     # PUBLIC_VIEW_ONLY may be fetched for an in-memory, rights-gated
                     # derived crop but the full page is not retained unless the
@@ -1072,7 +1071,8 @@ async def _extract_and_persist_crop(
     if page_urn is None or not verdict.allow_derived_crop or not anchors:
         return None, None, None
     try:
-        extraction = extract_permitted_article(
+        extraction = await asyncio.to_thread(
+            extract_permitted_article,
             page_bytes,
             page_urn=page_urn,
             anchor_xywh=list(anchors),
@@ -1162,6 +1162,9 @@ async def _persist_crop_document(
         "license_code": verdict.license_code or upstream_license,
         "source_url": source_url,
         "ocr_lang": "nor",
+        "region_algorithm": "local_anchor_v2",
+        "validation_method": "contiguous_spatial_tokens",
+        "text_completeness": "PARTIAL_CONTEXT",
     }
     structured_value = {
         "crop": locator["crop"],

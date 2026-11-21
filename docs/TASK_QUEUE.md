@@ -387,3 +387,10 @@ Fullførte oppgaver beholdes her for sporbarhet inntil en senere opprydding flyt
 **Prioritet:** P0
 **Leveranse:** Web-eksekutor lagrer hash-verifiserte originalbytes, ekstrahert tekst separat og faktisk hentetid. PDF går ikke gjennom HTML-ekstraksjon. SearXNG-discovery teller ikke som innhentet dokument. Ingen snippets blir evidens.
 **Acceptance:** Regression for derived-only/unverifiable response, raw-vs-derived bytes, discovery query classes/counts and existing NB bridge. Full CI required.
+
+
+### AQ-047 — NB lokal crop-validering og rettighetskontroll
+**Status:** IN_PROGRESS
+**Prioritet:** P0
+**Leveranse:** Lokal ikke-transitiv crop, hel-token romlig validering, OCR/pikselbudsjett, feilgrasiøs bildeinnhenting og rettighetskontroll for råfil. Kildebelegg beskriver algoritme og partial context.
+**Acceptance:** Regresjoner for adskilte treff, substring, feil rekkefølge, korte/avkortede OCR-utdrag, falsk lisens, manglende provenance og report/raw eksport; komplett CI. Native OCR mot offentlig dokument og canvas-dimensjonskontrakt skal kontrolleres separat.
