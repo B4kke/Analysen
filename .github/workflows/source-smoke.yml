@@ -1,0 +1,32 @@
+name: Live source contracts
+
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - scripts/source_smoke.py
+      - apps/api/app/sources/**
+      - config/sources.yaml
+
+permissions:
+  contents: read
+
+jobs:
+  public-source-contracts:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: requirements-dev.lock
+      - run: pip install -r requirements-dev.lock
+      - run: python -m scripts.source_smoke --output source-smoke.json
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: source-smoke
+          path: source-smoke.json
+          if-no-files-found: warn

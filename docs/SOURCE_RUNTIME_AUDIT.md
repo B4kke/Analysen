@@ -19,3 +19,7 @@ Test: eksisterende CI kjører migrations, Ruff, mypy, pytest, Next-build og Play
 
 ## Oppfølging
 Switch-kontroll er også innført ved opptak av kjente lead-typer, direkte BRREG-endepunkter og inventory-refresh. PDF-behandling leser kun hash-verifisert råmateriale; manipulerte dokumenter feiler før ekstraksjon. Opprettelses-GUI beskriver hvilke moduler som ikke har komplett automatisert innhenting. Dette er ikke en live-kildeverifikasjon.
+
+
+## Live source check
+A reusable, bounded adapter smoke is available as `python -m scripts.source_smoke`; result counts and failure codes only. Public checks cover BRREG entities, NB Catalog, Common Crawl index, accounts years, GLEIF, GDELT and RDAP; optional local SearXNG. Endpoint reachability was independently confirmed for BRREG entity 974760673 and Common Crawl collinfo on 2026-11-21; this is not adapter/pipeline live verification. Report artifact from the separate Source Contracts workflow is the authoritative adapter result. No tests of disabled entitlements or bulk personal inventories.
