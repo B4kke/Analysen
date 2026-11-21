@@ -7,15 +7,15 @@ import { TargetInput, TargetType, formatApiDetail } from "./types";
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 
 const modules = [
-  ["WEB_MEDIA", "Web og medier", "Offentlig web, aviser, medier og fagkilder"],
-  ["BUSINESS_ROLES", "Virksomhetsroller", "Roller, styreverv og grunnkontekst"],
-  ["COMPANY_NETWORK", "Selskapsrelasjoner", "Konsern, eierskap og selskapsnettverk"],
-  ["FINANCIALS", "Regnskap og økonomi", "Årsregnskap, nøkkeltall og økonomiske signaler"],
-  ["ANNOUNCEMENTS_STATUS", "Kunngjøringer og status", "Offentlige kunngjøringer og registrert virksomhetsstatus"],
-  ["HISTORICAL_WEB", "Historiske nettsider", "Tidligere versjoner og arkiverte nettsider"],
-  ["DOMAINS_DIGITAL", "Domener og digitalt fotavtrykk", "Domener og offentlig digital infrastruktur"],
+  ["WEB_MEDIA", "Web og medier", "Web, medier og NB — automatiserte søkespor, dekning varierer"],
+  ["BUSINESS_ROLES", "Virksomhetsroller", "Grunnopplysninger fra BRREG; roller krever separate oppslag"],
+  ["COMPANY_NETWORK", "Selskapsrelasjoner", "Separat konsernoppslag; automatisk dekning er ikke komplett"],
+  ["FINANCIALS", "Regnskap og økonomi", "Regnskapsadapter; automatisk innhenting er ikke komplett"],
+  ["ANNOUNCEMENTS_STATUS", "Kunngjøringer og status", "Kildekatalog; egen automatisk rute mangler"],
+  ["HISTORICAL_WEB", "Historiske nettsider", "Arkivadapter; egen automatisk rute mangler"],
+  ["DOMAINS_DIGITAL", "Domener og digitalt fotavtrykk", "RDAP-adapter; egen automatisk rute mangler"],
   ["PUBLIC_PROFILES", "Offentlige profiler", "Offentlig tilgjengelige profiler og presentasjoner"],
-  ["SANCTIONS", "Sanksjonskontroll", "Offisielle sanksjonslister"],
+  ["SANCTIONS", "Sanksjonskontroll", "Kildekatalog; egen automatisk rute mangler"],
 ] as const;
 
 const splitValues = (value: string) =>
@@ -251,7 +251,7 @@ export default function Home() {
             <fieldset>
               <legend>Undersøkelsesområder</legend>
               <p className="field-help">
-                Minst ett valgt område betyr at research startes automatisk etter opprettelse.
+                Valg gir tillatelse til research, ikke garanti for kildedekning. Minst ett valgt område starter et avgrenset pass.
               </p>
               <div className="module-list">
                 {modules.map(([module, label, description]) => (

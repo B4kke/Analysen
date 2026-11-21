@@ -46,5 +46,9 @@ def executor_source_enabled(executor: str, sources: SourcesConfig) -> bool:
     source_id = EXECUTOR_SOURCE_IDS[executor]
     if source_id is None:
         return True
+    return named_source_enabled(source_id, sources)
+
+
+def named_source_enabled(source_id: str, sources: SourcesConfig) -> bool:
     source = sources.sources.get(source_id)
     return source is not None and source.enabled

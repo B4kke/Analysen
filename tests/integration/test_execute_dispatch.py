@@ -292,3 +292,20 @@ async def test_disabled_source_never_calls_adapter(dispatch_client, monkeypatch,
     assert response.status_code == 200, response.text
     assert response.json()["status"] == "BLOCKED"
     assert not called
+    proposed = await http.post(
+        f"/api/v1/investigations/{investigation_id}/leads",
+        json={
+            "lead_type": "searxng_discovery",
+            "value": {"query": "Disabled admission probe"},
+            "reason": "Verify disabled source admission",
+            "priority": 0.7,
+            "depth": 0,
+            "scope_area": "WEB_MEDIA",
+            "trigger_type": "CONTRADICTION",
+            "information_need": "Verify source policy",
+            "relation_depth": 0,
+        },
+    )
+    assert proposed.status_code == 201
+    assert proposed.json()["status"] == "BLOCKED"
+    assert not called

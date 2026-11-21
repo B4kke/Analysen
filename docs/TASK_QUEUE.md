@@ -372,3 +372,11 @@ Fullførte oppgaver beholdes her for sporbarhet inntil en senere opprydding flyt
 **Avhenger av:** AQ-043
 **Leveranse:** Kartlegg konfigurert kilde vs adapter vs executor vs direkte API; ikke presenter katalogoppføringer som fungerende automatiserte integrasjoner. Verifiser tilgang, provenance, reelle feilstater og dekning med syntetiske virksomheter/offentlige institusjoner. Test også jobbliveness, scope, rapporteksport og mobil GUI. Ingen utvidelse av personkartlegging eller tilgangskontroller.
 **Acceptance:** dokumentert testmatrise med resultat per faktisk rute, ratebegrensede live-smokes, end-to-end med DB/worker og eksplisitte gaps for utilgjengelige kilder.
+
+
+### AQ-045 — Integrity og kildepolicy på alle innganger
+**Status:** IN_PROGRESS
+**Prioritet:** P0
+**Avhenger av:** AQ-043
+**Leveranse:** Opptak av kjente lead-typer og direkte BRREG-ruter respekterer source switches; inventory-refresh blokkeres ved deaktivert kilde; PDF-ekstraksjon nekter endret råmateriale. GUI skiller scope fra faktisk automatisert støtte.
+**Acceptance:** Nye regressjonstester for disabled upstream, opptak, manipulert PDF og DELETE-CORS; hele CI grønn. Ingen nye personkilder eller policy-utvidelser.

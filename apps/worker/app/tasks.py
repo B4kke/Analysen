@@ -16,6 +16,12 @@ def refresh_brreg_role_inventory(
     destination: str = "data/ingest/brreg-roles.json.gz",
 ) -> dict[str, Any]:
     async def run() -> dict[str, Any]:
+        from apps.api.app.core.config import get_settings
+        from apps.api.app.services.source_router import named_source_enabled
+
+        _, sources, _ = get_settings().validate_yaml_configs()
+        if not named_source_enabled("brreg_role_inventory", sources):
+            return {"status": "BLOCKED", "reason": "source_disabled"}
         async with BrregAdapter() as adapter:
             download = await adapter.download_role_inventory(Path(destination))
         result = await import_role_inventory(

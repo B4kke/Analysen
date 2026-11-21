@@ -468,3 +468,32 @@ async def test_pdf_process_extraction_error_fails_with_name(pdf_client) -> None:
         )
     assert lead["status"] == "FAILED"
     assert lead["blocked_reason"] == "source_error:ValueError"
+
+
+
+async def test_pdf_process_tampered_snapshot_fails_before_extract(pdf_client) -> None:
+    from apps.api.app.core.config import get_settings
+
+    http, created, factory = pdf_client
+    investigation_id = await _create_pdf_investigation(http, created)
+    original = b"%PDF-1.4 immutable probe"
+    document_id = await _ingest_pdf_document(factory, investigation_id, original, {})
+    digest = hashlib.sha256(original).hexdigest()
+    key = f"sha256/{digest[:2]}/{digest[2:4]}/{digest}"
+    (get_settings().raw_evidence_dir / key).write_bytes(b"tampered")
+    lead_id = await _admit_pdf_lead(http, investigation_id, {"document_id": document_id})
+
+    def forbidden_extract(raw: bytes):
+        raise AssertionError("extract must not run on a corrupt snapshot")
+
+    status, calls = await _execute_with_extract(
+        factory, investigation_id, lead_id, forbidden_extract
+    )
+    assert status == "FAILED"
+    assert calls == []
+    async with factory() as session:
+        reason = await session.scalar(
+            text("SELECT blocked_reason FROM leads WHERE id = CAST(:id AS uuid)"),
+            {"id": lead_id},
+        )
+    assert reason == "raw_snapshot_invalid"

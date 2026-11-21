@@ -15,3 +15,7 @@ Baseline: main f2b2063b5a06d7573669616e02bfe7939eea0e87. Statisk inspeksjon; ikk
 Kildekonfigurasjonen alene er ikke et bevis på fungerende research. Ikke aktiver kandidater før tilgang og kontrakt er dokumentert. Bruk kun syntetiske fixtures eller offentlige virksomheter ved verifikasjon, og behold alle scope-/personvernregler.
 
 Test: eksisterende CI kjører migrations, Ruff, mypy, pytest, Next-build og Playwright i 390 px. Denne gjennomgangen har ikke kjørt dem lokalt (nettverk/kopi utilgjengelig). Se AQ-043/044.
+
+
+## Oppfølging
+Switch-kontroll er også innført ved opptak av kjente lead-typer, direkte BRREG-endepunkter og inventory-refresh. PDF-behandling leser kun hash-verifisert råmateriale; manipulerte dokumenter feiler før ekstraksjon. Opprettelses-GUI beskriver hvilke moduler som ikke har komplett automatisert innhenting. Dette er ikke en live-kildeverifikasjon.

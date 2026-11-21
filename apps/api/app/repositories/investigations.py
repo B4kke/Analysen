@@ -19,6 +19,7 @@ from apps.api.app.domain.models import (
 from apps.api.app.domain.scope import InvestigationModuleRecord, ScopeModule, ScopeUpdate
 from apps.api.app.services.lead_gate import gate_lead
 from apps.api.app.services.research_state import reduce_research_events
+from apps.api.app.services.source_router import EXECUTOR_ROUTES, executor_source_enabled
 
 
 class InvestigationNotFound(LookupError):
@@ -378,10 +379,15 @@ def _lead_row(lead: Lead) -> dict:
     }
 
 
-def _source_enabled(module: ScopeModule) -> bool:
-    """Any enabled source counts today; per-module routing arrives with AQ-006."""
+def _source_enabled(lead_type: str) -> bool:
+    """Apply the same named-provider switch at admission and execution.
+
+    Unknown/manual lead types retain the existing audit/unsupported-executor
+    behavior; the execution allowlist still refuses every unknown route.
+    """
     _, sources, _ = get_settings().validate_yaml_configs()
-    return any(source.enabled for source in sources.sources.values())
+    executor = EXECUTOR_ROUTES.get(lead_type)
+    return executor is None or executor_source_enabled(executor, sources)
 
 
 async def propose_lead(
@@ -397,7 +403,7 @@ async def propose_lead(
     decision = gate_lead(
         investigation,
         lead,
-        source_enabled=_source_enabled(lead.scope_area),
+        source_enabled=_source_enabled(lead.lead_type),
     )
     row = _lead_row(lead)
     status = "PENDING" if decision is None else "BLOCKED"

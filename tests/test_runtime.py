@@ -101,3 +101,51 @@ async def test_http_health_readiness_and_cors(monkeypatch) -> None:
         )
         assert preflight.status_code == 200
         assert preflight.headers["access-control-allow-origin"] == "http://localhost:3000"
+
+
+
+@pytest.mark.asyncio
+async def test_disabled_direct_register_routes_fail_before_network(monkeypatch, tmp_path):
+    import httpx
+    import yaml
+
+    from apps.api.app import main
+    from apps.api.app.api import source_policy
+    from apps.api.app.sources.brreg import BrregAdapter
+
+    settings = Settings(_env_file=None)
+    raw = settings.load_yaml(settings.source_config_path)
+    for source in ("brreg_entities", "brreg_roles", "brreg_legal_roles", "brreg_group_structure"):
+        raw["sources"][source].update(enabled=False, reason="test")
+    path = tmp_path / "sources.yaml"
+    path.write_text(yaml.safe_dump(raw), encoding="utf-8")
+    settings.source_config_path = path
+    monkeypatch.setattr(source_policy, "get_settings", lambda: settings)
+
+    async def forbidden(self, *args, **kwargs):
+        pytest.fail("Disabled source reached upstream")
+
+    for method in ("search_by_name", "fetch", "get_roles", "get_legal_roles", "get_group_structure"):
+        monkeypatch.setattr(BrregAdapter, method, forbidden)
+
+    async with httpx.AsyncClient(
+        transport=httpx.ASGITransport(app=main.app), base_url="http://test"
+    ) as client:
+        for suffix in (
+            "/search?name=fixture",
+            "/organizations/974760673",
+            "/organizations/974760673/roles",
+            "/organizations/974760673/legal-roles",
+            "/organizations/974760673/group-structure",
+        ):
+            response = await client.get("/api/v1/brreg" + suffix)
+            assert response.status_code == 503
+            assert response.json()["detail"].startswith("Source disabled:")
+        preflight = await client.options(
+            "/api/v1/investigations/fixture",
+            headers={
+                "Origin": "http://localhost:3000",
+                "Access-Control-Request-Method": "DELETE",
+            },
+        )
+        assert preflight.status_code == 200

@@ -64,3 +64,5 @@ Kort, append-only oversikt over fullførte milepæler. Dette er ikke en ny TODO-
 
 
 - 2026-11-21 — AQ-043: V2-dokumentasjon, source-switch ved lead execution, intel-first detaljside og regresjonstester. CI/lokal runtime og live-kildekontroll gjenstår; ikke markert DONE.
+
+- 2026-11-21 — AQ-043 oppfølging: CI på d1c19de ga 598 passed/5 skipped og grønn web-build; 390px smoke feilet kun på case-sensitive tekstassertion (CSS uppercase). Rettet assertion, innført kildegate på flere innganger, hash-verifisert PDF og realistisk scope-merking. Ny CI kreves.
