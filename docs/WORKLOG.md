@@ -72,3 +72,5 @@ Kort, append-only oversikt over fullførte milepæler. Dette er ikke en ny TODO-
 - 2026-11-21 — AQ-046: web provenance og discovery-coverage reparert; fixtures bruker ekte immutable råsnapshot. CI gjenstår.
 
 - 2026-11-21 — AQ-047 implementert: NB lokal crop v2, eksakt romlig tekstvalidering, OCR-timeout og pikselbudsjett, rettighetsgate for rådownload. Tidligere CI på 4830471 var grønn; NB Catalog live bestod (2 kandidater, 2,0 s); samlet source-smoke feilet pga. GDELT 429. Ny CI gjenstår.
+
+- 2026-11-21 — NB native OCR smoke, crop-specific contrast/PSM, OCR metrics, rights-aware probe and user-friendly image preview with fallback. Native and fixture CI pending.

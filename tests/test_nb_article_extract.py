@@ -396,9 +396,10 @@ class TestNorwegianOcrBackend:
 
         captured: dict = {}
 
-        def fake_image_to_data(image, *, lang=None, output_type=None, timeout=None):
+        def fake_image_to_data(image, *, lang=None, output_type=None, timeout=None, config=None):
             captured["lang"] = lang
             assert timeout == 45
+            assert config == "--psm 3"
             assert isinstance(image, Image.Image)
             return {
                 "text": ["Maylen", "", "Andersen"],
@@ -455,6 +456,8 @@ class TestExtractPermittedArticle:
         assert result.crop_bytes[:8] == b"\x89PNG\r\n\x1a\n"
         assert result.target_validated is True
         assert result.region.target_validated is True
+        assert result.ocr_word_count == 3
+        assert result.ocr_mean_confidence == 95.0
         assert "Maylen" in (result.crop_text or "")
 
     def test_unvalidated_crop_still_returns_but_flagged(self):

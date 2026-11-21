@@ -14,13 +14,11 @@ _OPEN_LICENSE_TOKENS = frozenset(
     {
         "cc0",
         "cc-0",
-        "public",
         "pd",
         "publicdomain",
         "public-domain",
         "nocopyright",
         "no-copyright",
-        "open",
     }
 )
 

@@ -467,6 +467,8 @@ class NBPermittedExtraction(BaseModel):
     crop_bytes: bytes = Field(min_length=1)
     crop_text: str | None = Field(default=None, max_length=MAX_CROP_TEXT_CHARS)
     target_validated: bool = False
+    ocr_word_count: int = Field(default=0, ge=0)
+    ocr_mean_confidence: float | None = Field(default=None, ge=0, le=100)
 
 
 PageOcrFn = Callable[[bytes], list[NBOcrWord]]
@@ -663,7 +665,9 @@ def page_image_size(page_bytes: bytes) -> tuple[int, int]:
         ) from exc
 
 
-def tesseract_ocr_words_norwegian(image_bytes: bytes) -> list[NBOcrWord]:
+def tesseract_ocr_words_norwegian(
+    image_bytes: bytes, *, crop_mode: bool = False
+) -> list[NBOcrWord]:
     """Default word-OCR backend: pytesseract ``image_to_data(lang="nor")``.
 
     Raises :class:`NBExtractError` (``ocr_unavailable`` / ``ocr_failed``)
@@ -674,15 +678,23 @@ def tesseract_ocr_words_norwegian(image_bytes: bytes) -> list[NBOcrWord]:
         raise NBExtractError("invalid_image", "Norwegian OCR requires image bytes")
     try:
         import pytesseract  # type: ignore[import-not-found]
-        from PIL import Image
+        from PIL import Image, ImageOps
     except ImportError as exc:
         raise NBExtractError(
             "ocr_unavailable", "Norwegian OCR requires the tesseract runtime"
         ) from exc
     try:
+        page_image_size(image_bytes)
         with Image.open(io.BytesIO(bytes(image_bytes))) as image:
+            # The working raster has identical dimensions; no deskew/rescale
+            # that could invalidate original IIIF geometry. Store only untouched
+            # crop pixels, not this temporary contrast-enhanced OCR raster.
+            working = ImageOps.autocontrast(image.convert("L")) if crop_mode else image
             data = pytesseract.image_to_data(
-                image, lang=NORWEGIAN_OCR_LANG, output_type=pytesseract.Output.DICT,
+                working,
+                lang=NORWEGIAN_OCR_LANG,
+                output_type=pytesseract.Output.DICT,
+                config="--psm 6" if crop_mode else "--psm 3",
                 timeout=OCR_TIMEOUT_SECONDS,
             )
     except NBExtractError:
@@ -817,7 +829,10 @@ def extract_permitted_article(
     crop_bytes = crop_page_image(raw_page, region)
     region.crop_sha256 = hashlib.sha256(crop_bytes).hexdigest()
 
-    crop_backend = crop_ocr_fn or page_ocr_fn or tesseract_ocr_words_norwegian
+    crop_backend = crop_ocr_fn or page_ocr_fn
+    if crop_backend is None:
+        def crop_backend(image_bytes: bytes) -> list[NBOcrWord]:
+            return tesseract_ocr_words_norwegian(image_bytes, crop_mode=True)
     try:
         crop_words = list(crop_backend(crop_bytes))
     except NBExtractError:
@@ -832,6 +847,7 @@ def extract_permitted_article(
     ]
     crop_text, validated = validated_crop_text(crop_words, tokens)
     region.target_validated = validated
+    confidences = [word.confidence for word in crop_words if word.confidence >= 0]
     return NBPermittedExtraction(
         page_urn=cleaned_urn,
         page_sha256=page_sha256,
@@ -841,4 +857,7 @@ def extract_permitted_article(
         crop_bytes=crop_bytes,
         crop_text=crop_text,
         target_validated=validated,
+        ocr_word_count=len(crop_words),
+        ocr_mean_confidence=round(sum(confidences) / len(confidences), 2)
+        if confidences else None,
     )

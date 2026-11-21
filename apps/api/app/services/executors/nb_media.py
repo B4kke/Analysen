@@ -1165,6 +1165,8 @@ async def _persist_crop_document(
         "region_algorithm": "local_anchor_v2",
         "validation_method": "contiguous_spatial_tokens",
         "text_completeness": "PARTIAL_CONTEXT",
+        "ocr_word_count": extraction.ocr_word_count,
+        "ocr_mean_confidence": extraction.ocr_mean_confidence,
     }
     structured_value = {
         "crop": locator["crop"],
@@ -1175,6 +1177,8 @@ async def _persist_crop_document(
         },
         "target_validated": bool(extraction.target_validated),
         "ocr_lang": "nor",
+        "ocr_word_count": extraction.ocr_word_count,
+        "ocr_mean_confidence": extraction.ocr_mean_confidence,
     }
     source = SourceRegistryRecord(
         id="nb_catalog",
