@@ -60,8 +60,9 @@ async def populate_heartbeat(investigation_id: UUID, state: ResearchPassState) -
     """Enrich only currently running jobs; Redis failure degrades gracefully."""
     if state.status != ResearchPassStatus.RUNNING or state.job_id is None:
         return
-    client = _client()
+    client: Redis | None = None
     try:
+        client = _client()
         value = await asyncio.wait_for(
             client.get(heartbeat_key(investigation_id, state.job_id)), timeout=2
         )
@@ -69,8 +70,9 @@ async def populate_heartbeat(investigation_id: UUID, state: ResearchPassState) -
     except Exception:
         state.heartbeat_status = "unavailable"
     finally:
-        with suppress(Exception):
-            await client.aclose()
+        if client is not None:
+            with suppress(Exception):
+                await client.aclose()
 
 
 @asynccontextmanager
@@ -85,7 +87,11 @@ async def worker_heartbeat(
     A terminal audit event remains the sole authority for completion.
     """
     key = heartbeat_key(investigation_id, job_id)
-    client = _client()
+    try:
+        client = _client()
+    except Exception:
+        yield
+        return
 
     async def pulse() -> None:
         warned = False

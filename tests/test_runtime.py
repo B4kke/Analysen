@@ -125,7 +125,9 @@ async def test_disabled_direct_register_routes_fail_before_network(monkeypatch, 
     async def forbidden(self, *args, **kwargs):
         pytest.fail("Disabled source reached upstream")
 
-    for method in ("search_by_name", "fetch", "get_roles", "get_legal_roles", "get_group_structure"):
+    for method in (
+        "search_by_name", "fetch", "get_roles", "get_legal_roles", "get_group_structure"
+    ):
         monkeypatch.setattr(BrregAdapter, method, forbidden)
 
     async with httpx.AsyncClient(

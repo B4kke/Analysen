@@ -59,3 +59,43 @@ async def test_redis_failure_does_not_hide_investigation(monkeypatch):
     await research_heartbeat.populate_heartbeat(uuid4(), state)
     assert state.heartbeat_status == "unavailable"
     assert state.status == ResearchPassStatus.RUNNING
+
+
+
+@pytest.mark.asyncio
+async def test_worker_publishes_scoped_expiring_signal(monkeypatch):
+    import asyncio
+    import os
+
+    from redis.asyncio import Redis
+
+    from apps.api.app.services import research_heartbeat
+
+    url = os.environ.get("TEST_REDIS_URL")
+    if not url:
+        pytest.skip("TEST_REDIS_URL is required")
+    monkeypatch.setattr(
+        research_heartbeat, "_client", lambda: Redis.from_url(url, socket_timeout=2)
+    )
+    monkeypatch.setattr(research_heartbeat, "INTERVAL_SECONDS", 0.02)
+    case, job = uuid4(), uuid4()
+    key = heartbeat_key(case, job)
+    observer = Redis.from_url(url, socket_timeout=2)
+    try:
+        async with research_heartbeat.worker_heartbeat(case, job):
+            async with asyncio.timeout(3):
+                while not await observer.get(key):
+                    await asyncio.sleep(0.02)
+            assert 0 < await observer.ttl(key) <= research_heartbeat.TTL_SECONDS
+            state = ResearchPassState(status=ResearchPassStatus.RUNNING, job_id=job)
+            await research_heartbeat.populate_heartbeat(case, state)
+            assert state.heartbeat_status == "fresh"
+            other = ResearchPassState(status=ResearchPassStatus.RUNNING, job_id=uuid4())
+            await research_heartbeat.populate_heartbeat(case, other)
+            assert other.heartbeat_status == "missing"
+        last = await observer.get(key)
+        await asyncio.sleep(0.08)
+        assert await observer.get(key) == last
+    finally:
+        await observer.delete(key)
+        await observer.aclose()

@@ -5,8 +5,8 @@ import httpx
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from apps.api.app.core.database import get_db_session
 from apps.api.app.api.source_policy import require_enabled_source
+from apps.api.app.core.database import get_db_session
 from apps.api.app.domain.identifiers import InvalidOrganizationNumber
 from apps.api.app.domain.models import (
     BrregOrganization,

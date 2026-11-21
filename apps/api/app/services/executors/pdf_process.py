@@ -21,7 +21,11 @@ from apps.api.app.domain.models import Lead
 from apps.api.app.repositories import claims_evidence
 from apps.api.app.repositories import investigations as repository
 from apps.api.app.services.pdf_extraction import PdfDependenciesMissing
-from apps.api.app.services.raw_store import RawSnapshotMissing, RawSnapshotUnavailable, load_raw_bytes
+from apps.api.app.services.raw_store import (
+    RawSnapshotMissing,
+    RawSnapshotUnavailable,
+    load_raw_bytes,
+)
 
 PdfExtractFn = Any
 

@@ -3,8 +3,8 @@ from typing import Annotated
 import httpx
 from fastapi import APIRouter, HTTPException, Query
 
-from apps.api.app.domain.brreg_relationships import BrregGroupStructure, BrregLegalRoleLookup
 from apps.api.app.api.source_policy import require_enabled_source
+from apps.api.app.domain.brreg_relationships import BrregGroupStructure, BrregLegalRoleLookup
 from apps.api.app.domain.identifiers import InvalidOrganizationNumber
 from apps.api.app.services.brreg_relationships import (
     normalize_brreg_group_structure,
