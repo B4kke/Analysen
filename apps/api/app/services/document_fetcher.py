@@ -325,6 +325,9 @@ class DocumentFetcher:
         mime = (raw.content_type or "").split(";", 1)[0].lower()
         if mime in {"text/plain", "application/json"}:
             return raw
+        if mime == "application/pdf":
+            # Binary documents must not pass through HTML extractors.
+            return replace(raw, content="")
         if _TRAFILATURA_AVAILABLE:
             extracted = await self._extract_trafilatura(raw)
             if not extracted.error:

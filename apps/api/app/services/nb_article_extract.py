@@ -26,6 +26,7 @@ import contextlib
 import hashlib
 import io
 import re
+import unicodedata
 from collections.abc import Callable
 from datetime import date, datetime
 from typing import Any
@@ -403,6 +404,9 @@ _REGION_EXPAND_UP_RATIO = 1.0
 _REGION_EXPAND_DOWN_RATIO = 2.0
 
 MAX_CROP_TEXT_CHARS = 5000
+MAX_PAGE_PIXELS = 45_000_000
+MAX_OCR_WORDS = 30_000
+OCR_TIMEOUT_SECONDS = 45
 
 
 class NBExtractError(Exception):
@@ -463,6 +467,8 @@ class NBPermittedExtraction(BaseModel):
     crop_bytes: bytes = Field(min_length=1)
     crop_text: str | None = Field(default=None, max_length=MAX_CROP_TEXT_CHARS)
     target_validated: bool = False
+    ocr_word_count: int = Field(default=0, ge=0)
+    ocr_mean_confidence: float | None = Field(default=None, ge=0, le=100)
 
 
 PageOcrFn = Callable[[bytes], list[NBOcrWord]]
@@ -470,7 +476,7 @@ PageOcrFn = Callable[[bytes], list[NBOcrWord]]
 
 
 def _normalize_tokens(value: str) -> list[str]:
-    return [token for token in re.split(r"[^0-9a-zæøå]+", value.lower()) if len(token) >= 2]
+    return re.findall(r"[^\W_]+", unicodedata.normalize("NFKC", value).casefold())
 
 
 def _union_box(boxes: list[tuple[int, int, int, int]]) -> tuple[int, int, int, int]:
@@ -492,9 +498,10 @@ def find_article_region(
 ) -> NBArticleRegion:
     """Locate the probable article region anchored on IIIF ``xywh`` hits.
 
-    Seed boxes come from parsed ``xywh`` anchors plus OCR words matching the
-    target tokens; the union is expanded conservatively and clamped to the
-    page. Pure and deterministic. Raises :class:`NBExtractError` with
+    The first valid IIIF anchor seeds one local region; distant hits cannot
+    expand it across columns or unrelated articles. The local window is a
+    contextual excerpt, not a reconstructed full article. Pure and deterministic.
+    Raises :class:`NBExtractError` with
     ``target_not_found`` when neither anchors nor OCR words locate the
     target, or ``invalid_geometry`` on unusable input.
     """
@@ -509,21 +516,34 @@ def find_article_region(
 
     seed_boxes: list[tuple[int, int, int, int]] = []
     primary_anchor: str | None = None
-    for raw_anchor in anchor_xywh or []:
+    valid_anchors: list[tuple[int, int, int, int]] = []
+    for raw_anchor in (anchor_xywh or [])[:500]:
         parsed = parse_xywh(raw_anchor)
         if parsed is None:
             continue
         x, y, w, h = parsed
         if x + w > page_width or y + h > page_height:
             continue
-        seed_boxes.append(parsed)
-        if primary_anchor is None:
-            primary_anchor = f"xywh={x},{y},{w},{h}"
-
-    token_set = set(tokens)
-    for word in ocr_words or []:
-        in_bounds = word.x + word.w <= page_width and word.y + word.h <= page_height
-        if word.text.lower() in token_set and in_bounds:
+        valid_anchors.append(parsed)
+    words = [
+        word for word in (ocr_words or [])[:MAX_OCR_WORDS]
+        if word.x + word.w <= page_width and word.y + word.h <= page_height
+    ]
+    if valid_anchors:
+        seed = valid_anchors[0]
+        primary_anchor = "xywh=" + ",".join(str(value) for value in seed)
+        seed_boxes.append(seed)
+    else:
+        # No guessed transform from invalid/out-of-bounds IIIF coordinates.
+        # OCR-only localization is available to callers not supplying anchors.
+        if anchor_xywh:
+            raise NBExtractError("target_not_found", "no in-bounds IIIF anchor")
+        matching = [word for word in words if _normalize_tokens(word.text) == tokens]
+        if not matching:
+            matching = [word for word in words if _normalize_tokens(word.text) in
+                        [[token] for token in tokens]]
+        if matching:
+            word = matching[0]
             seed_boxes.append((word.x, word.y, word.w, word.h))
 
     if not seed_boxes:
@@ -532,6 +552,27 @@ def find_article_region(
             "neither xywh anchors nor OCR words locate the target on the page",
         )
 
+    sx, sy, sw, sh = seed_boxes[0]
+    # Fixed neighbourhood, no transitive expansion: other matches cannot
+    # chain the region across an entire page. Limit horizontal extension to
+    # approximately one local line and never to an entire adjacent column.
+    pad_x = min(max(sw, sh * 5), max(sh, page_width // 5))
+    pad_y = sh * 2
+    for x, y, w, h in valid_anchors[1:]:
+        if (sx - pad_x <= x and x + w <= sx + sw + pad_x
+                and sy - pad_y <= y and y + h <= sy + sh + pad_y):
+            seed_boxes.append((x, y, w, h))
+    token_set = set(tokens)
+    for word in words:
+        if (
+            len(_normalize_tokens(word.text)) == 1
+            and _normalize_tokens(word.text)[0] in token_set
+            and sx - pad_x <= word.x
+            and word.x + word.w <= sx + sw + pad_x
+            and sy - pad_y <= word.y
+            and word.y + word.h <= sy + sh + pad_y
+        ):
+            seed_boxes.append((word.x, word.y, word.w, word.h))
     seed_x, seed_y, seed_w, seed_h = _union_box(seed_boxes)
     x0 = max(0, seed_x - int(seed_w * _REGION_EXPAND_LEFT_RATIO))
     y0 = max(0, seed_y - int(seed_h * _REGION_EXPAND_UP_RATIO))
@@ -574,6 +615,10 @@ def crop_page_image(page_bytes: bytes, region: NBArticleRegion) -> bytes:
     try:
         with Image.open(io.BytesIO(bytes(page_bytes))) as image:
             width, height = image.size
+            if width * height > MAX_PAGE_PIXELS:
+                raise NBExtractError("image_too_large", "page pixel budget exceeded")
+            if getattr(image, "n_frames", 1) != 1:
+                raise NBExtractError("invalid_image", "multi-frame page image is unsupported")
             if width != region.page_width or height != region.page_height:
                 raise NBExtractError(
                     "invalid_region",
@@ -605,14 +650,24 @@ def page_image_size(page_bytes: bytes) -> tuple[int, int]:
         ) from exc
     try:
         with Image.open(io.BytesIO(bytes(page_bytes))) as image:
-            return int(image.size[0]), int(image.size[1])
+            width, height = image.size
+            if width * height > MAX_PAGE_PIXELS:
+                raise NBExtractError("image_too_large", "page pixel budget exceeded")
+            if getattr(image, "n_frames", 1) != 1:
+                raise NBExtractError("invalid_image", "multi-frame page image is unsupported")
+            image.verify()
+            return int(width), int(height)
+    except NBExtractError:
+        raise
     except Exception as exc:
         raise NBExtractError(
             "invalid_image", f"page image cannot be read: {type(exc).__name__}"
         ) from exc
 
 
-def tesseract_ocr_words_norwegian(image_bytes: bytes) -> list[NBOcrWord]:
+def tesseract_ocr_words_norwegian(
+    image_bytes: bytes, *, crop_mode: bool = False
+) -> list[NBOcrWord]:
     """Default word-OCR backend: pytesseract ``image_to_data(lang="nor")``.
 
     Raises :class:`NBExtractError` (``ocr_unavailable`` / ``ocr_failed``)
@@ -623,15 +678,24 @@ def tesseract_ocr_words_norwegian(image_bytes: bytes) -> list[NBOcrWord]:
         raise NBExtractError("invalid_image", "Norwegian OCR requires image bytes")
     try:
         import pytesseract  # type: ignore[import-not-found]
-        from PIL import Image
+        from PIL import Image, ImageOps
     except ImportError as exc:
         raise NBExtractError(
             "ocr_unavailable", "Norwegian OCR requires the tesseract runtime"
         ) from exc
     try:
+        page_image_size(image_bytes)
         with Image.open(io.BytesIO(bytes(image_bytes))) as image:
+            # The working raster has identical dimensions; no deskew/rescale
+            # that could invalidate original IIIF geometry. Store only untouched
+            # crop pixels, not this temporary contrast-enhanced OCR raster.
+            working = ImageOps.autocontrast(image.convert("L")) if crop_mode else image
             data = pytesseract.image_to_data(
-                image, lang=NORWEGIAN_OCR_LANG, output_type=pytesseract.Output.DICT
+                working,
+                lang=NORWEGIAN_OCR_LANG,
+                output_type=pytesseract.Output.DICT,
+                config="--psm 6" if crop_mode else "--psm 3",
+                timeout=OCR_TIMEOUT_SECONDS,
             )
     except NBExtractError:
         raise
@@ -641,7 +705,7 @@ def tesseract_ocr_words_norwegian(image_bytes: bytes) -> list[NBOcrWord]:
         ) from exc
     words: list[NBOcrWord] = []
     texts = data.get("text") or []
-    count = len(texts)
+    count = min(len(texts), MAX_OCR_WORDS)
     for index in range(count):
         text = str(texts[index] or "").strip()
         if not text:
@@ -660,6 +724,54 @@ def tesseract_ocr_words_norwegian(image_bytes: bytes) -> list[NBOcrWord]:
         except (KeyError, IndexError, TypeError, ValueError):
             continue
     return words
+
+
+def _nearby_words(left: NBOcrWord, right: NBOcrWord) -> bool:
+    """Prevent phrase validation across distant columns or unrelated lines."""
+    height = max(left.h, right.h)
+    baseline_delta = abs((left.y + left.h) - (right.y + right.h))
+    if baseline_delta <= height * 0.6:
+        return -height <= right.x - (left.x + left.w) <= 3 * height
+    # Adjacent lines may wrap within a local column, never across a page.
+    return (
+        0 < right.y - left.y <= 2 * height
+        and abs(right.x - left.x) <= max(left.w, right.w, 3 * height)
+    )
+
+
+def validated_crop_text(
+    words: list[NBOcrWord], tokens: list[str]
+) -> tuple[str | None, bool]:
+    """Retain OCR reading order and verify one contiguous local token sequence.
+
+    Substrings, reversed order, and independent words across unrelated
+    regions never validate. Only words actually retained in the bounded
+    OCR excerpt participate. This verifies text, not identity or article scope.
+    """
+    pieces: list[str] = []
+    observed: list[tuple[str, NBOcrWord]] = []
+    used = 0
+    previous: NBOcrWord | None = None
+    for word in words:
+        separator = ""
+        if previous is not None:
+            separator = " " if abs(word.y - previous.y) <= max(word.h, previous.h) / 2 else "\n"
+        if used + len(separator) + len(word.text) > MAX_CROP_TEXT_CHARS:
+            break
+        pieces.append(separator + word.text)
+        used += len(separator) + len(word.text)
+        observed.extend((token, word) for token in _normalize_tokens(word.text))
+        previous = word
+    for start in range(len(observed) - len(tokens) + 1):
+        window = observed[start:start + len(tokens)]
+        if [token for token, _ in window] != tokens:
+            continue
+        if all(
+            left is right or _nearby_words(left, right)
+            for (_, left), (_, right) in zip(window, window[1:], strict=False)
+        ):
+            return "".join(pieces) or None, True
+    return "".join(pieces) or None, False
 
 
 def extract_permitted_article(
@@ -717,7 +829,10 @@ def extract_permitted_article(
     crop_bytes = crop_page_image(raw_page, region)
     region.crop_sha256 = hashlib.sha256(crop_bytes).hexdigest()
 
-    crop_backend = crop_ocr_fn or page_ocr_fn or tesseract_ocr_words_norwegian
+    crop_backend = crop_ocr_fn or page_ocr_fn
+    if crop_backend is None:
+        def crop_backend(image_bytes: bytes) -> list[NBOcrWord]:
+            return tesseract_ocr_words_norwegian(image_bytes, crop_mode=True)
     try:
         crop_words = list(crop_backend(crop_bytes))
     except NBExtractError:
@@ -726,10 +841,13 @@ def extract_permitted_article(
         raise NBExtractError(
             "ocr_failed", f"crop OCR failed: {type(exc).__name__}"
         ) from exc
-    crop_text = _truncate(" ".join(word.text for word in crop_words), MAX_CROP_TEXT_CHARS)
-    normalized_crop = (crop_text or "").lower()
-    validated = all(token in normalized_crop for token in tokens)
+    crop_words = [
+        word for word in crop_words[:MAX_OCR_WORDS]
+        if word.x + word.w <= region.w and word.y + word.h <= region.h
+    ]
+    crop_text, validated = validated_crop_text(crop_words, tokens)
     region.target_validated = validated
+    confidences = [word.confidence for word in crop_words if word.confidence >= 0]
     return NBPermittedExtraction(
         page_urn=cleaned_urn,
         page_sha256=page_sha256,
@@ -739,4 +857,7 @@ def extract_permitted_article(
         crop_bytes=crop_bytes,
         crop_text=crop_text,
         target_validated=validated,
+        ocr_word_count=len(crop_words),
+        ocr_mean_confidence=round(sum(confidences) / len(confidences), 2)
+        if confidences else None,
     )

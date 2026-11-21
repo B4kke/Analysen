@@ -271,3 +271,33 @@ class TestAccessGates:
             NBAccessState.NB_ONLY,
         }
         assert tested == set(NBAccessState)
+
+@pytest.mark.parametrize(
+    "license_value, rights",
+    [
+        ("not open", ""),
+        ("public viewing only", ""),
+        ("copyright retained", "https://creativecommons.org.evil.test/publicdomain/zero/1.0/"),
+        ("", "https://example.test/?url=creativecommons.org/publicdomain/zero/1.0/"),
+        ("", "https://creativecommons.org/publicdomain/zero/1.0/extra"),
+    ],
+)
+def test_reuse_requires_exact_license_or_trusted_rights(license_value, rights):
+    result = decide_access({
+        "accessAllowedFrom": "EVERYWHERE",
+        "license": license_value,
+        "rightsUri": rights,
+    })
+    assert result.state == NBAccessState.PUBLIC_VIEW_ONLY
+    assert not result.allow_report_embed
+
+
+def test_unknown_explicit_restriction_cannot_be_overridden_by_viewability():
+    result = decide_access({
+        "accessAllowedFrom": "AUTHENTICATION_REQUIRED",
+        "viewability": "ALL",
+        "isPublicDomain": True,
+    })
+    assert result.state == NBAccessState.UNKNOWN
+    assert not result.allow_page_fetch
+    assert not result.allow_report_embed

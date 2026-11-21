@@ -1,0 +1,35 @@
+name: NB live document contracts
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - scripts/nb_live_document_smoke.py
+      - apps/api/app/sources/national_library.py
+      - apps/api/app/services/nb_article_locator.py
+      - apps/api/app/services/nb_access_policy.py
+      - apps/api/app/services/nb_article_extract.py
+      - .github/workflows/nb-live-contracts.yml
+
+permissions:
+  contents: read
+
+jobs:
+  nb-live-document-contracts:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: sudo apt-get update -qq && sudo apt-get install -y tesseract-ocr tesseract-ocr-nor
+      - run: pip install -r requirements-dev.lock pytesseract
+      - run: |
+          set -o pipefail
+          python -m scripts.nb_live_document_smoke | tee nb-contracts.json
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: nb-contracts
+          path: nb-contracts.json
+          if-no-files-found: warn

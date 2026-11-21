@@ -142,18 +142,11 @@ async def test_web_fetch_happy_path_persists_document_and_coverage(web_client) -
     url = "https://example.com/article"
     lead_id = await _admit_web_lead(http, investigation_id, {"url": url})
 
-    from apps.api.app.services.url_canonicalization import FetchResult
+    from tests.web_result_fixture import web_result_fixture
 
-    content = "<html><body>Original article body</body></html>"
-    result = FetchResult(
-        url=url,
-        final_url="https://example.com/article",
-        content=content,
-        content_type="text/html",
-        status_code=200,
-        metadata={},
-        error=None,
-    )
+    original = b"<html><body>Original article body</body></html>"
+    content = "Original article body"
+    result = web_result_fixture(url, original, content)
     status, calls = await _execute_with_fake(
         factory, investigation_id, lead_id, fetch_result=result
     )
@@ -249,7 +242,7 @@ async def test_web_fetch_happy_path_persists_document_and_coverage(web_client) -
     assert document["canonical_url"] == "https://example.com/article"
     assert document["mime_type"] == "text/html"
     assert document["raw_storage_key"]
-    assert document["extracted_text"] is None
+    assert document["extracted_text"] == content
     assert document["parser_metadata"]["fetcher"] == "direct"
     assert document["parser_metadata"]["final_url"] == "https://example.com/article"
     assert source["name"] == "Direct web fetch"
@@ -270,12 +263,12 @@ async def test_web_fetch_happy_path_persists_document_and_coverage(web_client) -
 
     import hashlib
 
-    expected_digest = hashlib.sha256(content.encode("utf-8")).hexdigest()
+    expected_digest = hashlib.sha256(original).hexdigest()
     assert document["sha256"] == expected_digest
     from apps.api.app.core.config import get_settings
 
     stored = (get_settings().raw_evidence_dir / document["raw_storage_key"]).read_bytes()
-    assert stored.decode("utf-8") == content
+    assert stored == original
 
 
 async def test_web_fetch_invalid_url_fails_without_fetch(web_client) -> None:
@@ -428,3 +421,24 @@ async def test_web_fetch_empty_content_fails_with_reason(web_client) -> None:
         )
     assert lead["status"] == "FAILED"
     assert lead["blocked_reason"] == "source_error:FetchFailed"
+
+
+
+async def test_web_fetch_refuses_text_without_original_snapshot(web_client) -> None:
+    from apps.api.app.services.url_canonicalization import FetchResult
+
+    http, created, factory = web_client
+    investigation_id = await _create_web_investigation(http, created)
+    url = "https://example.com/no-original"
+    lead_id = await _admit_web_lead(http, investigation_id, {"url": url})
+    result = FetchResult(url, url, "Derived text only", "text/html", 200, {})
+    status, calls = await _execute_with_fake(
+        factory, investigation_id, lead_id, fetch_result=result
+    )
+    assert calls == [url]
+    assert status == "FAILED"
+    async with factory() as session:
+        assert await session.scalar(
+            text("SELECT blocked_reason FROM leads WHERE id = CAST(:id AS uuid)"),
+            {"id": lead_id},
+        ) == "raw_snapshot_invalid"

@@ -5,6 +5,7 @@ import httpx
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from apps.api.app.api.source_policy import require_enabled_source
 from apps.api.app.core.database import get_db_session
 from apps.api.app.domain.identifiers import InvalidOrganizationNumber
 from apps.api.app.domain.models import (
@@ -37,6 +38,7 @@ async def search_organizations(
     page: SearchPage = 0,
     size: SearchSize = 20,
 ) -> list[BrregOrganization]:
+    require_enabled_source("brreg_entities")
     try:
         async with BrregAdapter() as adapter:
             payload = await adapter.search_by_name(name, page=page, size=size)
@@ -71,6 +73,7 @@ async def person_roles(
     birth_date: BirthDate,
     limit: SearchLimit = 250,
 ) -> BrregPersonRoleSearch:
+    require_enabled_source("brreg_role_inventory")
     try:
         return await search_person_business_roles(
             session,
@@ -84,6 +87,7 @@ async def person_roles(
 
 @router.get("/organizations/{orgnr}/roles", response_model=BrregRoleLookup)
 async def get_organization_roles(orgnr: str) -> BrregRoleLookup:
+    require_enabled_source("brreg_roles")
     try:
         async with BrregAdapter() as adapter:
             record = await adapter.get_roles(orgnr)
@@ -101,6 +105,7 @@ async def get_organization_roles(orgnr: str) -> BrregRoleLookup:
 
 @router.get("/organizations/{orgnr}", response_model=BrregOrganization)
 async def get_organization(orgnr: str) -> BrregOrganization:
+    require_enabled_source("brreg_entities")
     try:
         async with BrregAdapter() as adapter:
             record = await adapter.fetch(orgnr)

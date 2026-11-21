@@ -1,5 +1,5 @@
 ---
-description: Primary OpenCode2 orchestrator for Analysen. Decomposes work, launches multiple specialist subagents concurrently, integrates their changes, and owns task status and final verification.
+description: Primary OpenCode V2 orchestrator for Analysen. Decomposes work, launches multiple specialist subagents concurrently, integrates their changes, and owns task status and final verification.
 mode: primary
 permissions:
   - action: subagent

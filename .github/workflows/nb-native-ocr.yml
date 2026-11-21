@@ -1,0 +1,26 @@
+name: NB native OCR
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - apps/api/app/services/nb_article_extract.py
+      - apps/api/app/services/executors/nb_media.py
+      - scripts/nb_native_ocr_smoke.py
+      - .github/workflows/nb-native-ocr.yml
+
+permissions:
+  contents: read
+
+jobs:
+  native-ocr:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: sudo apt-get update -qq && sudo apt-get install -y tesseract-ocr tesseract-ocr-nor fonts-dejavu-core
+      - run: pip install -r requirements-dev.lock pytesseract
+      - run: tesseract --list-langs
+      - run: python -m scripts.nb_native_ocr_smoke

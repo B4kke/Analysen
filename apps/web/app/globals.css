@@ -91,3 +91,16 @@
   .module-status{margin-top:1px}
 }
 .research-actions .submit-button:disabled{cursor:not-allowed}
+
+
+.intel-section { scroll-margin-top: 1rem; }
+.intel-section .section-heading { flex-wrap: wrap; }
+.intel-group { display: grid; gap: .65rem; margin-top: 1rem; min-width: 0; }
+.intel-group h3 { font-size: 1rem; margin: 0; }
+.intel-group .claim-card { min-width: 0; overflow-wrap: anywhere; }
+
+
+.mention-figure{margin:.8rem 0;max-width:100%;min-width:0}
+.mention-figure figcaption,.mention-excerpt small{color:var(--muted);font-size:.75rem;line-height:1.5}
+.mention-excerpt{margin:.8rem 0;padding:.8rem;background:#fff;border-left:3px solid var(--line)}
+.mention-excerpt .mention-text{white-space:pre-wrap;overflow-wrap:anywhere;line-height:1.65}

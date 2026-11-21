@@ -3,6 +3,7 @@ from typing import Annotated
 import httpx
 from fastapi import APIRouter, HTTPException, Query
 
+from apps.api.app.api.source_policy import require_enabled_source
 from apps.api.app.domain.brreg_relationships import BrregGroupStructure, BrregLegalRoleLookup
 from apps.api.app.domain.identifiers import InvalidOrganizationNumber
 from apps.api.app.services.brreg_relationships import (
@@ -22,6 +23,7 @@ async def get_organization_legal_roles(
     search_after: SearchAfter = None,
     size: LegalRolePageSize = 100,
 ) -> BrregLegalRoleLookup:
+    require_enabled_source("brreg_legal_roles")
     try:
         async with BrregAdapter() as adapter:
             record = await adapter.get_legal_roles(orgnr, search_after=search_after, size=size)
@@ -39,6 +41,7 @@ async def get_organization_legal_roles(
 
 @router.get("/organizations/{orgnr}/group-structure", response_model=BrregGroupStructure)
 async def get_organization_group_structure(orgnr: str) -> BrregGroupStructure:
+    require_enabled_source("brreg_group_structure")
     try:
         async with BrregAdapter() as adapter:
             record = await adapter.get_group_structure(orgnr)

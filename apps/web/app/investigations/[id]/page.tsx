@@ -332,6 +332,14 @@ export default function InvestigationPage() {
 
   const research = investigation.research;
   const isActive = activeStatuses.includes(research.status);
+  const heartbeatFresh = !stale && research.heartbeat_status === "fresh";
+  const heartbeatMessage = stale
+    ? "Kan ikke bekrefte worker-status: API-data er foreldet."
+    : research.heartbeat_status === "fresh"
+      ? "Nylig livstegn fra worker."
+      : research.heartbeat_status === "unavailable"
+        ? "Heartbeat-tjenesten er utilgjengelig. Jobben er ikke bekreftet avsluttet."
+        : "Ingen ferske livstegn. Jobben kan jobbe, være blokkert eller ha stoppet; sluttstatus er ikke bekreftet.";
   const view = researchView[research.status];
   const timestamp = lastResearchTimestamp(research);
   const flow = researchSteps(research);
@@ -340,6 +348,11 @@ export default function InvestigationPage() {
   const completedModules = enabledModules.filter((item) => item.status === "COMPLETE").length;
   const doneLeads = investigation.leads.filter((lead) => TERMINAL_LEAD.includes(lead.status)).length;
   const canStart = enabledModules.length > 0 && !isActive && !inflight;
+  const claimGroups = [
+    { title: "Motstridende funn", items: investigation.claims.filter((claim) => claim.status === "CONTRADICTED") },
+    { title: "Kildestøttede funn", items: investigation.claims.filter((claim) => claim.status === "SUPPORTED" && claim.evidence.some((item) => item.relation === "supports")) },
+    { title: "Uavklarte funn og spor", items: investigation.claims.filter((claim) => claim.status !== "CONTRADICTED" && !(claim.status === "SUPPORTED" && claim.evidence.some((item) => item.relation === "supports"))) },
+  ];
 
   const actionLabel = inflight
     ? "Sender startforespørsel …"
@@ -360,9 +373,37 @@ export default function InvestigationPage() {
         {investigation.purpose ? <p>{investigation.purpose}</p> : <p>Ingen formålsbeskrivelse er registrert.</p>}
       </div>
 
+      <section className="detail-section intel-section" id="funn" aria-labelledby="intel-heading">
+        <div className="section-heading">
+          <span>FUNN</span>
+          <div>
+            <h2 id="intel-heading">Etterretningsoversikt</h2>
+            <p>Påstander og kildebelegg. Kildestøtte er ikke det samme som endelig bekreftelse.</p>
+          </div>
+          <a className="back-link" href={`/investigations/${id}/report`}>Åpne rapport →</a>
+        </div>
+        <div className="summary-grid">
+          {claimGroups.map((group) => (
+            <div key={group.title}><span>{group.title}</span><strong>{group.items.length}</strong></div>
+          ))}
+        </div>
+        {investigation.claims.length === 0 && (
+          <p className="empty-note">Ingen lagrede påstander ennå. Dette betyr ikke at kildene er ferdig undersøkt.</p>
+        )}
+        {claimGroups.filter((group) => group.items.length > 0).map((group) => (
+          <section className="intel-group" key={group.title} aria-label={group.title}>
+            <h3>{group.title} ({group.items.length})</h3>
+            {group.items.map((claim) => (
+              <ClaimCard key={claim.id} claim={claim} investigationId={id}
+                subjectName={investigation.entities.find((entity) => entity.id === claim.subject_entity_id)?.canonical_name ?? null} />
+            ))}
+          </section>
+        ))}
+      </section>
+
       <section className={`research-status-card research-status-card--${view.tone}`} aria-live="polite">
         <div className="research-status-main">
-          <span className={`activity-indicator ${research.status === "RUNNING" ? "activity-indicator--running" : ""}`} aria-hidden="true" />
+          <span className={`activity-indicator ${research.status === "RUNNING" && heartbeatFresh ? "activity-indicator--running" : ""}`} aria-hidden="true" />
           <div>
             <p className="eyebrow">RESEARCHSTATUS</p>
             <h2>{view.title}</h2>
@@ -377,6 +418,12 @@ export default function InvestigationPage() {
           <div><span>Sist lest av UI</span><strong>{lastRefreshAt ? lastRefreshAt.toLocaleTimeString("nb-NO") : "–"}</strong></div>
         </div>
 
+        {research.status === "RUNNING" && (
+          <div role="status" className={heartbeatFresh ? "form-success" : "form-error"}>
+            {heartbeatMessage}
+            {research.heartbeat_at && <> Siste livstegn: {formatDate(research.heartbeat_at)}.</>}
+          </div>
+        )}
         <div className="research-timeline" aria-label="Research-tidspunkter">
           <span>Forespurt <strong>{formatDate(research.requested_at)}</strong></span>
           <span>Købekreftet <strong>{formatDate(research.enqueued_at)}</strong></span>
@@ -527,22 +574,6 @@ export default function InvestigationPage() {
         </div>
       </section>
 
-      <section className="detail-section">
-        <div className="section-heading">
-          <span>FUNN</span>
-          <div>
-            <h2>Påstander og kildebelegg</h2>
-            <p>{investigation.document_count} dokumenter · {investigation.evidence_count} evidence-poster</p>
-          </div>
-        </div>
-        {investigation.claims.length ? (
-          investigation.claims.map((claim) => (
-            <ClaimCard key={claim.id} claim={claim} investigationId={id} />
-          ))
-        ) : (
-          <p className="empty-note">Ingen lagrede påstander ennå.</p>
-        )}
-      </section>
     </main>
   );
 }
@@ -550,18 +581,21 @@ export default function InvestigationPage() {
 function ClaimCard({
   claim,
   investigationId,
+  subjectName,
 }: {
   claim: ClaimState;
   investigationId: string;
+  subjectName: string | null;
 }) {
   return (
     <article className="claim-card">
       <div className="claim-header">
         <strong>{claim.predicate}</strong>
         <span className={`claim-status claim-${claim.status.toLowerCase()}`}>
-          {claimLabel[claim.status] || claim.status}
+          {claim.status === "SUPPORTED" && !claim.evidence.some((item) => item.relation === "supports") ? "Mangler støttende kildebelegg" : claimLabel[claim.status] || claim.status}
         </span>
       </div>
+      <small>Gjelder: {subjectName || "Ikke identifisert i denne visningen"}</small>
       <p>{valueText(claim.value)}</p>
       <small>Opprettet: {formatDate(claim.created_at)}</small>
       {claim.evidence.length ? (
@@ -570,7 +604,7 @@ function ClaimCard({
             const source = safeHttpUrl(evidence.original_url) || safeHttpUrl(evidence.canonical_url);
             return (
               <div className="evidence-card" key={`${evidence.evidence_id}:${evidence.relation}`}>
-                <strong>{evidence.relation} · {evidence.source_name || "Ukjent kilde"}</strong>
+                <strong>{({ supports: "Støtter", contradicts: "Motsier", context: "Kontekst" } as const)[evidence.relation]} · {evidence.source_name || "Ukjent kilde"}</strong>
                 {evidence.excerpt && <p>{evidence.excerpt}</p>}
                 <small>
                   Locator: {valueText(evidence.locator)} · hentet {formatDate(evidence.fetched_at)} · SHA-256: {evidence.sha256 || "ikke registrert"}

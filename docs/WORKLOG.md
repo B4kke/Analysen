@@ -61,3 +61,18 @@ Kort, append-only oversikt over fullførte milepæler. Dette er ikke en ny TODO-
 - AQ-040 lukket: lovlig embeddable NB-artikkelcrops rendres nå faktisk i Next.js/report.html og bygges inn i report.pdf. Ny case-gatet bilderute krever samme investigation, `image_embeddable=true` og evidence→samme document før hash-verifiserte raw-bytes kan serveres; annen sak, manglende provenance eller deaktivert embed-policy gir 404. CI run #248 grønn: Alembic, Ruff, mypy (85 kildefiler), Next.js build, 596 passed / 5 skipped.
 
 - AQ-041 lukket: UI-flyten er gjort eksplisitt fra «opprett og start» til kø → worker → resultat. REQUESTED/ENQUEUED/RUNNING skilles sannferdig, module-navn/status er menneskelige, fasefremdrift erstatter misvisende totalprosent, og autostart-feil åpner fortsatt den opprettede saken med varsel. Ny permanent Chromium-smoke i CI kjører API + Dramatiq + Next mot isolert PostgreSQL/Redis ved 390×844; CI #271 grønn med 596 pass / 5 skip. AQ-042 opprettet for ekte worker-heartbeat/SSE.
+
+
+- 2026-11-21 — AQ-043: V2-dokumentasjon, source-switch ved lead execution, intel-first detaljside og regresjonstester. CI/lokal runtime og live-kildekontroll gjenstår; ikke markert DONE.
+
+- 2026-11-21 — AQ-043 oppfølging: CI på d1c19de ga 598 passed/5 skipped og grønn web-build; 390px smoke feilet kun på case-sensitive tekstassertion (CSS uppercase). Rettet assertion, innført kildegate på flere innganger, hash-verifisert PDF og realistisk scope-merking. Ny CI kreves.
+
+- 2026-11-21 — AQ-042 del-leveranse: faktisk Redis worker-heartbeat, separat fra fase-/sluttstatus, saks- og jobbkorrelasjon, GUI-varsel for manglende/foreldet signal, regresjonstester. SSE og integrert live-test gjenstår.
+
+- 2026-11-21 — AQ-046: web provenance og discovery-coverage reparert; fixtures bruker ekte immutable råsnapshot. CI gjenstår.
+
+- 2026-11-21 — AQ-047 implementert: NB lokal crop v2, eksakt romlig tekstvalidering, OCR-timeout og pikselbudsjett, rettighetsgate for rådownload. Tidligere CI på 4830471 var grønn; NB Catalog live bestod (2 kandidater, 2,0 s); samlet source-smoke feilet pga. GDELT 429. Ny CI gjenstår.
+
+- 2026-11-21 — NB native OCR smoke, crop-specific contrast/PSM, OCR metrics, rights-aware probe and user-friendly image preview with fallback. Native and fixture CI pending.
+
+- 2026-11-21 — Native OCR passed on 9291d36 (synthetic 1.8 MP page, 110260 crop pixels, 6 OCR words, mean OCR confidence 90.17). Fixture Python on 28fd6ca: 625 passed / 5 skipped. Added dedicated bounded NB live document contract checks, hardened raw-download by document classification and aligned API-driven raw sink with worker-driven path. Final CI pending.

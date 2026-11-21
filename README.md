@@ -71,7 +71,9 @@ Embedding:
 python scripts/nim_smoke.py --suite embedding
 ```
 
-## OpenCode2
+## OpenCode V2
+Bruk standardkommandoen `opencode` (V2), ikke en separat `opencode2`-binær. Kontroller installasjonen med `opencode --version`. Se [offisiell V2-migreringsguide](https://opencode.ai/docs/migrate-v1/).
+
 Prosjektet er konfigurert med `opencode.jsonc`, prosjektlokale agents i `.opencode/agents/` og skills i `.opencode/skills/`. Default-agent er `analysen-orchestrator`, som skal delegere uavhengige arbeidsstrømmer til flere sub-agents parallelt og samle/verifisere resultatet før task-status endres. Se `docs/RECOVERY_ACTION_PLAN.md`.
 
 ## Les før utvikling

@@ -6,6 +6,7 @@ rights metadata never upgrades to reuse or embed rights, and
 """
 
 from typing import Any
+from urllib.parse import urlsplit
 
 from apps.api.app.domain.nb_media import NBAccessDecision, NBAccessState
 
@@ -13,13 +14,11 @@ _OPEN_LICENSE_TOKENS = frozenset(
     {
         "cc0",
         "cc-0",
-        "public",
         "pd",
         "publicdomain",
         "public-domain",
         "nocopyright",
         "no-copyright",
-        "open",
     }
 )
 
@@ -59,12 +58,26 @@ def _token(value: Any) -> str:
 def _license_is_open(license_value: Any, rights_uri: Any) -> bool:
     license_token = _token(license_value) if license_value is not None else ""
     rights_token = _token(rights_uri) if rights_uri is not None else ""
-    combined = f"{license_token} {rights_token}"
-    if "creativecommons.org/publicdomain" in rights_token or "creativecommons.org/cc0" in (
-        license_token + " " + rights_token
-    ):
+    # Exact allowlist only: "not open", "copyright; public viewing" and
+    # lookalike domains are NOT evidence of a reuse licence.
+    if license_token in _OPEN_LICENSE_TOKENS:
         return True
-    return any(token in combined for token in _OPEN_LICENSE_TOKENS)
+    for candidate in (license_token, rights_token):
+        try:
+            parsed = urlsplit(candidate)
+        except ValueError:
+            continue
+        if (
+            parsed.scheme == "https"
+            and parsed.hostname == "creativecommons.org"
+            and parsed.username is None
+            and parsed.password is None
+            and parsed.path.rstrip("/") in {"/publicdomain/zero/1.0", "/publicdomain/mark/1.0"}
+            and not parsed.query
+            and not parsed.fragment
+        ):
+            return True
+    return False
 
 
 def decide_access(item_metadata: dict[str, Any]) -> NBAccessDecision:
@@ -115,7 +128,7 @@ def decide_access(item_metadata: dict[str, Any]) -> NBAccessDecision:
         )
 
     # Public domain with no contradicting restriction: reusable.
-    if public_domain_true and access_token not in _LIBRARY_TOKENS | _NB_ONLY_TOKENS:
+    if public_domain_true and access_token in (_EVERYWHERE_TOKENS | {""}):
         return NBAccessDecision(
             state=NBAccessState.PUBLIC_REUSE,
             upstream=upstream,
@@ -175,7 +188,7 @@ def decide_access(item_metadata: dict[str, Any]) -> NBAccessDecision:
 
     # Viewable everywhere (or explicitly public) without reuse proof:
     # view-only. viewability=ALL alone NEVER grants embed rights.
-    if viewability_token == "ALL" or access_token in _EVERYWHERE_TOKENS:
+    if access_token in _EVERYWHERE_TOKENS or (not access_token and viewability_token == "ALL"):
         return NBAccessDecision(
             state=NBAccessState.PUBLIC_VIEW_ONLY,
             upstream=upstream,

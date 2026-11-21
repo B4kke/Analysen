@@ -50,6 +50,7 @@ from apps.api.app.services.brreg_normalization import normalize_brreg_organizati
 from apps.api.app.services.lead_executor import execute_lead
 from apps.api.app.services.raw_store import RawSnapshotUnavailable, load_raw_bytes
 from apps.api.app.services.report_sections import report_sections
+from apps.api.app.services.research_heartbeat import populate_heartbeat
 from apps.api.app.services.scope_gate import check_research_scope
 from apps.api.app.sources.brreg import BrregAdapter
 
@@ -92,7 +93,9 @@ async def get_investigation_endpoint(
     # from one snapshot so terminal status cannot hide newly committed findings.
     await session.execute(text("SET TRANSACTION ISOLATION LEVEL REPEATABLE READ READ ONLY"))
     try:
-        return await get_investigation(session, parsed_id)
+        detail = await get_investigation(session, parsed_id)
+        await populate_heartbeat(parsed_id, detail.research)
+        return detail
     except InvestigationNotFound as exc:
         raise HTTPException(status_code=404, detail="Investigation not found") from exc
 
@@ -116,6 +119,23 @@ async def raw_evidence_endpoint(
         FROM evidence e JOIN documents d ON d.id = e.document_id
         JOIN investigation_documents link ON link.document_id = d.id
         WHERE e.id = :evidence_id AND link.investigation_id = :investigation_id
+          AND (
+            (
+              e.locator_type <> 'nb_article_crop'
+              AND NOT (d.source_id = 'nb_catalog' AND d.mime_type LIKE 'image/%')
+              AND NOT EXISTS (
+                  SELECT 1 FROM media_mentions any_mention
+                  WHERE any_mention.image_document_id = d.id
+              )
+            )
+            OR EXISTS (
+                SELECT 1 FROM media_mentions mention
+                WHERE mention.investigation_id = :investigation_id
+                  AND mention.evidence_id = e.id
+                  AND mention.image_document_id = d.id
+                  AND mention.image_embeddable IS TRUE
+            )
+          )
     """),
                 {"evidence_id": evidence_id, "investigation_id": investigation_id},
             )
@@ -365,6 +385,7 @@ async def execute_lead_endpoint(
         from apps.api.app.services.document_fetcher import DocumentFetcher
         from apps.api.app.services.lead_executor import ExecutorTools
         from apps.api.app.services.pdf_extraction import extract_pdf_document
+        from apps.api.app.services.raw_store import store_raw_snapshot
         from apps.api.app.sources.national_library import (
             NationalLibraryClient,
             NBMediaClientAdapter,
@@ -378,7 +399,9 @@ async def execute_lead_endpoint(
         ):
             settings = get_settings()
             searxng = SearxngAdapter(settings.searxng_base_url, http_client)
-            nb_client = NBMediaClientAdapter(NationalLibraryClient())
+            nb_client = NBMediaClientAdapter(
+                NationalLibraryClient(), raw_sink=store_raw_snapshot
+            )
             try:
                 tools = ExecutorTools(
                     brreg_fetch=adapter.fetch,

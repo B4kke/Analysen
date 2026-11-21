@@ -11,18 +11,21 @@ text and merged parser metadata. No financial claims are created here
 
 import inspect
 import json
-from pathlib import Path
 from typing import Any
 from uuid import UUID
 
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from apps.api.app.core.config import get_settings
 from apps.api.app.domain.models import Lead
 from apps.api.app.repositories import claims_evidence
 from apps.api.app.repositories import investigations as repository
 from apps.api.app.services.pdf_extraction import PdfDependenciesMissing
+from apps.api.app.services.raw_store import (
+    RawSnapshotMissing,
+    RawSnapshotUnavailable,
+    load_raw_bytes,
+)
 
 PdfExtractFn = Any
 
@@ -81,10 +84,15 @@ async def execute_pdf_process(
     storage_key = doc.get("raw_storage_key")
     if not isinstance(storage_key, str) or not storage_key:
         return await _fail(session, investigation_id, lead_id, "raw_snapshot_missing")
+    sha256 = doc.get("sha256")
+    if not isinstance(sha256, str) or not sha256:
+        return await _fail(session, investigation_id, lead_id, "raw_snapshot_invalid")
     try:
-        raw_bytes = (Path(get_settings().raw_evidence_dir) / storage_key).read_bytes()
-    except OSError:
+        raw_bytes = load_raw_bytes(storage_key, sha256)
+    except RawSnapshotMissing:
         return await _fail(session, investigation_id, lead_id, "raw_snapshot_missing")
+    except RawSnapshotUnavailable:
+        return await _fail(session, investigation_id, lead_id, "raw_snapshot_invalid")
 
     try:
         extracted = pdf_extract(raw_bytes)
@@ -124,9 +132,6 @@ async def execute_pdf_process(
 
     original_url = doc.get("original_url") or ""
     canonical_url = doc.get("canonical_url") or ""
-    sha256 = doc.get("sha256")
-    if not isinstance(sha256, str) or not sha256:
-        return await _fail(session, investigation_id, lead_id, "document_not_found")
     await claims_evidence.upsert_document(
         session,
         source_id=doc.get("source_id"),

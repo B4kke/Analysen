@@ -90,7 +90,12 @@ async def execute_searxng_discovery(
     )
     await repository.set_lead_status(session, investigation_id, lead_id, "COMPLETED")
     await repository.bump_module_coverage(
-        session, investigation_id, lead.scope_area, provider=PROVIDER
+        session,
+        investigation_id,
+        lead.scope_area,
+        provider=PROVIDER,
+        document_increment=0,
+        query_class=query_class.value,
     )
     await repository._audit(
         session,

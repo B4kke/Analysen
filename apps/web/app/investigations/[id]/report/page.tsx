@@ -17,6 +17,10 @@ type Coverage = {
   fulltext_count?: number;
   restricted_count?: number;
   fetched_count?: number;
+  crop_unavailable_count?: number;
+  content_fragment_error_count?: number;
+  iiif_error_count?: number;
+  concordance_error_count?: number;
   time_from?: string | null;
   time_to?: string | null;
 };
@@ -60,7 +64,11 @@ function coverageDetail(coverage: Coverage): string | null {
   if (num(coverage.concordance_count)) parts.push(`Konkordanser: ${coverage.concordance_count}`);
   if (num(coverage.fulltext_count)) parts.push(`Fulltekst: ${coverage.fulltext_count}`);
   if (num(coverage.restricted_count)) parts.push(`Begrenset: ${coverage.restricted_count}`);
-  if (num(coverage.fetched_count)) parts.push(`Hentet: ${coverage.fetched_count}`);
+  if (num(coverage.fetched_count)) parts.push(`Sidebilder hentet: ${coverage.fetched_count}`);
+  if (num(coverage.crop_unavailable_count)) parts.push(`Utsnitt utilgjengelig: ${coverage.crop_unavailable_count}`);
+  if (num(coverage.content_fragment_error_count)) parts.push(`Sideoppslag feilet: ${coverage.content_fragment_error_count}`);
+  if (num(coverage.iiif_error_count)) parts.push(`IIIF-feil: ${coverage.iiif_error_count}`);
+  if (num(coverage.concordance_error_count)) parts.push(`DH-lab-feil: ${coverage.concordance_error_count}`);
   if ((coverage.endpoints ?? []).length > 0) parts.push(`Endepunkt: ${coverage.endpoints!.join(", ")}`);
   if ((coverage.query_classes ?? []).length > 0) parts.push(`Spørringsklasse: ${coverage.query_classes!.join(", ")}`);
   if (coverage.time_from || coverage.time_to) parts.push(`Tidsrom: ${coverage.time_from ?? "–"}–${coverage.time_to ?? "–"}`);
@@ -68,6 +76,7 @@ function coverageDetail(coverage: Coverage): string | null {
 }
 
 function MediaMentionCard({ mention, investigationId }: { mention: MediaMention; investigationId: string }) {
+  const [failedImageUrl, setFailedImageUrl] = useState<string | null>(null);
   const unavailable = mention.text_availability === "UNAVAILABLE";
   const storedText = mention.text_excerpt || mention.summary;
   const linkUrl = safeHttpUrl(mention.source_url) ?? safeHttpUrl(nbItemUrl(mention.page_urn)) ?? safeHttpUrl(nbItemUrl(mention.issue_urn));
@@ -86,10 +95,26 @@ function MediaMentionCard({ mention, investigationId }: { mention: MediaMention;
         {mention.issue_urn ? <span>Issue URN: {mention.issue_urn}</span> : null}
         {mention.page_urn ? <span>Side URN: {mention.page_urn}</span> : null}
         {(mention.xywh_anchors ?? []).length > 0 ? <span>Tekstanker: {mention.xywh_anchors.join(", ")}</span> : null}
-        {imageUrl ? <img className="mention-image" src={imageUrl} alt={mention.headline || mention.publication || "Lagret artikkelutsnitt"} loading="lazy" /> : null}
-        {!unavailable && storedText ? <span className="mention-text">{storedText}</span> : null}
+        {imageUrl && failedImageUrl !== imageUrl ? (
+          <figure className="mention-figure">
+            <a href={imageUrl} target="_blank" rel="noreferrer" aria-label="Åpne kildeutsnitt i full størrelse">
+              <img className="mention-image" src={imageUrl} alt={`Lagret kildeutsnitt: ${mention.publication || "avis"}${mention.page_number != null ? `, side ${mention.page_number}` : ""}`} loading="lazy" onError={() => setFailedImageUrl(imageUrl)} />
+            </a>
+            <figcaption>Lagret kildeutsnitt · åpne i full størrelse. Ikke dokumentasjon av en komplett artikkel.</figcaption>
+          </figure>
+        ) : imageUrl ? (
+          <span className="mention-note" role="status">Bildeutsnittet er utilgjengelig eller kan ikke vises. Bruk originalkilden.</span>
+        ) : mention.image_document_id ? (
+          <span className="mention-note">Bildeutsnittet kan ikke eksporteres eller vises med gjeldende rettighetstillatelse.</span>
+        ) : null}
+        {!unavailable && storedText ? (
+          <div className="mention-excerpt">
+            <small>{mention.text_availability === "FULL" ? "Lagret artikkeltekst" : "Lagret tekstutdrag – OCR kan inneholde feil"}</small>
+            <span className="mention-text">{storedText}</span>
+          </div>
+        ) : null}
         {!unavailable && !storedText ? <span className="mention-note">Ingen lagret tekstutdrag.</span> : null}
-        {unavailable ? <span className="mention-note">{ACCESS_NOTE_UNAVAILABLE}</span> : null}
+        {unavailable ? <span className="mention-note">{["LIBRARY_ONLY", "NB_ONLY"].includes(mention.access_class ?? "") ? ACCESS_NOTE_UNAVAILABLE : "Kun metadata er lagret. Årsaken kan være rettigheter, manglende tekstekstraksjon eller et mislykket kildeoppslag. Åpne originalkilden."}</span> : null}
         {citation && citationUrl ? <span>Kildebelegg: <a href={citationUrl}>{citation.excerpt ?? citationUrl}</a>{citation.sha256 ? ` · SHA: ${citation.sha256.slice(0, 8)}` : ""}</span> : null}
         {linkUrl ? <a href={linkUrl}>{linkText}</a> : null}
       </div>

@@ -56,6 +56,10 @@ class RawSnapshotUnavailable(ValueError):
     """The recorded original cannot be safely loaded or fails its content hash."""
 
 
+class RawSnapshotMissing(RawSnapshotUnavailable):
+    """The recorded original is absent or unreadable."""
+
+
 def load_raw_bytes(storage_key: str, digest: str) -> bytes:
     """Return hash-verified stored bytes without accepting arbitrary paths."""
     expected_key = f"sha256/{digest[:2]}/{digest[2:4]}/{digest}"
@@ -70,7 +74,7 @@ def load_raw_bytes(storage_key: str, digest: str) -> bytes:
     try:
         content = target.read_bytes()
     except OSError as exc:
-        raise RawSnapshotUnavailable("raw snapshot is unavailable") from exc
+        raise RawSnapshotMissing("raw snapshot is unavailable") from exc
     if hashlib.sha256(content).hexdigest() != digest:
         raise RawSnapshotUnavailable("raw snapshot failed integrity validation")
     return content

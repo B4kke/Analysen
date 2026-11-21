@@ -168,6 +168,8 @@ async function createThroughForm(page, type, name, purpose, extra = {}) {
     );
     const mainText = await page.locator("main").innerText();
     assert.match(mainText, /RESEARCHSTATUS/);
+    assert.match(mainText, /Etterretningsoversikt/);
+    assert.match(mainText, /Uavklarte funn og spor/i);
     assert.match(mainText, /Research-passet er fullført/);
     assert.match(mainText, /Worker startet/);
     await page.getByText("FORLØP").waitFor();

@@ -2,7 +2,7 @@
 """Optional live contract probe for Nasjonalbiblioteket endpoints (AQ-031).
 
 Usage:
-    python scripts/nb_probe.py --query "Maylen Sorkness Andersen" --limit 5
+    python scripts/nb_probe.py --query "Stortinget" --limit 2
     python scripts/nb_probe.py --query "Eltonåsen" --limit 3
 
 This script:
@@ -105,15 +105,14 @@ async def run_probe(query: str, limit: int, *, probe_images: bool = False) -> No
                     print(f"        - page {loc.page_number}: {loc.page_urn}")
                 if len(locators) > 3:
                     print(f"        ... and {len(locators) - 3} more")
-                # Show fragment text sample (first 200 chars)
-                frag_entries = cf_raw.payload.get("fragments", [])
-                if frag_entries:
-                    sample = frag_entries[0].get("text", "")
-                    print(f"      Fragment sample: {sample[:200]}")
+                # Locator responses are never treated as article text.
                 if probe_images and locators:
-                    await probe_image(
-                        adapter, [loc.page_urn for loc in locators if loc.page_urn]
-                    )
+                    if decision.allow_page_fetch and decision.allow_report_embed:
+                        await probe_image(
+                            adapter, [loc.page_urn for loc in locators if loc.page_urn]
+                        )
+                    else:
+                        print("      Image probe skipped: no explicit reuse permission")
             except NBClientError as e:
                 print(f"      Error: {e.code} - {e.message}")
 
@@ -141,14 +140,11 @@ async def run_probe(query: str, limit: int, *, probe_images: bool = False) -> No
                     cf_raw.payload, item_id=cand.item_id, query=query
                 )
                 page_urns = [loc.page_urn for loc in locators if loc.page_urn]
-                if page_urns:
+                if page_urns and decision.allow_context:
                     conc_raw = await client.dh_concordance(page_urns[:5], query)
                     rows = parse_dh_concordance(conc_raw.payload)
                     print(f"      Concordance rows: {len(rows)}")
-                    for row in rows[:2]:
-                        print(f"        - {row.urn}: ...{row.before}[{row.match}]{row.after}...")
-                    if len(rows) > 2:
-                        print(f"        ... and {len(rows) - 2} more")
+                    # Probe reports counts only, not extracted text.
                 else:
                     print("      No page URNs for concordance")
             except NBClientError as e:
@@ -185,7 +181,7 @@ def main():
         description="NB live contract probe (diagnostics only, not for CI)"
     )
     parser.add_argument(
-        "--query", default="Maylen Sorkness Andersen", help="Search query"
+        "--query", default="Stortinget", help="Search query"
     )
     parser.add_argument(
         "--limit", type=int, default=5, help="Max candidates to process"

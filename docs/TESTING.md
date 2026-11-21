@@ -115,3 +115,7 @@ Nettlesertesten krever en faktisk Redis-worker på samme isolerte testdatabase. 
 
 
 Verifisert 2026-09-18: 281 tester passerer uten skip i separat research-runtime med PostgreSQL 17/Redis. Ruff, mypy (67 kildefiler), TypeScript og Next.js-produksjonsbygg passerer. Chromium kontrollerer company/person/domain-skjema, mobilbredde, reload, rapport, stale-data/recovery, faktisk worker-fullføring og en syntetisk sak med lagret provenance. En egen kontroll med fem sekunders GET-latens og pauset/gjenopptatt isolert worker viser terminalstatus uten reload; automatiske polls venter på forrige svar. Ingen live personresearch eller modellkall inngår i denne runden.
+
+
+## Live source contracts (separate from fixture CI)
+Run `python -m scripts.source_smoke --output source-smoke.json` from repo root. Use `--searxng` only with the local instance running. The independent GitHub workflow tests public adapter contracts using fixed public-sector/company fixtures, no person inputs, no raw/source payload artifact, sequential bounded requests. A failure indicates live availability or a contract defect; it is not silently converted to a pass. The bulk role inventory and entitlements are deliberately not fetched by this check. Neither a passing probe nor a fixture-based CI run certifies a full investigation.

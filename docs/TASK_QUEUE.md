@@ -352,8 +352,53 @@ Fullførte oppgaver beholdes her for sporbarhet inntil en senere opprydding flyt
 **Verifisert 2026-09-19:** Opprettelse med minst ett valgt søkeområde auto-starter research; detaljsiden skiller REQUESTED, ENQUEUED og RUNNING uten å fremstille kø som worker-kjøring, viser jobb-/fasetidspunkter og bruker fasefremdrift i stedet for en oppdiktet totalprosent. Siste code-head ble validert i CI run #271: Alembic/Ruff/mypy grønne, 596 passed / 5 skipped, Next.js build grønt og ny Playwright/Chromium-gate bestod hele 390×844-flyten med auto-start, eksplisitt ENQUEUED/RUNNING, terminalstatus, stale/recovery, rapport og rerun.
 
 ### AQ-042 — Worker-heartbeat og live aktivitetsstrøm
-**Status:** READY
+**Status:** IN_PROGRESS
 **Prioritet:** P1
 **Avhenger av:** AQ-041
 **Leveranse:** Ekte liveness-signal fra worker under RUNNING og en lett event-/SSE-strøm til web som kan vise siste aktivitet uten polling av uendret status. Signalet skal beskrive offentlig arbeidsfase/checkpoint, aldri modellens skjulte resonnering.
 **Acceptance:** UI kan skille «worker startet» fra «nylig heartbeat mottatt» og «ingen fersk heartbeat» uten å terminalisere jobben på gjetning; reconnect er robust; heartbeat knyttes til korrekt job_id og stopper ved terminaltilstand; tests dekker stale heartbeat, reconnect og kryss-jobb-isolasjon.
+
+
+### AQ-043 — V2, source-gate og intel-first gjennomgang
+**Status:** IN_PROGRESS
+**Prioritet:** P0
+**Avhenger av:** AQ-024, AQ-041
+**Leveranse:** OpenCode V2 er eksplisitt standard; source-router respekterer konfigurerte switches ved eksekvering av BRREG, SearXNG og NB; funn vises før teknisk aktivitet og grupperes etter kildebelegg/motstrid.
+**Acceptance:** CI grønn, deaktivert kilde når aldri adapteren, 390px smoke grønn, lokal opencode V2 agent-/skill-lasting verifisert. Separat live-kildekontroll kreves.
+
+### AQ-044 — Full funksjons- og kildeverifikasjon
+**Status:** READY
+**Prioritet:** P0
+**Avhenger av:** AQ-043
+**Leveranse:** Kartlegg konfigurert kilde vs adapter vs executor vs direkte API; ikke presenter katalogoppføringer som fungerende automatiserte integrasjoner. Verifiser tilgang, provenance, reelle feilstater og dekning med syntetiske virksomheter/offentlige institusjoner. Test også jobbliveness, scope, rapporteksport og mobil GUI. Ingen utvidelse av personkartlegging eller tilgangskontroller.
+**Acceptance:** dokumentert testmatrise med resultat per faktisk rute, ratebegrensede live-smokes, end-to-end med DB/worker og eksplisitte gaps for utilgjengelige kilder.
+
+
+### AQ-045 — Integrity og kildepolicy på alle innganger
+**Status:** IN_PROGRESS
+**Prioritet:** P0
+**Avhenger av:** AQ-043
+**Leveranse:** Opptak av kjente lead-typer og direkte BRREG-ruter respekterer source switches; inventory-refresh blokkeres ved deaktivert kilde; PDF-ekstraksjon nekter endret råmateriale. GUI skiller scope fra faktisk automatisert støtte.
+**Acceptance:** Nye regressjonstester for disabled upstream, opptak, manipulert PDF og DELETE-CORS; hele CI grønn. Ingen nye personkilder eller policy-utvidelser.
+
+
+### AQ-046 — Web-original og korrekt discovery-dekning
+**Status:** IN_PROGRESS
+**Prioritet:** P0
+**Leveranse:** Web-eksekutor lagrer hash-verifiserte originalbytes, ekstrahert tekst separat og faktisk hentetid. PDF går ikke gjennom HTML-ekstraksjon. SearXNG-discovery teller ikke som innhentet dokument. Ingen snippets blir evidens.
+**Acceptance:** Regression for derived-only/unverifiable response, raw-vs-derived bytes, discovery query classes/counts and existing NB bridge. Full CI required.
+
+
+### AQ-047 — NB lokal crop-validering og rettighetskontroll
+**Status:** IN_PROGRESS
+**Prioritet:** P0
+**Leveranse:** Lokal ikke-transitiv crop, hel-token romlig validering, OCR/pikselbudsjett, feilgrasiøs bildeinnhenting og rettighetskontroll for råfil. Kildebelegg beskriver algoritme og partial context.
+**Acceptance:** Regresjoner for adskilte treff, substring, feil rekkefølge, korte/avkortede OCR-utdrag, falsk lisens, manglende provenance og report/raw eksport; komplett CI. Native OCR mot offentlig dokument og canvas-dimensjonskontrakt skal kontrolleres separat.
+
+
+### AQ-048 — NB native and live contract verification
+**Status:** IN_PROGRESS
+**Prioritet:** P0
+**Avhenger av:** AQ-047
+**Leveranse:** Separate native Norwegian OCR smoke plus NB-only live Catalog/fragment/IIIF/page correlation checks with explicit reuse gate. Diagnostic counts only; do not equate locator access to actual reusable full article.
+**Acceptance:** Fixture CI, native OCR smoke, positive page correlation on a public institutional topic; actual licensed image and crop result explicitly recorded if available. No false pass for unreadable or unlicensed material.

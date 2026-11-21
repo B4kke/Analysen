@@ -16,6 +16,12 @@ def refresh_brreg_role_inventory(
     destination: str = "data/ingest/brreg-roles.json.gz",
 ) -> dict[str, Any]:
     async def run() -> dict[str, Any]:
+        from apps.api.app.core.config import get_settings
+        from apps.api.app.services.source_router import named_source_enabled
+
+        _, sources, _ = get_settings().validate_yaml_configs()
+        if not named_source_enabled("brreg_role_inventory", sources):
+            return {"status": "BLOCKED", "reason": "source_disabled"}
         async with BrregAdapter() as adapter:
             download = await adapter.download_role_inventory(Path(destination))
         result = await import_role_inventory(
@@ -46,7 +52,7 @@ def run_research_pass_actor(
     planner for empty frontiers. No retries: every lead outcome is already
     terminal and committed separately.
     """
-    from uuid import UUID
+    from uuid import UUID, uuid4
 
     from apps.api.app.core.config import get_settings
     from apps.api.app.core.database import get_session_factory
@@ -55,6 +61,7 @@ def run_research_pass_actor(
     from apps.api.app.services.lead_executor import ExecutorTools
     from apps.api.app.services.pdf_extraction import extract_pdf_document
     from apps.api.app.services.planner import planner_model_from_config
+    from apps.api.app.services.research_heartbeat import worker_heartbeat
     from apps.api.app.services.research_loop import run_research_pass
     from apps.api.app.sources.searxng import SearxngAdapter
 
@@ -88,15 +95,18 @@ def run_research_pass_actor(
                             pdf_extract=extract_pdf_document,
                             nb_media_client=nb_client,
                         )
-                        return await run_research_pass(
-                            session,
-                            UUID(investigation_id),
-                            tools,
-                            max_leads=max_leads,
-                            job_id=UUID(job_id) if job_id else None,
-                            planner_provider=provider,
-                            planner_model=model,
-                        )
+                        case_id = UUID(investigation_id)
+                        pass_id = UUID(job_id) if job_id else uuid4()
+                        async with worker_heartbeat(case_id, pass_id):
+                            return await run_research_pass(
+                                session,
+                                case_id,
+                                tools,
+                                max_leads=max_leads,
+                                job_id=pass_id,
+                                planner_provider=provider,
+                                planner_model=model,
+                            )
                     finally:
                         await nb_client.aclose()
             finally:

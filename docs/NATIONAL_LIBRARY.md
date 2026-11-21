@@ -459,3 +459,16 @@ NB-stacken er ikke ferdig før en kontrollert E2E-test beviser:
 `person target -> deterministic NB seed -> lead gate -> source router -> NB adapter -> raw snapshot -> page/concordance -> rights gate -> MediaMention -> entity resolution -> evidence/claim -> verifier -> coverage -> ReportDocument -> JSON/HTML/PDF/web`
 
 External NB/model boundary kan fakes i E2E. Database, repositories, research-loop, provenance, verifier og report builder skal være ekte.
+
+
+## AQ-047: Lokal utsnittsvalidering v2
+
+- Separate treff på en side skal ikke utvide et utsnitt på tvers av artikler/kolonner. Første gyldige IIIF-anker definerer et fast lokalt nabolag; utvidelse er ikke transitiv. Dette er et kontekstutsnitt, ikke komplett artikkelsegmentering.
+- Re-OCR validerer én sammenhengende, lokalt plassert sekvens av hele tokens i lagret tekst; ikke substring, urelaterte treff eller identitet. Linjeskift beholdes. PNG er uendret utsnitt av sidepiksler; kun OCR-tolkningen er derivert.
+- 45 MP pikselbudsjett, 45 s Tesseract-timeout, 30 000 ord per OCR-pass, asynkron CPU-offload. Feil ved sidebildet degraderer til metadata/lovlig kontekst.
+- Gjenbruk krever eksplisitt, eksakt lisensbelegg; visning er ikke gjenbruk. Både raw-download og bildeendepunkt krever den samme saks- og evidensbundne embedding-tillatelsen.
+- IIIF Image API 3.0 kan returnere nedskalert full/max ved maxArea/maxWidth/maxHeight; ikke gjett transform for ankre utenfor bildet. Full verifikasjon av canvas-to-image transform gjenstår. Se https://iiif.io/api/image/3.0/ og https://tesseract-ocr.github.io/tessdoc/ImproveQuality.html.
+
+Native OCR: `python -m scripts.nb_native_ocr_smoke` (Linux, Tesseract + nor traineddata, DejaVuSans). Separate workflow uses actual OCR on synthetic public-document imagery and asserts byte hashes, exact stored crop pixels, local text validation and exclusion of an unrelated region. Crop OCR uses grayscale/autocontrast and PSM 6; full page uses PSM 3. Source pixels remain unchanged. OCR mean confidence is a diagnostic of character recognition, never factual or identity confidence. Diagnostic nb_probe only downloads images with explicit reuse permission and no longer prints fragment or concordance text.
+
+Separate NB-only live verification: `python -m scripts.nb_live_document_smoke`. Bounded institutional-topic search (2 issues, 2 pages), checks Catalog, contentfragments, IIIF and page correlation. At most one image fetch, only if search and fresh identity-matched detail metadata explicitly permit reuse. Does not persist or print original content. Boolean flags distinguish real locator verification, image retrieval and OCR crop verification; no permitted image means unverified image/crop rather than success. Fixture CI and native OCR gate remain independent.

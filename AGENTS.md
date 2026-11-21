@@ -83,9 +83,11 @@ Modellvalg er konfigurasjon. Hardkod aldri modellnavn i business logic. Se `conf
 - Loggføring av secrets eller unødvendige personopplysninger.
 
 
-## OpenCode2: subagent-first arbeidsmodell
+## OpenCode V2: subagent-first arbeidsmodell
 
-Prosjektet er konfigurert for OpenCode2 via `opencode.jsonc`, `.opencode/agents/` og `.opencode/skills/`.
+Standard er OpenCode V2 med kommandoen `opencode`. Behold V2-konfigurasjonen; ikke innfør V1-feltene `permission`, `bash` eller `task`. Kontroller faktisk agent-/skill-lasting i lokal V2-runtime før migreringen settes DONE.
+
+Prosjektet er konfigurert for OpenCode V2 via `opencode.jsonc`, `.opencode/agents/` og `.opencode/skills/`.
 
 ### Delegasjon er standard på komplekst arbeid
 For oppgaver som berører flere lag, flere filer, migreringer, research-runtime, backend+frontend eller P0-integrasjon skal primæragenten normalt delegere til flere subagents i stedet for å gjøre alt sekvensielt selv.
@@ -97,7 +99,7 @@ For oppgaver som berører flere lag, flere filer, migreringer, research-runtime,
 - Kjør `integration-reviewer` før P0 settes `DONE`.
 - En subagents egen "ferdig"-melding er aldri tilstrekkelig; orchestrator må kontrollere diff og kjøre integrert verifikasjon.
 
-Primær OpenCode2-agent er `analysen-orchestrator`. Se `docs/RECOVERY_ACTION_PLAN.md` for delegert rekkefølge og wave-plan.
+Primær OpenCode V2-agent er `analysen-orchestrator`. Se `docs/RECOVERY_ACTION_PLAN.md` for delegert rekkefølge og wave-plan.
 
 ### Tilgjengelige prosjektagenter
 - `db-provenance`

@@ -20,3 +20,7 @@ Audit er append-only og brukerorientert: hvem gjorde hva med investigation. Debu
 
 ## Tracing
 Legg senere OpenTelemetry rundt source calls, queue jobs og model calls. Ikke send rå persondata til ekstern telemetry-provider uten eksplisitt vurdering.
+
+
+## Worker heartbeat (AQ-042)
+API-detaljen beriker RUNNING med et jobb-/saksbundet Redis-livstegn fra workerens faktiske event loop. Pulsintervall 10 s; fersk inntil 30 s; TTL 120 s. Redis-feil, manglende eller gammelt livstegn terminaliserer aldri en jobb. GUI viser eksplisitt usikker liveness og beholder eksisterende polling. CPU-blokkering kan gi gammelt livstegn selv om worker arbeider. SSE/reconnect er fortsatt ikke implementert.
