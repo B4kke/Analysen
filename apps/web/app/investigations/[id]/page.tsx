@@ -332,6 +332,14 @@ export default function InvestigationPage() {
 
   const research = investigation.research;
   const isActive = activeStatuses.includes(research.status);
+  const heartbeatFresh = !stale && research.heartbeat_status === "fresh";
+  const heartbeatMessage = stale
+    ? "Kan ikke bekrefte worker-status: API-data er foreldet."
+    : research.heartbeat_status === "fresh"
+      ? "Nylig livstegn fra worker."
+      : research.heartbeat_status === "unavailable"
+        ? "Heartbeat-tjenesten er utilgjengelig. Jobben er ikke bekreftet avsluttet."
+        : "Ingen ferske livstegn. Jobben kan jobbe, være blokkert eller ha stoppet; sluttstatus er ikke bekreftet.";
   const view = researchView[research.status];
   const timestamp = lastResearchTimestamp(research);
   const flow = researchSteps(research);
@@ -395,7 +403,7 @@ export default function InvestigationPage() {
 
       <section className={`research-status-card research-status-card--${view.tone}`} aria-live="polite">
         <div className="research-status-main">
-          <span className={`activity-indicator ${research.status === "RUNNING" ? "activity-indicator--running" : ""}`} aria-hidden="true" />
+          <span className={`activity-indicator ${research.status === "RUNNING" && heartbeatFresh ? "activity-indicator--running" : ""}`} aria-hidden="true" />
           <div>
             <p className="eyebrow">RESEARCHSTATUS</p>
             <h2>{view.title}</h2>
@@ -410,6 +418,12 @@ export default function InvestigationPage() {
           <div><span>Sist lest av UI</span><strong>{lastRefreshAt ? lastRefreshAt.toLocaleTimeString("nb-NO") : "–"}</strong></div>
         </div>
 
+        {research.status === "RUNNING" && (
+          <div role="status" className={heartbeatFresh ? "form-success" : "form-error"}>
+            {heartbeatMessage}
+            {research.heartbeat_at && <> Siste livstegn: {formatDate(research.heartbeat_at)}.</>}
+          </div>
+        )}
         <div className="research-timeline" aria-label="Research-tidspunkter">
           <span>Forespurt <strong>{formatDate(research.requested_at)}</strong></span>
           <span>Købekreftet <strong>{formatDate(research.enqueued_at)}</strong></span>

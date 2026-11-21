@@ -352,7 +352,7 @@ Fullførte oppgaver beholdes her for sporbarhet inntil en senere opprydding flyt
 **Verifisert 2026-09-19:** Opprettelse med minst ett valgt søkeområde auto-starter research; detaljsiden skiller REQUESTED, ENQUEUED og RUNNING uten å fremstille kø som worker-kjøring, viser jobb-/fasetidspunkter og bruker fasefremdrift i stedet for en oppdiktet totalprosent. Siste code-head ble validert i CI run #271: Alembic/Ruff/mypy grønne, 596 passed / 5 skipped, Next.js build grønt og ny Playwright/Chromium-gate bestod hele 390×844-flyten med auto-start, eksplisitt ENQUEUED/RUNNING, terminalstatus, stale/recovery, rapport og rerun.
 
 ### AQ-042 — Worker-heartbeat og live aktivitetsstrøm
-**Status:** READY
+**Status:** IN_PROGRESS
 **Prioritet:** P1
 **Avhenger av:** AQ-041
 **Leveranse:** Ekte liveness-signal fra worker under RUNNING og en lett event-/SSE-strøm til web som kan vise siste aktivitet uten polling av uendret status. Signalet skal beskrive offentlig arbeidsfase/checkpoint, aldri modellens skjulte resonnering.

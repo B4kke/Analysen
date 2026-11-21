@@ -134,6 +134,10 @@ class ResearchPassState(BaseModel):
     enqueued_at: datetime | None = None
     started_at: datetime | None = None
     completed_at: datetime | None = None
+    heartbeat_at: datetime | None = None
+    heartbeat_status: Literal["not_applicable", "fresh", "stale", "missing", "unavailable"] = (
+        "not_applicable"
+    )
     summary: ResearchPassSummary | None = None
     error_code: str | None = None
     error_message: str | None = None

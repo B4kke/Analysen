@@ -50,6 +50,7 @@ from apps.api.app.services.brreg_normalization import normalize_brreg_organizati
 from apps.api.app.services.lead_executor import execute_lead
 from apps.api.app.services.raw_store import RawSnapshotUnavailable, load_raw_bytes
 from apps.api.app.services.report_sections import report_sections
+from apps.api.app.services.research_heartbeat import populate_heartbeat
 from apps.api.app.services.scope_gate import check_research_scope
 from apps.api.app.sources.brreg import BrregAdapter
 
@@ -92,7 +93,9 @@ async def get_investigation_endpoint(
     # from one snapshot so terminal status cannot hide newly committed findings.
     await session.execute(text("SET TRANSACTION ISOLATION LEVEL REPEATABLE READ READ ONLY"))
     try:
-        return await get_investigation(session, parsed_id)
+        detail = await get_investigation(session, parsed_id)
+        await populate_heartbeat(parsed_id, detail.research)
+        return detail
     except InvestigationNotFound as exc:
         raise HTTPException(status_code=404, detail="Investigation not found") from exc
 

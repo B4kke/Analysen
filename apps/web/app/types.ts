@@ -75,6 +75,8 @@ export type ResearchState = {
   enqueued_at: string | null;
   started_at: string | null;
   completed_at: string | null;
+  heartbeat_at?: string | null;
+  heartbeat_status?: "not_applicable" | "fresh" | "stale" | "missing" | "unavailable";
   summary: ResearchSummary | null;
   error_code: string | null;
   legacy_activity: boolean;
