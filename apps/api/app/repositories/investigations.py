@@ -618,6 +618,7 @@ async def bump_module_coverage(
     module: ScopeModule,
     *,
     provider: str,
+    document_increment: int = 1,
     query_class: str | None = None,
     endpoints: list[str] | None = None,
     counters: dict[str, int] | None = None,
@@ -633,6 +634,8 @@ async def bump_module_coverage(
     deduplicated; the time range widens monotonically. Unknown counter keys
     are ignored.
     """
+    if document_increment < 0:
+        raise ValueError("document_increment must be nonnegative")
     clean_counters = {
         key: max(0, int(value))
         for key, value in (counters or {}).items()
@@ -645,7 +648,7 @@ async def bump_module_coverage(
             to_jsonb(COALESCE((coverage->>'query_count')::int, 0) + 1)
         ),
         '{document_count}',
-        to_jsonb(COALESCE((coverage->>'document_count')::int, 0) + 1)
+        to_jsonb(COALESCE((coverage->>'document_count')::int, 0) + CAST(:document_increment AS int))
     )"""
     for key in sorted(clean_counters):
         core = (
@@ -694,6 +697,7 @@ async def bump_module_coverage(
             "id": investigation_id,
             "module": module.value,
             "provider": provider,
+            "document_increment": document_increment,
             "query_class": query_class,
             "endpoints": json.dumps(sorted(set(endpoints or []))),
             "time_from": time_from,

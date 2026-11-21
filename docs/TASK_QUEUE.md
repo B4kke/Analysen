@@ -380,3 +380,10 @@ Fullførte oppgaver beholdes her for sporbarhet inntil en senere opprydding flyt
 **Avhenger av:** AQ-043
 **Leveranse:** Opptak av kjente lead-typer og direkte BRREG-ruter respekterer source switches; inventory-refresh blokkeres ved deaktivert kilde; PDF-ekstraksjon nekter endret råmateriale. GUI skiller scope fra faktisk automatisert støtte.
 **Acceptance:** Nye regressjonstester for disabled upstream, opptak, manipulert PDF og DELETE-CORS; hele CI grønn. Ingen nye personkilder eller policy-utvidelser.
+
+
+### AQ-046 — Web-original og korrekt discovery-dekning
+**Status:** IN_PROGRESS
+**Prioritet:** P0
+**Leveranse:** Web-eksekutor lagrer hash-verifiserte originalbytes, ekstrahert tekst separat og faktisk hentetid. PDF går ikke gjennom HTML-ekstraksjon. SearXNG-discovery teller ikke som innhentet dokument. Ingen snippets blir evidens.
+**Acceptance:** Regression for derived-only/unverifiable response, raw-vs-derived bytes, discovery query classes/counts and existing NB bridge. Full CI required.

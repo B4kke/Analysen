@@ -165,19 +165,11 @@ async def test_dispatch_searxng_discovery_completes(dispatch_client, monkeypatch
 
 
 async def test_dispatch_web_fetch_completes(dispatch_client, monkeypatch) -> None:
-    from apps.api.app.services.url_canonicalization import FetchResult
+    from tests.web_result_fixture import web_result_fixture
 
     async def fake_fetch(self, url: str):
         assert url == "https://example.com/company"
-        return FetchResult(
-            url=url,
-            final_url=url,
-            content="<html><body>Company profile</body></html>",
-            content_type="text/html",
-            status_code=200,
-            metadata={},
-            error=None,
-        )
+        return web_result_fixture(url, b"<html><body>Company profile</body></html>", "Profile")
 
     from apps.api.app.services import document_fetcher as fetcher_module
 

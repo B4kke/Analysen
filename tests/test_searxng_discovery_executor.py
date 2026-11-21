@@ -248,6 +248,8 @@ async def test_discovery_completes_with_query_row_coverage_and_audit(searxng_cli
     assert search_row["reason"] == "Locate open web coverage of the target"
     assert module["status"] == "IN_PROGRESS"
     assert module["coverage"]["query_count"] == 1
+    assert module["coverage"]["document_count"] == 0
+    assert "DISCOVERY_BROAD" in module["coverage"]["query_classes"]
     assert "searxng" in module["coverage"]["providers"]
     # Discovery stays discovery-only: snippets never become evidence.
     assert evidence_count["n"] == 0

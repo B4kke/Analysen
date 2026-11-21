@@ -929,17 +929,12 @@ async def test_original_url_bridge_completes_through_safe_fetcher(
     only the fetch transport faked; scope/trigger/provenance gates are real.
     """
     from apps.api.app.services.url_canonicalization import FetchResult
+    from tests.web_result_fixture import web_result_fixture
 
     async def fake_fetch(url: str) -> FetchResult:
         assert url == "https://nettavis.test/artikkel/1"
-        return FetchResult(
-            url=url,
-            final_url=url,
-            content="<html><body>Nettavis artikkeltekst</body></html>",
-            content_type="text/html",
-            status_code=200,
-            metadata={},
-            error=None,
+        return web_result_fixture(
+            url, b"<html><body>Nettavis artikkeltekst</body></html>", "Nettavis artikkeltekst"
         )
 
     http, created, factory = nb_pipeline_client
